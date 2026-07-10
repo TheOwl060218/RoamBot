@@ -6,7 +6,7 @@
 - [x] 初始化 Git 仓库
 - [x] 检查基础工具：Git 可用，Docker 命令可用但本机 Docker 配置有权限警告
 - [x] 确认可用运行时：Codex bundled Node.js 与 Python 可用
-- [ ] 在 Codex App 插件侧边栏搜索并安装 `Superpowers`
+- [x] 在 Codex App 插件侧边栏搜索并安装 `Superpowers`
 - [ ] 选择一个“陌生 agent”用于冷启动验证，例如 Cursor / Claude Code / 另一个全新 Codex 会话
 - [ ] 申请或准备 API key：地图、天气、LLM
 
@@ -18,8 +18,8 @@
 - [x] 写出 `SPEC.md` 初稿
 - [x] 写出 `PLAN.md` 初稿
 - [x] 写出 `SPEC_PROCESS.md` 初稿
-- [ ] 使用 Superpowers `brainstorming` 复核 `SPEC.md`
-- [ ] 使用 Superpowers `writing-plans` 复核 `PLAN.md`
+- [ ] 使用 Superpowers / 当前 Codex 会话的 brainstorming 方式复核 `SPEC.md`
+- [ ] 使用 Superpowers / 当前 Codex 会话的 writing-plans 方式复核 `PLAN.md`
 - [ ] 人工签字确认 SPEC/PLAN 可以进入冷启动验证
 
 ## 2. 冷启动验证
