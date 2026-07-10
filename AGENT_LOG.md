@@ -21,3 +21,4 @@
   - 初始化项目目录 `sunny-week-travel`。
   - 初始化 Git 仓库。
   - 创建 `TASKS.md`、`SPEC.md`、`PLAN.md`、`SPEC_PROCESS.md`、`AGENT_LOG.md` 初稿。
+  - 初始提交：`da88eed initialize project planning docs`。
