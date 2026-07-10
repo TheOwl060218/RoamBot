@@ -1,4 +1,4 @@
-# PLAN: 晴游Bot
+# PLAN: RoamBot
 
 ## 阶段 0：前置准备
 
