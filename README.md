@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-当前处于规约与计划阶段。按照作业要求，在 `SPEC.md` 与 `PLAN.md` 完成并通过冷启动验证前，不编写实现代码。
+当前处于规约与可执行计划阶段。完整设计已经人工批准，Superpowers `writing-plans` 正在把实现拆成可测试的小任务；尚未开始编写产品代码。
 
 ## 前置条件
 
@@ -16,9 +16,8 @@
 - Docker Desktop
 - Codex App 或其他支持 Superpowers 的编码智能体
 - Superpowers 插件/技能
-- 地图 API key
-- 天气 API key
-- LLM API key
+
+当前阶段不需要地图、天气或 LLM API key。自动化测试和 CI 全部使用 mock，不产生外部 API 费用。
 
 ## 运行方式
 
@@ -34,16 +33,17 @@
 
 ## API Key 配置
 
-本项目不会提交真实 API key。
+本项目不会把真实 API key 写入 `.env`、源代码、Git、日志、Docker 镜像、CI 或聊天。
 
-本地开发应复制 `.env.example` 为 `.env`，填入真实 key。`.env` 是明文文件，只适合本地开发使用，不应提交到 Git。
+`.env.example` 只包含非敏感运行参数，默认启用 mock。等真实 provider 适配器及 mock 测试通过、准备进行人工 smoke 测试时，才申请高德、QWeather 和学校 OpenAI-compatible 平台凭据，并通过本机管理员 CLI 的隐藏输入录入加密凭据库。
 
-Docker 运行时应通过环境变量注入 key，不应在镜像构建阶段写入 key。
+生产启动通过本地终端或挂载的主密码文件解锁凭据库；主密码和 API key 不放进环境变量或命令行参数。
 
 ## 安全边界
 
 - 不硬编码 API key。
 - 不在日志中输出 API key。
+- 公开 WebUI 不提供凭据初始化、查看、清空或重置入口。
 - LLM 只根据结构化推荐结果生成解释文本，不自主调用工具。
 - 本项目不接入 12306、机票购票或下单能力。
 

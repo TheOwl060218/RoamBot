@@ -18,7 +18,7 @@
   - Codex bundled Node.js 可用：v24.14.0。
   - Codex bundled Python 可用：3.12.13。
 - 产出：
-  - 初始化项目目录 `sunny-week-travel`。
+  - 初始化项目目录 `sunny-week-travel`，后续重命名为 `RoamBot`。
   - 初始化 Git 仓库。
   - 创建 `TASKS.md`、`SPEC.md`、`PLAN.md`、`SPEC_PROCESS.md`、`AGENT_LOG.md` 初稿。
   - 初始提交：`da88eed initialize project planning docs`。
@@ -31,3 +31,140 @@
   - 后续将通过访谈式 brainstorming 复核需求。
   - 将问答记录写入 `SPEC_PROCESS.md`，并把明确约束同步到 `SPEC.md` / `PLAN.md`。
 - 备注：当前插件未暴露为可直接调用的 `brainstorming` 工具，流程证据将通过对话、文档修订、commit 记录体现。
+
+## 2026-07-10 Task 1.1 新窗口接续与文档瑕疵修正
+
+- Superpowers 技能：按用户要求继续使用 Superpowers brainstorming 流程推进。
+- 关键上下文：新窗口通过截图与项目文件接续上一会话；当前仍处于规约与计划阶段，未进入实现代码。
+- 人工干预：
+  - 用户要求继续按作业文档步骤追问，并修正交接文档中的旧项目名。
+  - 将 `TASKS.md` 与本日志中容易误导冷启动 agent 的 `sunny-week-travel` 说明修正为当前项目名 `RoamBot`，同时保留“初始名后续重命名”的历史。
+- 过程提醒：用户希望后续及时收缩上下文，避免窗口再次因长上下文中断。
+
+## 2026-07-10 Task 1.1 API 选择继续访谈
+
+- Superpowers 技能：继续使用 brainstorming，一次只确认一个关键外部依赖。
+- 人工决策：
+  - 地图服务主选高德地图 Web 服务 API。
+  - 天气服务主选 QWeather（和风天气）每日天气预报 API。
+- 文档更新：
+  - 将地图与天气 API 选择同步到 `DECISIONS.md`、`SPEC.md`、`SPEC_PROCESS.md`。
+  - 将“推荐游玩时长不依赖地图 API”写入风险与设计边界。
+  - 将 LLM 解释模块确定为 OpenAI-compatible provider 抽象，默认演示模型使用学校额度平台的 DeepSeek V4 Flash；测试与 CI 使用 mock/template，不消耗 token。
+  - 将多人公平性确定为距离差异/方差越小越公平，并补充 API 成本控制边界：测试/CI mock，真实演示限制候选数量和调用次数。
+  - 明确产品边界：前端不展示地图、路线或导航，只用结果卡片展示距离、每日天气、评分和推荐理由；高德仅作为后台数据服务。
+  - 确定正式交付平台为响应式 Web 应用；登录、收藏、历史记录和分享按 Web 功能设计。微信小程序仅在主项目全部验收完成后作为独立可选扩展。
+  - 确定网页登录使用本地用户名和密码，支持注册、登录和退出；密码仅保存安全哈希，不做邮箱验证、找回密码或第三方登录。
+  - 确定收藏只保存地点关联，不保存旧天气、旧评分或推荐理由；重新打开收藏时按新输入和当前可用天气重新评估。
+  - 确定历史仅记录成功查询的输入、生成时间和结果摘要；旧结果标为历史快照，重新查询生成新记录，失败请求不记录。
+  - 确定分享采用可撤销的匿名只读链接，公开脱敏历史快照；不暴露账户和详细出发地址，不做社交或微信专用分享接口。
+  - 确定使用 SQLite 保存个人数据，并通过 Docker 数据卷持久化；Docker 作为正式分发方式。
+  - 本机检查：Docker CLI 29.4.0 已安装，但 Docker Engine 当前未运行；实现阶段构建镜像前需启动 Docker Desktop。
+  - 确定历史支持删除单条和清空全部；删除历史会使关联分享链接失效，不影响收藏，暂不做数据导出或账户注销。
+  - 确定游客可直接使用核心推荐和指定地点评估；收藏、历史和分享管理要求登录，游客查询不写入个人历史。
+  - 修正凭据方案：真实 API key 不再依赖 `.env`，改用带主密码的加密凭据库；所有管理操作仅限本机管理员终端，紧急重置需要主机权限且不删除用户数据。
+  - 确定 Web 架构为 React + TypeScript + Vite 前端与 FastAPI 后端；开发时分开运行，生产时同域名、单 Docker 镜像部署；测试采用 pytest、Vitest 和 Playwright。
+  - 确定风景类型由高德 POI 类别、地点名称关键词和少量人工修正规则生成；允许多标签，未知地点不交给 LLM 猜测。
+  - 确定高德 POI 失败时可使用有效缓存；内置苏州数据仅限显式演示模式并强制标注，正式模式不得静默使用。
+  - 确定景区热度以高德 POI 综合排名和少量本地修正估算，必须标为 RoamBot 热度估算；此前确认的默认权重和用户自定义权重保持不变。
+  - 确定多日天气分为每日适宜度平均分的 70% 加最差一天适宜度的 30%，结果限制在 0-100 分。
+  - 接受 WebUI 页面结构作为 V1 基线；前后端分离后通过开发服务器、桌面与手机检查持续调整前端，但不改变后端评分和数据语义。
+  - 确定 `/api/v1` 契约；推荐与指定地点使用独立接口并共享领域服务；服务端会话使用 HttpOnly Cookie 和 CSRF 防护，浏览器只保存非敏感界面偏好。
+  - 确定真实 API 凭据推迟到 provider 适配器和 mock 测试通过后的人工冒烟测试阶段；用户仅在本机隐藏终端录入，不在聊天中提供。
+  - 用户批准完整设计；V1 不收集手机号、不发送短信验证码、不接入网页验证码服务，进入 writing-plans 阶段。
+
+## 2026-07-15 Task 1.2 Superpowers writing-plans
+
+- Superpowers 技能：使用 `writing-plans` 将批准设计拆成可由后续执行者逐项完成的 TDD 计划。
+- 产出：
+  - `docs/superpowers/plans/2026-07-15-roambot-roadmap.md`
+  - `docs/superpowers/plans/2026-07-15-roambot-01-core-backend.md`
+  - `docs/superpowers/plans/2026-07-15-roambot-02-accounts-and-data.md`
+  - `docs/superpowers/plans/2026-07-15-roambot-03-react-webui.md`
+  - `docs/superpowers/plans/2026-07-15-roambot-04-providers-and-delivery.md`
+- 关键执行边界：
+  - 实现顺序固定为核心后端、账户与数据、WebUI、provider 与交付。
+  - 每项功能先写失败测试，再做最小实现，再运行聚焦验证和完整验证。
+  - 自动测试与 GitLab CI 强制 mock，真实凭据只在人工 smoke 前由用户通过隐藏 CLI 录入。
+  - 高德单次推荐最多 3 次地理编码、6 次 POI 检索、5 次距离查询；QWeather 最多 5 次，LLM 最多 1 次。
+- 自检修正：计划与批准设计逐条对照后，修正了距离和天气降级、缓存 TTL、风景枚举、provider 文件名及来源状态优先级；清除了计划占位写法。
+- 安全瑕疵修正：`.env.example` 不再包含 API key 字段，README 不再要求把真实 key 写进 `.env` 或环境变量。
+- 下一步：按作业文档执行陌生 agent 冷启动验证；尚未开始产品代码实现，也不需要用户提供真实 API。
+
+## 2026-07-15 Task 1.3 第一次陌生 agent 冷启动
+
+- 隔离方式：独立 agent 不继承本对话，只读 `SPEC.md` 与 `PLAN.md`，不允许读取其他项目文件、联网或编辑。
+- 推演任务：天气抽象与评分、FastAPI Web API。
+- 结论：需先修订文档。
+- 主要证据：每日天气阈值/单位/缺失值、七日时区、覆盖语义、完整 API 路由/状态/错误、CSRF、降级历史、公开分享脱敏和 SPA fallback 均不足；根 PLAN 又把可执行细节外包给冷启动不可读的子计划。
+- 已采取修订：SPEC 锁定上述规则和数据模型；PLAN 改成四里程碑 37 项的自包含 TDD 执行入口；详细子计划继续作为逐步实现辅助。
+- 后续门槛：必须由第二个全新 agent 只读根两文档复测通过，才能请求用户确认进入实现。
+
+## 2026-07-15 Task 1.3 第二次陌生 agent 冷启动
+
+- 隔离方式：第二个独立 agent 不继承本对话，只读修订后的 `SPEC.md` 与 `PLAN.md`，不允许读取子计划、联网或编辑。
+- 推演任务：M2.4 认证 API 与 CSRF、M4.3 高德适配器。
+- 结论：需先修订文档。
+- 主要证据：哈希存储无法恢复 CSRF 明文；会话/Cookie/认证响应不够精确；Ruff 缺少确切命令；高德主机、端点参数、检索策略、provider 成功条件、去重、畸形 POI 和 fixture 契约不足，且详细计划使用了旧分页参数。
+- 已采取修订：固定 24 小时 session、注册自动登录、认证 JSON/Cookie；采用 `/auth/me` 原子轮换 CSRF 和前端单次刷新重试；补充根计划验证命令；按当前高德官方 Web 服务契约写清 geocode、V5 POI、V3 distance 的参数、边界、单位和错误处理，并同步三份子计划。
+- 后续门槛：必须由第三个全新 agent 只读根两文档复测通过，才能进入实现。
+
+## 2026-07-15 Task 1.3 第三次陌生 agent 冷启动
+
+- 隔离方式：第三个独立 agent 不继承本对话，只读 `SPEC.md` 与 `PLAN.md`，不读子计划、不联网、不编辑。
+- 推演任务：M1.4 天气/距离/公平性/热度与排序，M3.3 双模式表单与权重。
+- 结论：需先修订文档。
+- 主要证据：根文档缺距离、公平性、热度、最终分、舍入与 tie-break 精确公式和函数签名；表单缺 props、默认值、隐藏字段、选择顺序、权重手柄、人数变化、错误文案、接入边界和固定 npm 命令。
+- 已采取修订：将详细计划既有评分规则提升到根 SPEC/PLAN，并锁定 rank 热度与空 bonus；固定权重校验、舍入和排序；固定表单接口、默认值、字段文案、5% 相邻分配、序列化和验证命令；同步详细计划。
+- 后续门槛：必须由第四个全新 agent 只读根两文档复测通过，才能进入实现。
+
+## 2026-07-15 Task 1.3 第四次陌生 agent 冷启动
+
+- 隔离方式：第四个独立 agent 只读 `SPEC.md` 与 `PLAN.md`，避开前三轮专项任务，不读子计划、不联网、不编辑。
+- 推演任务：M1.2 领域模型，M4.4 QWeather 适配器。
+- 结论：需先修订文档。
+- 主要证据：领域模型命名、字段类型、枚举、null/extra/默认与全部响应类型不完整；QWeather 类/方法、Host、query/header、坐标、响应字段、日夜选择、错误和 fixture 均不足。
+- 已采取修订：统一完整 Pydantic 模型与 `GroupAccessibilityScore`；根据 QWeather 当前官方文档固定 API KEY Header、账户 Host、七日请求/响应和错误；补 HTTP/预算/provider 签名并同步子计划。
+- 后续门槛：必须由第五个全新 agent 只读根两文档复测通过，才能进入实现。
+
+## 2026-07-15 Task 1.3 第五次陌生 agent 冷启动
+
+- 隔离方式：第五个独立 agent 只读根 `SPEC.md` 与 `PLAN.md`，排除前四轮任务，不联网、不编辑。
+- 推演任务：M1.1 Python/FastAPI 健康检查，M3.1 Vite 应用壳。
+- 结论：需先修订文档。
+- 主要证据：app factory 和 `.venv`/安装命令缺失；Python 包文件不全；Vite 构建入口/配置不全；M3.1 的“可操作首屏”与 M3.3 表单任务冲突。
+- 已采取修订：固定完整后端初始化与 `create_app/app`；固定完整 Vite scaffold、scripts、壳接口与占位路由；把最终可操作首屏门槛放回 M3 里程碑。
+- 后续门槛：必须由第六个全新 agent 继续抽查未覆盖任务并通过。
+
+## 2026-07-15 Task 1.3 第六次陌生 agent 冷启动
+
+- 隔离方式：第六个独立 agent 只读根文档，优先个人数据/交付，不联网、不编辑。
+- 推演任务：M2.7 匿名分享，M4.8 单 Docker 镜像。
+- 结论：需先修订文档。
+- 主要证据：分享创建/公开响应和重复语义缺失；Docker 静态测试依赖未构建 dist，entrypoint/secret/端口/Compose/smoke 接口不完整。
+- 已采取修订：固定重新生成分享、脱敏 snapshot 和完整文件边界；补 response weather；固定静态目录注入测试、entrypoint exit 78、secret 路径、容器/Compose 接口与 smoke 命令。
+- 后续门槛：必须由第七个全新 agent 继续抽查并通过。
+
+## 2026-07-16 Task 1.3 第七次陌生 agent 冷启动
+
+- 隔离方式：第七个独立 agent 只读根 `SPEC.md` 与 `PLAN.md`，避开前六轮任务，不联网、不编辑。
+- 推演任务：M2.1 SQLite/Alembic、M4.5 新鲜缓存与降级。
+- 结论：需先修订文档。
+- 主要证据：Alembic 自带 `alembic_version` 与“七张业务表”表述冲突；迁移文件、列/外键/索引和临时 URL 注入不足；缓存键、到期边界、候选五项顺序、天气/距离降级、错误与 notice 触发规则不足。
+- 已采取修订：固定七张业务表加一张 Alembic 框架表；补完整 schema、UTC/JSON/FK 规则和迁移入口；固定 cache-first TTL、canonical key、五候选不回填、距离/天气处理与来源提示。
+
+## 2026-07-16 Task 1.3 第八次陌生 agent 复核
+
+- 隔离方式：第八个独立 agent 仍只读根文档，定点复核 M2.1 与 M4.5。
+- 结论：M2.1 通过，M4.5 需继续修订。
+- 主要证据：四类缓存装饰器和具体 params/payload 未完全固定；来源事件是否包含后来被排除的候选不明确。
+- 已采取修订：固定 cache key 的五种调用场景、versioned payload、装饰器名称与 request-scoped `ProviderTrace`；检索类型由无序集合改为有序 tuple。
+
+## 2026-07-16 Task 1.3 第九次陌生 agent 最终复核
+
+- 隔离方式：第九个独立 agent 只审 M4.5，不扩展产品范围。
+- 首次结论：需先修订文档；指出 CacheRepository/clock/装饰器签名、POI resolve 单对象 payload、ProviderEvent/Bundle 类型和超距后天气调用顺序仍差最后一层定义。
+- 最终修订：补 `CacheEntry` 与仓储方法、四装饰器完整签名、`Destination` 单对象 envelope、ProviderEvent/Trace/Bundle/Runtime 类型；固定“距离或估算→硬过滤→天气”，超距候选零天气调用。
+- 定点复测结论：`通过，可进入实现`。
+- 规划自检：占位扫描无匹配；旧接口/旧文件名一致性扫描无匹配；`git diff --check` 退出 0，仅报告 Windows LF/CRLF 转换警告。
+- 当前状态：规约与计划阶段完成，尚未开始产品代码；下一步按 roadmap 从核心后端 M1.1 使用 TDD 执行。
