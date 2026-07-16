@@ -185,3 +185,42 @@
 - 恢复验证：用户返回后已创建 `.venv` 并安装 `-e "./backend[dev]"`；新版 Starlette 测试客户端要求 `httpx2`，已将其补入开发依赖，同时保留运行时 provider 使用的 `httpx`。
 - 验证结果：严格警告模式下完整后端测试 `1 passed`；`pip check` 报告无损坏依赖；`ruff check backend` 全部通过。M1.1 验证门槛通过，进入提交收尾。
 - 提交与复审：M1.1 已作为独立提交 `ed0c315` 保存；新审查 Agent 复核后判定 spec compliant、task quality Approved，Critical/Important/Minor 均为零。
+
+## 2026-07-16 M1.7/M1 核心后端验收准备
+
+- M1.7 公共推荐 API 已保存为提交 `92600bb`（`feat: expose public recommendation API`）。
+- 主控已运行严格完整后端测试：
+
+  ```powershell
+  .\.venv\Scripts\python.exe -W error -m pytest backend/tests -q
+  ```
+
+  结果为 `88 passed`。
+- 主控已运行 Ruff：
+
+  ```powershell
+  .\.venv\Scripts\python.exe -m ruff check backend
+  ```
+
+  结果为 `All checks passed!`（Ruff clean）。
+- 本地 Uvicorn/OpenAPI 后台检查曾在输出留存前被中断，因此不声称该次检查成功。
+  主控随后以进程内 `TestClient` 完成检查：健康接口返回
+  `200 {"status":"ready"}`，OpenAPI 包含 `/api/v1/health`、
+  `/api/v1/place-evaluations`、`/api/v1/recommendations` 三个路径。
+- 当前 M1 依赖 `MockProviderBundle.default()` 提供确定性 Mock providers；不需要高德、
+  QWeather 或 LLM 真实凭据，也不证明真实 provider 连通。
+- 独立审查首次发现两项 Important：`not_found` 未按 provider 调用来源映射，且同行
+  地址失败字段总是误指向 `main_origin`。修复提交 `b7c2efb` 在服务调用边界保留
+  错误来源和实际字段路径，并移除评价接口的重复 geocode；定点复审结论为
+  `APPROVED`。
+- 两项非阻断 Minor 留待最终 API 契约审查统一处理：框架生成的 404/405 尚未使用
+  稳定错误 envelope，OpenAPI 尚未声明实际错误响应 schema。
+- M1.8 最终 focused 验证命令：
+
+  ```powershell
+  .\.venv\Scripts\python.exe -m pytest backend/tests/unit backend/tests/api/test_recommendations.py -q
+  ```
+
+  最终 focused 测试数：`92 passed`。同一里程碑质量门中 Ruff 返回
+  `All checks passed!`，`git diff --check` 退出 0（仅有 Windows LF/CRLF
+  工作区提示）。M1 核心后端退出条件通过；未调用网络或真实 provider。
