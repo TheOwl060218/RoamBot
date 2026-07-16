@@ -100,7 +100,7 @@ def score_fairness(distances_km: list[float], max_distance_km: float) -> float:
     if not distances_km:
         raise ValueError("distances must not be empty")
     if len(distances_km) == 1:
-        return 100.0
+        return clamp(100.0)
     stddev = sqrt(pvariance(distances_km))
     return clamp(100 * (1 - stddev / max_distance_km))
 
