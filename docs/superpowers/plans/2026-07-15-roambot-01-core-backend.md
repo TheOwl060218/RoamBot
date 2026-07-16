@@ -716,7 +716,7 @@ def test_outdoor_rain_is_worse_than_museum_rain() -> None:
 
 
 def test_multi_day_formula_is_seventy_thirty() -> None:
-    assert aggregate_weather([90, 85, 30]) == pytest.approx(56.833333, rel=1e-5)
+    assert aggregate_weather([90, 85, 30]) == 56.83
 
 
 def test_distance_and_fairness_are_bounded() -> None:
