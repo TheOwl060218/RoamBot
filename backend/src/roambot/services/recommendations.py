@@ -58,6 +58,16 @@ NO_CANDIDATES_NOTICE = "no_candidates"
 WEATHER_UNAVAILABLE_CODE = "weather_unavailable"
 
 
+class OriginNotFoundError(RuntimeError):
+    def __init__(self, field_path: str) -> None:
+        super().__init__(field_path)
+        self.field_path = field_path
+
+
+class PlaceNotFoundError(RuntimeError):
+    pass
+
+
 class RecommendationService:
     def __init__(
         self,
@@ -147,7 +157,12 @@ class RecommendationService:
             request.city,
         )
         weights = self._weights(request.weights, len(origins))
-        destination = self.places.resolve(request.target_place, request.city)
+        try:
+            destination = self.places.resolve(request.target_place, request.city)
+        except ProviderError as exc:
+            if exc.code == "not_found":
+                raise PlaceNotFoundError from exc
+            raise
         distances = self.distance.measure(origins, destination)
         item = self._score_candidate(
             destination=destination,
@@ -180,10 +195,22 @@ class RecommendationService:
         companion_origins: list[str],
         city: str,
     ) -> list[Origin]:
-        return [
-            self.geocoder.geocode(address, city)
-            for address in [main_origin, *companion_origins]
+        origins: list[Origin] = []
+        addresses = [
+            ("main_origin", main_origin),
+            *(
+                (f"companion_origins[{index}]", address)
+                for index, address in enumerate(companion_origins)
+            ),
         ]
+        for field_path, address in addresses:
+            try:
+                origins.append(self.geocoder.geocode(address, city))
+            except ProviderError as exc:
+                if exc.code == "not_found":
+                    raise OriginNotFoundError(field_path) from exc
+                raise
+        return origins
 
     def _weights(self, weights: RankingWeights | None, origin_count: int) -> RankingWeights:
         if weights is not None:

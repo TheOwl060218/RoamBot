@@ -12,7 +12,11 @@ from roambot.domain.models import (
     RecommendationResponse,
 )
 from roambot.providers.protocols import ProviderError
-from roambot.services.recommendations import RecommendationService
+from roambot.services.recommendations import (
+    OriginNotFoundError,
+    PlaceNotFoundError,
+    RecommendationService,
+)
 
 router = APIRouter(tags=["recommendations"])
 RECOMMENDATION_SERVICE_DEPENDENCY = Depends(get_recommendation_service)
@@ -25,9 +29,9 @@ def recommend(
 ) -> RecommendationResponse | JSONResponse:
     try:
         return service.recommend(request)
-    except ProviderError as exc:
-        if exc.code == "not_found":
-            return _origin_not_found()
+    except OriginNotFoundError as exc:
+        return _origin_not_found(exc.field_path)
+    except ProviderError:
         return _provider_unavailable()
 
 
@@ -36,38 +40,23 @@ def evaluate_place(
     request: PlaceEvaluationRequest,
     service: RecommendationService = RECOMMENDATION_SERVICE_DEPENDENCY,
 ) -> PlaceEvaluationResponse | JSONResponse:
-    origin_error = _guard_origin_resolution(request, service)
-    if origin_error is not None:
-        return origin_error
     try:
         return service.evaluate(request)
-    except ProviderError as exc:
-        if exc.code == "not_found":
-            return _place_not_found()
+    except OriginNotFoundError as exc:
+        return _origin_not_found(exc.field_path)
+    except PlaceNotFoundError:
+        return _place_not_found()
+    except ProviderError:
         return _provider_unavailable()
 
 
-def _guard_origin_resolution(
-    request: RecommendationRequest | PlaceEvaluationRequest,
-    service: RecommendationService,
-) -> JSONResponse | None:
-    try:
-        for origin in [request.main_origin, *request.companion_origins]:
-            service.geocoder.geocode(origin, request.city)
-    except ProviderError as exc:
-        if exc.code == "not_found":
-            return _origin_not_found()
-        return _provider_unavailable()
-    return None
-
-
-def _origin_not_found() -> JSONResponse:
+def _origin_not_found(field_path: str) -> JSONResponse:
     return error_response(
         status_code=422,
         code="origin_not_found",
         message="Origin could not be resolved.",
         fields=[
-            ErrorField(path="main_origin", message="Origin could not be resolved."),
+            ErrorField(path=field_path, message="Origin could not be resolved."),
         ],
     )
 

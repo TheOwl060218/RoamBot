@@ -111,6 +111,111 @@ def test_unknown_target_place_returns_place_not_found() -> None:
     }
 
 
+def test_recommendation_place_search_not_found_returns_provider_unavailable(
+    monkeypatch,
+) -> None:
+    class NotFoundPlaceSearchProvider:
+        def search(self, *args: object, **kwargs: object) -> object:
+            raise ProviderError("not_found", "provider-specific search details")
+
+    bundle = MockProviderBundle.default()
+    failing_bundle = replace(bundle, places=NotFoundPlaceSearchProvider())
+    monkeypatch.setattr(MockProviderBundle, "default", staticmethod(lambda: failing_bundle))
+
+    response = TestClient(create_app()).post("/api/v1/recommendations", json=payload())
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": {
+            "code": "provider_unavailable",
+            "message": "Provider is temporarily unavailable.",
+            "fields": [],
+        }
+    }
+    assert "provider-specific search details" not in response.text
+
+
+def test_place_evaluation_distance_not_found_returns_provider_unavailable(
+    monkeypatch,
+) -> None:
+    class NotFoundDistanceProvider:
+        def measure(self, *args: object, **kwargs: object) -> object:
+            raise ProviderError("not_found", "provider-specific distance details")
+
+    bundle = MockProviderBundle.default()
+    failing_bundle = replace(bundle, distance=NotFoundDistanceProvider())
+    monkeypatch.setattr(MockProviderBundle, "default", staticmethod(lambda: failing_bundle))
+
+    response = TestClient(create_app()).post(
+        "/api/v1/place-evaluations",
+        json=evaluation_payload(),
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": {
+            "code": "provider_unavailable",
+            "message": "Provider is temporarily unavailable.",
+            "fields": [],
+        }
+    }
+    assert "provider-specific distance details" not in response.text
+
+
+def test_recommendation_unknown_companion_reports_actual_field_path() -> None:
+    request = payload()
+    request["companion_origins"] = ["unknown companion"]
+
+    response = TestClient(create_app()).post("/api/v1/recommendations", json=request)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["fields"] == [
+        {
+            "path": "companion_origins[0]",
+            "message": "Origin could not be resolved.",
+        }
+    ]
+
+
+def test_place_evaluation_unknown_companion_reports_actual_field_path() -> None:
+    request = evaluation_payload()
+    request["companion_origins"] = ["unknown companion"]
+
+    response = TestClient(create_app()).post("/api/v1/place-evaluations", json=request)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["fields"] == [
+        {
+            "path": "companion_origins[0]",
+            "message": "Origin could not be resolved.",
+        }
+    ]
+
+
+def test_place_evaluation_geocodes_each_origin_once(monkeypatch) -> None:
+    class CountingGeocoder:
+        def __init__(self, delegate: object) -> None:
+            self.delegate = delegate
+            self.calls: list[tuple[str, str]] = []
+
+        def geocode(self, address: str, city: str) -> object:
+            self.calls.append((address, city))
+            return self.delegate.geocode(address, city)
+
+    bundle = MockProviderBundle.default()
+    geocoder = CountingGeocoder(bundle.geocoder)
+    counting_bundle = replace(bundle, geocoder=geocoder)
+    monkeypatch.setattr(MockProviderBundle, "default", staticmethod(lambda: counting_bundle))
+
+    response = TestClient(create_app()).post(
+        "/api/v1/place-evaluations",
+        json=evaluation_payload(),
+    )
+
+    assert response.status_code == 200
+    assert geocoder.calls == [(VALID_ORIGIN, VALID_CITY)]
+
+
 def test_weather_provider_failure_returns_stable_unavailable(
     monkeypatch,
 ) -> None:
