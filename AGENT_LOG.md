@@ -168,3 +168,20 @@
 - 定点复测结论：`通过，可进入实现`。
 - 规划自检：占位扫描无匹配；旧接口/旧文件名一致性扫描无匹配；`git diff --check` 退出 0，仅报告 Windows LF/CRLF 转换警告。
 - 当前状态：规约与计划阶段完成，尚未开始产品代码；下一步按 roadmap 从核心后端 M1.1 使用 TDD 执行。
+
+## 2026-07-16 M1 执行环境决策
+
+- 用户批准开始 Subagent-Driven Development，并允许随时暂停/恢复。
+- 规划基线已提交并推送到 GitHub `origin/main`；实现使用隔离分支 `feat/roambot-v1`。
+- 本机未安装 Python 3.13，用户批准本地使用 Codex bundled Python 3.12.13；项目兼容 `>=3.12,<3.14`，Docker/CI 保持 Python 3.13。
+- 用户离开期间跳过所有需要额外权限的提交、推送、联网安装和 Docker 操作，仅执行无需授权的编辑与本地验证，并记录待办。
+
+## 2026-07-16 M1.1 Python 包与健康检查
+
+- Subagent-Driven 状态：实现 Agent 按先测试后实现的顺序创建七个规定文件；未创建提交。
+- 实现：`create_app()`、模块级 `app`、`GET /api/v1/health` 严格返回 `{"status":"ready"}`；pyproject 兼容 `>=3.12,<3.14`，Ruff target 修正为最低兼容版本 `py312`。
+- 无网络验证：Python 文件语法/compile 检查与 TOML 解析通过；生成的 `__pycache__` 已清理。
+- 独立审查：最终 spec compliance 与 task quality 均 Approved，无 Critical/Important/Minor 问题。
+- 恢复验证：用户返回后已创建 `.venv` 并安装 `-e "./backend[dev]"`；新版 Starlette 测试客户端要求 `httpx2`，已将其补入开发依赖，同时保留运行时 provider 使用的 `httpx`。
+- 验证结果：严格警告模式下完整后端测试 `1 passed`；`pip check` 报告无损坏依赖；`ruff check backend` 全部通过。M1.1 验证门槛通过，进入提交收尾。
+- 提交与复审：M1.1 已作为独立提交 `ed0c315` 保存；新审查 Agent 复核后判定 spec compliant、task quality Approved，Critical/Important/Minor 均为零。

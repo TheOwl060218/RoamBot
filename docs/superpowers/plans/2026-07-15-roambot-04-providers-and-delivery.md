@@ -6,7 +6,7 @@
 
 **Architecture:** Provider adapters remain behind the synchronous protocols introduced in milestone 1. A provider factory selects `mock` or `live` mode, unlocks the encrypted vault only in live mode, wraps external reads with the milestone 2 persistent cache, and applies explicit degradation rules. FastAPI serves the built React files in production, while tests and CI force mock mode and deny real network access.
 
-**Tech Stack:** Python 3.13, FastAPI, Pydantic Settings, httpx, pytest, React/Vite, Playwright, SQLite, Docker multi-stage builds, GitLab CI.
+**Tech Stack:** Python >=3.12,<3.14 (local 3.12.13; Docker/CI 3.13), FastAPI, Pydantic Settings, httpx, pytest, React/Vite, Playwright, SQLite, Docker multi-stage builds, GitLab CI.
 
 ## Global Constraints
 

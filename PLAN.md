@@ -43,7 +43,7 @@
 
 - 文件均为 Create：`backend/pyproject.toml`、`backend/src/roambot/__init__.py`、`backend/src/roambot/main.py`、`backend/src/roambot/api/__init__.py`、`backend/src/roambot/api/routes/__init__.py`、`backend/src/roambot/api/routes/health.py`、`backend/tests/api/test_health.py`。
 - 公开入口固定为 `roambot.main.create_app() -> FastAPI` 和模块级 `roambot.main.app = create_app()`；health router 导出 `router`。ASGI/Docker 使用 `roambot.main:app`，测试调用 `create_app()` 保持隔离。
-- 启动顺序：先确认 `python --version` 为 3.13.x；创建 `backend/pyproject.toml` 与空 `backend/src/roambot/__init__.py`；再运行 `python -m venv .venv`、`./.venv/Scripts/python.exe -m pip install --upgrade pip`、`./.venv/Scripts/python.exe -m pip install -e "./backend[dev]"`。pyproject 使用 hatchling，runtime 为 FastAPI/httpx/Pydantic/Uvicorn，dev 为 pytest/pytest-cov/Ruff；目标 Python `>=3.13,<3.15`。解释器缺失或版本错误时停止并请用户安装 3.13，不静默换版本。
+- 启动顺序：本机开发使用 Codex bundled Python 3.12.13；创建 `backend/pyproject.toml` 与空 `backend/src/roambot/__init__.py`；再运行该解释器的 `-m venv .venv`、`./.venv/Scripts/python.exe -m pip install --upgrade pip`、`./.venv/Scripts/python.exe -m pip install -e "./backend[dev]"`。pyproject 使用 hatchling，runtime 为 FastAPI/httpx/Pydantic/Uvicorn，dev 为 httpx2（Starlette TestClient）、pytest/pytest-cov/Ruff；兼容范围固定为 `>=3.12,<3.14`，Docker 与 GitLab CI 仍使用 Python 3.13 验收。
 - 第一条失败测试：`from roambot.main import create_app`，`TestClient(create_app()).get("/api/v1/health")` 必须得到 200 和严格 JSON `{"status":"ready"}`；在只存在包 `__init__.py` 时运行，预期因 `roambot.main` 不存在而 import FAIL。
 - 最小实现：创建 API 包、`create_app`、模块级 app 和 health router；FastAPI title=`RoamBot API`、version=`0.1.0`，router prefix=`/api/v1`。不接数据库、推荐服务或 provider。
 - 验证：红阶段/绿阶段均运行 `./.venv/Scripts/python.exe -m pytest backend/tests/api/test_health.py -q`；绿阶段预期 `1 passed`，再运行 Ruff 预期退出 0。
