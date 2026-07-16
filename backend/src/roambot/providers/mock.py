@@ -133,6 +133,12 @@ WEATHER_BY_DATE: dict[date, DailyWeather] = {
     ),
 }
 
+WEATHER_TEMPLATE_START = date(2026, 7, 20)
+WEATHER_TEMPLATES: tuple[DailyWeather, ...] = tuple(
+    WEATHER_BY_DATE[WEATHER_TEMPLATE_START + timedelta(days=offset)]
+    for offset in range(len(WEATHER_BY_DATE))
+)
+
 SCENERY_LABELS: dict[SceneryType, str] = {
     SceneryType.LAKE: "湖景休闲",
     SceneryType.OLD_TOWN: "古镇漫游",
@@ -208,9 +214,9 @@ class MockWeatherProvider:
         days: list[DailyWeather] = []
         current = start
         while current <= end:
-            weather = WEATHER_BY_DATE.get(current)
-            if weather is not None:
-                days.append(weather)
+            template_index = (current - WEATHER_TEMPLATE_START).days % len(WEATHER_TEMPLATES)
+            weather = WEATHER_TEMPLATES[template_index]
+            days.append(weather.model_copy(update={"date": current}))
             current += timedelta(days=1)
         return days
 

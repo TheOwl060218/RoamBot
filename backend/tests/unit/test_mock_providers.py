@@ -136,6 +136,42 @@ def test_mock_place_resolve_and_weather_are_stable() -> None:
     assert [entry.condition for entry in weather] == ["多云", "阵雨"]
 
 
+def test_mock_weather_reuses_three_day_template_for_future_ranges() -> None:
+    providers = MockProviderBundle.default()
+    coordinate = Coordinate(longitude=120.617, latitude=31.335)
+
+    base_range = providers.weather.daily(
+        coordinate,
+        date(2026, 7, 20),
+        date(2026, 7, 22),
+    )
+    future_range = providers.weather.daily(
+        coordinate,
+        date(2026, 7, 23),
+        date(2026, 7, 25),
+    )
+    overlapping_range = providers.weather.daily(
+        coordinate,
+        date(2026, 7, 24),
+        date(2026, 7, 26),
+    )
+
+    assert [entry.date for entry in future_range] == [
+        date(2026, 7, 23),
+        date(2026, 7, 24),
+        date(2026, 7, 25),
+    ]
+    assert [entry.date for entry in overlapping_range] == [
+        date(2026, 7, 24),
+        date(2026, 7, 25),
+        date(2026, 7, 26),
+    ]
+    assert [entry.model_dump(exclude={"date"}) for entry in future_range] == [
+        entry.model_dump(exclude={"date"}) for entry in base_range
+    ]
+    assert future_range[1] == overlapping_range[0]
+
+
 @pytest.mark.parametrize(
     ("operation", "expected_message"),
     [
