@@ -11,12 +11,14 @@ from roambot.api.errors import error_response
 from roambot.config import Settings
 from roambot.domain.models import SourceKind
 from roambot.persistence.database import (
+    SessionFactory,
     create_engine_and_session_factory,
     initialize_schema,
 )
 from roambot.providers.mock import MockProviderBundle
 from roambot.security.sessions import hash_token
 from roambot.services.auth import AuthenticatedSession, AuthService, InvalidSessionError
+from roambot.services.personal_data import PersonalDataService
 from roambot.services.recommendations import RecommendationService
 
 
@@ -61,21 +63,41 @@ def get_settings(request: Request) -> Settings:
 SETTINGS_DEPENDENCY = Depends(get_settings)
 
 
-def get_auth_service(
+def get_session_factory(
     request: Request,
     settings: Settings = SETTINGS_DEPENDENCY,
-) -> AuthService:
-    service = getattr(request.app.state, "auth_service", None)
-    if service is None:
+) -> SessionFactory:
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory is None:
         engine, session_factory = create_engine_and_session_factory(settings.database_path)
         initialize_schema(engine)
         request.app.state.auth_engine = engine
+        request.app.state.session_factory = session_factory
+    return session_factory
+
+
+SESSION_FACTORY_DEPENDENCY = Depends(get_session_factory)
+
+
+def get_auth_service(
+    request: Request,
+    settings: Settings = SETTINGS_DEPENDENCY,
+    session_factory: SessionFactory = SESSION_FACTORY_DEPENDENCY,
+) -> AuthService:
+    service = getattr(request.app.state, "auth_service", None)
+    if service is None:
         service = AuthService(session_factory, session_hours=settings.session_hours)
         request.app.state.auth_service = service
     return service
 
 
 AUTH_SERVICE_DEPENDENCY = Depends(get_auth_service)
+
+
+def get_personal_data_service(
+    session_factory: SessionFactory = SESSION_FACTORY_DEPENDENCY,
+) -> PersonalDataService:
+    return PersonalDataService(session_factory)
 
 
 def get_optional_session(
@@ -110,6 +132,20 @@ def require_csrf(
     request: Request,
     session: RequestSession = REQUIRED_SESSION_DEPENDENCY,
 ) -> RequestSession:
+    _validate_csrf(request, session)
+    return session
+
+
+def require_optional_csrf(
+    request: Request,
+    session: RequestSession | None = OPTIONAL_SESSION_DEPENDENCY,
+) -> RequestSession | None:
+    if session is not None:
+        _validate_csrf(request, session)
+    return session
+
+
+def _validate_csrf(request: Request, session: RequestSession) -> None:
     csrf_token = request.headers.get("X-CSRF-Token")
     if csrf_token is None or not compare_digest(
         hash_token(csrf_token),
@@ -120,7 +156,6 @@ def require_csrf(
             code="csrf_invalid",
             message="CSRF token is invalid.",
         )
-    return session
 
 
 async def auth_api_exception_handler(

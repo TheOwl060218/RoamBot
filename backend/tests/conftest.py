@@ -69,6 +69,7 @@ def auth_api_fixture(auth_fixture: AuthFixture) -> Iterator[AuthApiFixture]:
         )
         app = create_app()
         app.state.auth_service = service
+        app.state.session_factory = session_factory
         app.state.settings = Settings(
             secure_cookies=secure_cookies,
             session_hours=session_hours,
