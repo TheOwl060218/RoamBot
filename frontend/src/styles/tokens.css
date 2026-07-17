@@ -1,0 +1,33 @@
+:root {
+  color: #17201d;
+  background: #f4f7f5;
+  font-family: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  --surface: #ffffff;
+  --surface-muted: #edf2ef;
+  --ink: #17201d;
+  --muted: #65726d;
+  --border: #d8e0dc;
+  --primary: #176b52;
+  --primary-hover: #115640;
+  --accent: #b94f35;
+  --warning: #9a651c;
+  --danger: #a43a3a;
+  --radius: 6px;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, input, select, textarea { font: inherit; }
+:focus-visible { outline: 3px solid #79b8a3; outline-offset: 2px; }
+
+body {
+  color: var(--ink);
+  background: #f4f7f5;
+  letter-spacing: 0;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
