@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import delete, select, update
@@ -12,9 +12,11 @@ from sqlalchemy.orm import Session
 
 from roambot.domain.models import Destination
 from roambot.persistence.tables import (
+    ApiCacheTable,
     FavoriteTable,
     HistoryTable,
     PlaceTable,
+    ShareTable,
     UserSessionTable,
     UserTable,
 )
@@ -76,6 +78,32 @@ class HistoryRecord:
     request_json: str
     result_json: str
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class ShareRecord:
+    id: str
+    owner_user_id: str
+    history_id: str
+    token_hash: str
+    created_at: datetime
+    revoked_at: datetime | None
+
+
+@dataclass(frozen=True)
+class PublicShareRecord:
+    share: ShareRecord
+    history: HistoryRecord
+
+
+@dataclass(frozen=True)
+class CacheEntry:
+    cache_key: str
+    provider: str
+    operation: str
+    payload_json: str
+    created_at: datetime
+    expires_at: datetime
 
 
 class UserRepository:
@@ -362,6 +390,147 @@ class HistoryRepository:
         return result.rowcount
 
 
+class ShareRepository:
+    def __init__(self, db: Session) -> None:
+        self._db = db
+
+    def create_replacing_active(
+        self,
+        owner_user_id: str,
+        history_id: str,
+        token_hash: str,
+        now: datetime,
+    ) -> ShareRecord:
+        stored_now = _utc_for_write(now)
+        self._db.execute(
+            update(ShareTable)
+            .where(
+                ShareTable.owner_user_id == owner_user_id,
+                ShareTable.history_id == history_id,
+                ShareTable.revoked_at.is_(None),
+            )
+            .values(revoked_at=stored_now)
+        )
+        row = ShareTable(
+            id=str(uuid4()),
+            owner_user_id=owner_user_id,
+            history_id=history_id,
+            token_hash=token_hash,
+            created_at=stored_now,
+            revoked_at=None,
+        )
+        self._db.add(row)
+        self._db.flush()
+        return _share_record(row)
+
+    def get_public_by_token_hash(self, token_hash: str) -> PublicShareRecord | None:
+        row = self._db.execute(
+            select(ShareTable, HistoryTable)
+            .join(HistoryTable, ShareTable.history_id == HistoryTable.id)
+            .where(
+                ShareTable.token_hash == token_hash,
+                ShareTable.revoked_at.is_(None),
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return PublicShareRecord(
+            share=_share_record(row[0]),
+            history=_history_record(row[1]),
+        )
+
+    def revoke_owned(
+        self,
+        share_id: str,
+        owner_user_id: str,
+        revoked_at: datetime,
+    ) -> bool:
+        result = self._db.execute(
+            update(ShareTable)
+            .where(
+                ShareTable.id == share_id,
+                ShareTable.owner_user_id == owner_user_id,
+                ShareTable.revoked_at.is_(None),
+            )
+            .values(revoked_at=_utc_for_write(revoked_at))
+        )
+        return result.rowcount == 1
+
+    def revoke_for_history(self, history_id: str, revoked_at: datetime) -> int:
+        result = self._db.execute(
+            update(ShareTable)
+            .where(
+                ShareTable.history_id == history_id,
+                ShareTable.revoked_at.is_(None),
+            )
+            .values(revoked_at=_utc_for_write(revoked_at))
+        )
+        return result.rowcount
+
+
+class CacheRepository:
+    def __init__(self, db: Session) -> None:
+        self._db = db
+
+    def get_fresh(self, cache_key: str, now: datetime) -> CacheEntry | None:
+        stored_now = _cache_utc(now)
+        row = self._db.scalar(
+            select(ApiCacheTable).where(
+                ApiCacheTable.cache_key == cache_key,
+                ApiCacheTable.expires_at > stored_now,
+            )
+        )
+        return _cache_entry(row) if row is not None else None
+
+    def put(
+        self,
+        cache_key: str,
+        provider: str,
+        operation: str,
+        payload_json: dict[str, object],
+        created_at: datetime,
+        expires_at: datetime,
+    ) -> None:
+        stored_created_at = _cache_utc(created_at)
+        stored_expires_at = _cache_utc(expires_at)
+        canonical_payload = json.dumps(
+            payload_json,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        values = {
+            "cache_key": cache_key,
+            "provider": provider,
+            "operation": operation,
+            "payload_json": canonical_payload,
+            "created_at": stored_created_at,
+            "expires_at": stored_expires_at,
+        }
+        statement = sqlite_insert(ApiCacheTable).values(**values)
+        self._db.execute(
+            statement.on_conflict_do_update(
+                index_elements=[ApiCacheTable.cache_key],
+                set_={
+                    key: value
+                    for key, value in values.items()
+                    if key != "cache_key"
+                },
+            )
+        )
+
+    def delete(self, cache_key: str) -> None:
+        self._db.execute(
+            delete(ApiCacheTable).where(ApiCacheTable.cache_key == cache_key)
+        )
+
+    def delete_expired(self, now: datetime) -> int:
+        result = self._db.execute(
+            delete(ApiCacheTable).where(ApiCacheTable.expires_at <= _cache_utc(now))
+        )
+        return result.rowcount
+
+
 def _utc_for_write(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("datetime must be timezone-aware")
@@ -371,6 +540,16 @@ def _utc_for_write(value: datetime) -> datetime:
 def _utc_from_database(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _cache_utc(value: datetime) -> datetime:
+    if (
+        value.tzinfo is None
+        or value.utcoffset() is None
+        or value.utcoffset() != timedelta(0)
+    ):
+        raise ValueError("cache datetime must be aware UTC")
     return value.astimezone(UTC)
 
 
@@ -428,4 +607,28 @@ def _history_record(row: HistoryTable) -> HistoryRecord:
         request_json=row.request_json,
         result_json=row.result_json,
         created_at=_utc_from_database(row.created_at),
+    )
+
+
+def _share_record(row: ShareTable) -> ShareRecord:
+    return ShareRecord(
+        id=row.id,
+        owner_user_id=row.owner_user_id,
+        history_id=row.history_id,
+        token_hash=row.token_hash,
+        created_at=_utc_from_database(row.created_at),
+        revoked_at=(
+            _utc_from_database(row.revoked_at) if row.revoked_at is not None else None
+        ),
+    )
+
+
+def _cache_entry(row: ApiCacheTable) -> CacheEntry:
+    return CacheEntry(
+        cache_key=row.cache_key,
+        provider=row.provider,
+        operation=row.operation,
+        payload_json=row.payload_json,
+        created_at=_utc_from_database(row.created_at),
+        expires_at=_utc_from_database(row.expires_at),
     )

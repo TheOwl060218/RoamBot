@@ -11,6 +11,7 @@ from roambot.api.routes.favorites import router as favorites_router
 from roambot.api.routes.health import router as health_router
 from roambot.api.routes.history import router as history_router
 from roambot.api.routes.recommendations import router as recommendations_router
+from roambot.api.routes.shares import router as shares_router
 
 
 def create_app() -> FastAPI:
@@ -23,6 +24,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(favorites_router, prefix="/api/v1")
     app.include_router(history_router, prefix="/api/v1")
+    app.include_router(shares_router, prefix="/api/v1")
     return app
 
 

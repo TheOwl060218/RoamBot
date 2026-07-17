@@ -20,7 +20,10 @@ from roambot.persistence.repositories import (
     HistoryRecord,
     HistoryRepository,
     PlaceRepository,
+    PublicShareRecord,
+    ShareRepository,
 )
+from roambot.security.sessions import hash_token, new_token
 from roambot.services.recommendations import RecommendationService
 
 
@@ -37,6 +40,14 @@ class HistorySnapshot:
     mode: HistoryMode
     request: dict[str, object]
     result: dict[str, object]
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class ShareLink:
+    id: str
+    history_id: str
+    url: str
     created_at: datetime
 
 
@@ -142,15 +153,62 @@ class PersonalDataService:
 
     def delete_history(self, *, user_id: str, history_id: str) -> None:
         with self._session_factory.begin() as db:
-            if not HistoryRepository(db).delete_owned(
+            histories = HistoryRepository(db)
+            if histories.get_owned(
                 history_id=history_id,
                 user_id=user_id,
-            ):
+            ) is None:
+                raise ResourceNotFoundError
+            ShareRepository(db).revoke_for_history(history_id, self._now())
+            if not histories.delete_owned(history_id=history_id, user_id=user_id):
                 raise ResourceNotFoundError
 
     def clear_history(self, user_id: str) -> None:
         with self._session_factory.begin() as db:
-            HistoryRepository(db).clear_owned(user_id)
+            histories = HistoryRepository(db)
+            shares = ShareRepository(db)
+            now = self._now()
+            for history in histories.list_owned(user_id):
+                shares.revoke_for_history(history.id, now)
+            histories.clear_owned(user_id)
+
+    def create_share(self, *, user_id: str, history_id: str) -> ShareLink:
+        now = self._now()
+        with self._session_factory.begin() as db:
+            if HistoryRepository(db).get_owned(
+                history_id=history_id,
+                user_id=user_id,
+            ) is None:
+                raise ResourceNotFoundError
+            token = new_token()
+            share = ShareRepository(db).create_replacing_active(
+                user_id,
+                history_id,
+                hash_token(token),
+                now,
+            )
+        return ShareLink(
+            id=share.id,
+            history_id=share.history_id,
+            url=f"/share/{token}",
+            created_at=share.created_at,
+        )
+
+    def revoke_share(self, *, user_id: str, share_id: str) -> None:
+        with self._session_factory.begin() as db:
+            if not ShareRepository(db).revoke_owned(
+                share_id,
+                user_id,
+                self._now(),
+            ):
+                raise ResourceNotFoundError
+
+    def get_public_share(self, token: str) -> dict[str, object]:
+        with self._session_factory() as db:
+            record = ShareRepository(db).get_public_by_token_hash(hash_token(token))
+        if record is None:
+            raise ResourceNotFoundError
+        return _public_snapshot(record)
 
     def _now(self) -> datetime:
         now = self._clock()
@@ -178,3 +236,128 @@ def _snapshot(record: HistoryRecord) -> HistorySnapshot:
         result=json.loads(record.result_json),
         created_at=record.created_at,
     )
+
+
+_DESTINATION_FIELDS = ("name", "address", "city", "scenery_tags")
+_WEATHER_FIELDS = (
+    "date",
+    "condition",
+    "temp_min_c",
+    "temp_max_c",
+    "precipitation_mm",
+    "wind_speed_kmh",
+    "humidity_percent",
+    "visibility_km",
+    "uv_index",
+)
+_SUITABILITY_FIELDS = ("date", "score", "reasons")
+_SCORE_FIELDS = (
+    "weather",
+    "distance",
+    "fairness",
+    "popularity",
+    "coverage_penalty",
+    "total",
+)
+
+
+def _public_snapshot(record: PublicShareRecord) -> dict[str, object]:
+    history = record.history
+    request = _mapping(json.loads(history.request_json))
+    result = _mapping(json.loads(history.result_json))
+    companions = request["companion_origins"]
+    if not isinstance(companions, list):
+        raise ValueError("history companion origins must be a list")
+    raw_items = result.get("items")
+    if raw_items is None:
+        raw_items = [result["item"]]
+    if not isinstance(raw_items, list):
+        raise ValueError("history result items must be a list")
+    snapshot: dict[str, object] = {
+        "mode": history.mode,
+        "city": request["city"],
+        "companion_count": len(companions),
+        "start_date": request["start_date"],
+        "end_date": request["end_date"],
+        "items": [_public_item(_mapping(item)) for item in raw_items],
+        "generated_at": result["generated_at"],
+    }
+    private_strings = {
+        str(request["main_origin"]),
+        *(str(companion) for companion in companions),
+        history.user_id,
+        *_origin_labels(raw_items),
+    }
+    ordered_private_strings = tuple(
+        sorted((value for value in private_strings if value), key=len, reverse=True)
+    )
+    return _remove_private_strings(snapshot, ordered_private_strings)
+
+
+def _public_item(item: dict[str, object]) -> dict[str, object]:
+    weather = item["weather"]
+    suitability = item["daily_suitability"]
+    if not isinstance(weather, list) or not isinstance(suitability, list):
+        raise ValueError("history daily values must be lists")
+    return {
+        "destination": _project(
+            _mapping(item["destination"]),
+            _DESTINATION_FIELDS,
+        ),
+        "weather": [
+            _project(_mapping(day), _WEATHER_FIELDS)
+            for day in weather
+        ],
+        "daily_suitability": [
+            _project(_mapping(day), _SUITABILITY_FIELDS)
+            for day in suitability
+        ],
+        "score": _project(_mapping(item["score"]), _SCORE_FIELDS),
+        "explanation": item["explanation"],
+    }
+
+
+def _mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, dict) or not all(
+        isinstance(key, str) for key in value
+    ):
+        raise ValueError("history value must be an object")
+    return value
+
+
+def _project(
+    value: dict[str, object],
+    fields: tuple[str, ...],
+) -> dict[str, object]:
+    return {field: value[field] for field in fields}
+
+
+def _origin_labels(items: list[object]) -> set[str]:
+    labels: set[str] = set()
+    for item in items:
+        distances = _mapping(item).get("distances", [])
+        if not isinstance(distances, list):
+            continue
+        for distance in distances:
+            if not isinstance(distance, dict):
+                continue
+            label = distance.get("origin_label")
+            if isinstance(label, str) and label:
+                labels.add(label)
+    return labels
+
+
+def _remove_private_strings(value: object, private_strings: tuple[str, ...]) -> object:
+    if isinstance(value, str):
+        for private in private_strings:
+            if private:
+                value = value.replace(private, "")
+        return value
+    if isinstance(value, list):
+        return [_remove_private_strings(item, private_strings) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _remove_private_strings(item, private_strings)
+            for key, item in value.items()
+        }
+    return value
