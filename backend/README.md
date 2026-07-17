@@ -1,22 +1,17 @@
-# RoamBot M1 核心后端
+# RoamBot 后端（M1 + M2）
 
 > [!IMPORTANT]
-> 当前 M1 只使用确定性的 Mock providers。创建环境、运行测试和启动本地 API
-> 都不需要高德、QWeather 或 LLM 的真实凭据。本里程碑的测试与本地检查也不证明
-> 任何真实 provider 已连通。
+> 当前推荐、天气、距离与解释仍使用确定性的 Mock providers。创建环境、迁移数据库、
+> 运行测试、管理本地凭据库和启动 API 都不需要高德、QWeather 或 LLM 的真实凭据，
+> 也不会产生真实 API 费用。真实 provider 接入和人工 smoke 属于 M4。
 
-## 环境要求
+## 环境与安装
 
 - Windows PowerShell
 - Python 3.12 或 3.13
 
-以下命令均在 **RoamBot 仓库根目录**执行，即同时包含 `backend`、`README.md`
-和 `AGENT_LOG.md` 的目录。不要先切换到 `backend`。
-
-## 创建与安装环境
-
-以下示例使用 Python 3.12；使用 Python 3.13 时将第一条命令中的版本改为
-`-3.13`。
+以下命令均在包含 `backend`、`README.md` 和 `AGENT_LOG.md` 的 **RoamBot 仓库根目录**
+执行：
 
 ```powershell
 py -3.12 -m venv .venv
@@ -24,47 +19,73 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".\backend[dev]"
 ```
 
-## 运行 M1 focused 测试
+## 数据库迁移
+
+SQLite 数据目录默认为 `data`，可用非敏感环境变量 `ROAMBOT_DATA_DIR` 修改。首次启动
+或迁移版本变化后执行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest backend/tests/unit backend/tests/api/test_recommendations.py -q
+.\.venv\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head
 ```
 
-该命令使用仓库内的确定性 Mock providers，不执行网络 I/O。
+迁移会创建账户、会话、地点、收藏、历史、分享和 provider 缓存七张业务表。SQLite
+连接始终启用外键约束；请保留整个数据目录，而不是只复制单个临时文件。
 
-## 运行 Ruff
-
-```powershell
-.\.venv\Scripts\python.exe -m ruff check backend
-```
-
-## 启动本地 API
+## 启动与检查
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn roambot.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-保持该 PowerShell 窗口运行。在另一个位于仓库根目录的 PowerShell 窗口中，
-可以检查健康接口：
+在另一个 PowerShell 窗口检查：
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/api/v1/health | ConvertTo-Json -Compress
 ```
 
-也可以读取本地 OpenAPI 并列出路径：
+核心推荐和指定地点评估允许游客直接调用。当前服务还提供本地用户名/密码注册、登录、
+退出、收藏、历史和脱敏分享 API；这些个人数据操作由后端进行资源归属检查。
+
+## 账户与个人数据语义
+
+- 密码使用 Argon2 哈希，数据库不保存明文密码。
+- 登录使用固定 24 小时的服务端会话；Cookie 名为 `roambot_session`，带 `HttpOnly`、
+  `SameSite=Lax` 和 `Path=/`。生产部署再启用 `Secure`。
+- 登录写操作需要响应中返回的 CSRF token，并通过 `X-CSRF-Token` 发送；数据库只保存
+  session、CSRF 和分享 token 的 SHA-256 哈希。
+- 收藏只保存地点引用，不冻结旧天气或旧评分；重新评估时需要新的查询输入。
+- 历史只记录登录用户的成功查询，保存当时输入和结果快照；rerun 会产生新历史。
+- 分享只公开固定白名单字段和脱敏快照，不重新调用 provider。重新创建会撤销旧链接；
+  主动撤销、删除单条历史或清空历史都会使相关链接立即不可用，收藏不受影响。
+- 当前不实现手机号、短信、验证码、邮箱、OAuth 或密码找回。
+
+## 加密凭据 CLI
+
+凭据库位于 `ROAMBOT_DATA_DIR/credentials.vault`。主密码和 API key 只通过隐藏终端输入，
+不会作为命令参数或环境变量值传入：
 
 ```powershell
-$openapi = Invoke-RestMethod http://127.0.0.1:8000/openapi.json
-$openapi.paths.PSObject.Properties.Name | Sort-Object
+.\.venv\Scripts\roambot.exe credentials init
+.\.venv\Scripts\roambot.exe credentials status
+.\.venv\Scripts\roambot.exe credentials set amap
+.\.venv\Scripts\roambot.exe credentials set qweather
+.\.venv\Scripts\roambot.exe credentials set llm
+.\.venv\Scripts\roambot.exe credentials clear amap
+.\.venv\Scripts\roambot.exe credentials reset
 ```
 
-当前 M1 应列出以下三个路径：
+`status` 只显示 configured/unconfigured，不回显 key。普通更新和清除需要当前主密码；忘记
+主密码时只能输入精确确认词 `RESET-CREDENTIALS` 删除旧凭据库并重新录入。reset 不会
+删除同目录的 `roambot.db`，但旧 key 仍应在供应商控制台吊销。凭据文件会请求限制性
+权限；Windows 上 `chmod(0o600)` 不能替代正确的本机账户权限和 ACL 管理。
 
-```text
-/api/v1/health
-/api/v1/place-evaluations
-/api/v1/recommendations
+## 本地验证
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend/tests -q -W error
+.\.venv\Scripts\python.exe -m ruff check backend
+git diff --check
 ```
 
-以上检查仍然只覆盖 Mock-backed 本地应用，不代表高德、QWeather 或 LLM
-真实 provider 的凭据有效或服务可达。
+以上自动测试全部使用临时数据库、临时凭据库、假 key 和 Mock providers，不执行外部
+网络 I/O，也不证明真实高德、QWeather 或 LLM 服务已连通。

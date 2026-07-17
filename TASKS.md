@@ -42,15 +42,16 @@
 
 ## 3. 实现阶段：TDD
 
-- [ ] Task 1：项目骨架、配置与测试入口
-- [ ] Task 2：输入模型与校验
-- [ ] Task 3：地址解析接口抽象与 mock
-- [ ] Task 4：候选地点数据与筛选
-- [ ] Task 5：天气接口抽象与 mock
-- [ ] Task 6：天气适宜度评分
-- [ ] Task 7：多人汇合距离与公平性评分
-- [ ] Task 8：综合推荐排序
-- [ ] Task 9：LLM 解释接口与 mock
+- [x] Task 1：项目骨架、配置与测试入口
+- [x] Task 2：输入模型与校验
+- [x] Task 3：地址解析接口抽象与 mock
+- [x] Task 4：候选地点数据与筛选
+- [x] Task 5：天气接口抽象与 mock
+- [x] Task 6：天气适宜度评分
+- [x] Task 7：多人汇合距离与公平性评分
+- [x] Task 8：综合推荐排序
+- [x] Task 9：LLM 解释接口与 mock
+- [x] M2：SQLite/Alembic、账户、会话、收藏、历史、分享、缓存与加密凭据 CLI
 - [ ] Task 10：WebUI
 - [ ] Task 11：Docker 分发
 - [ ] Task 12：CI 与最终文档

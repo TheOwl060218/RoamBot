@@ -224,3 +224,38 @@
   最终 focused 测试数：`92 passed`。同一里程碑质量门中 Ruff 返回
   `All checks passed!`，`git diff --check` 退出 0（仅有 Windows LF/CRLF
   工作区提示）。M1 核心后端退出条件通过；未调用网络或真实 provider。
+
+## 2026-07-17 M2 账户、数据与加密凭据里程碑
+
+- 持久化与安全基础提交 `f2e646f`：SQLAlchemy/Alembic、七张业务表、SQLite 外键、
+  Argon2、不可预测 session/CSRF/share token 及哈希存储。
+- 认证提交 `f37a5f0`：用户名/密码注册、登录、退出和 `/auth/me`；固定 24 小时
+  HttpOnly 会话、CSRF 轮换与写操作校验；游客核心查询保持可用。
+- 个人数据提交 `c4a150f`：收藏、成功查询历史、rerun、单删和清空；修复了用户拥有
+  多个收藏时重复收藏会触发 `MultipleResultsFound` 的回归缺陷。
+- 分享与缓存提交 `f3b8012`：32-byte 匿名分享 token 只存 SHA-256 哈希，公开快照
+  使用深层白名单且不调用 provider；删除历史使链接失效。限时安全评审发现规范化
+  起点标签可能残留在解释文字中，已通过先失败后通过的回归测试收集并按长度降序脱敏。
+- 加密凭据库使用 Scrypt `n=32768,r=8,p=1` 派生 32-byte key，以 AES-256-GCM、
+  固定 AAD 和原子替换保存三种凭据。Typer CLI 的 init/status/set/clear/reset 只接受
+  隐藏输入；错误密码和畸形库统一失败；reset 精确确认且不删除 `roambot.db`。
+- 新增依赖仅为 `cryptography 46.0.7` 与 `Typer 0.27.0`；`pip check` 返回
+  `No broken requirements found.`。Windows 上 `chmod(0o600)` 仅为 best effort，
+  不能替代本机账户权限和 ACL 管理。
+- M2.9 TDD 证据：首轮因 `roambot.security.vault` 不存在而 collection RED；实现后
+  凭据库与 CLI 聚焦测试 `8 passed`，Ruff 通过。任务级评审的安全/代码质量结论为
+  `APPROVED`；其唯一范围意见来自主控预先完成的计划内 `pyproject.toml` 依赖修改，
+  经核对不是产品缺陷，因此保留。
+- 主控最终验证：
+
+  ```powershell
+  .\.venv\Scripts\python.exe -m pytest backend/tests -q -W error
+  .\.venv\Scripts\python.exe -m ruff check backend
+  .\.venv\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head
+  ```
+
+  结果为 `156 passed`、`All checks passed!`；Alembic 在全新临时目录连续执行两次
+  `upgrade head` 均退出 0。秘密扫描只命中根规约文档中的字段名，经人工确认无凭据值；
+  排除 Markdown 后源码扫描返回 `SOURCE_SECRET_SCAN_CLEAN`。
+- 全部自动验证使用 Mock providers、临时 SQLite、临时凭据库和假 key；没有真实网络
+  调用、没有产生高德/QWeather/LLM 费用，也没有向 GitHub 推送。
