@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Protocol
+from zoneinfo import ZoneInfo
 
 import httpx
 
 from roambot.config import ProviderMode, Settings
+from roambot.providers.amap import AMapProvider
 from roambot.providers.cached import (
     CachedDistanceProvider,
     CachedGeocoder,
@@ -15,7 +17,9 @@ from roambot.providers.cached import (
     CachedWeatherProvider,
     CacheStore,
 )
+from roambot.providers.http import ProviderHttpClient
 from roambot.providers.mock import MockProviderBundle
+from roambot.providers.openai_compatible import OpenAICompatibleExplanationProvider
 from roambot.providers.protocols import (
     DistanceProvider,
     ExplanationProvider,
@@ -23,6 +27,7 @@ from roambot.providers.protocols import (
     PlaceProvider,
     WeatherProvider,
 )
+from roambot.providers.qweather import QWeatherProvider
 from roambot.providers.trace import ProviderEvent, ProviderTrace
 
 
@@ -41,6 +46,15 @@ class ProviderBundle:
 
 
 class AdapterBundle(Protocol):
+    geocoder: Geocoder
+    places: PlaceProvider
+    distance: DistanceProvider
+    weather: WeatherProvider
+    explanations: ExplanationProvider
+
+
+@dataclass(frozen=True)
+class LiveAdapterBundle:
     geocoder: Geocoder
     places: PlaceProvider
     distance: DistanceProvider
@@ -143,5 +157,62 @@ def _validated_credentials(values: Mapping[str, str]) -> dict[str, str]:
     return credentials
 
 
-def _build_live_adapters(**_: object) -> MockProviderBundle:
-    raise ConfigurationError("Live provider adapters are not available yet.")
+def _build_live_adapters(
+    *,
+    settings: Settings,
+    credentials: Mapping[str, str],
+    client: httpx.Client,
+    cache_repository: object | None,
+) -> LiveAdapterBundle:
+    del cache_repository
+    if settings.qweather_api_host is None or settings.llm_base_url is None:
+        raise ConfigurationError("Live provider hosts are not configured.")
+    if settings.llm_model is None:
+        raise ConfigurationError("Live LLM model is not configured.")
+
+    amap_key = credentials["amap_api_key"]
+    qweather_key = credentials["qweather_api_key"]
+    llm_key = credentials["llm_api_key"]
+    amap = AMapProvider(
+        ProviderHttpClient(
+            client,
+            provider="amap",
+            base_url=str(settings.amap_base_url),
+            timeout=settings.provider_timeout_seconds,
+            secrets=(amap_key,),
+        ),
+        amap_key,
+    )
+
+    def china_today() -> date:
+        return datetime.now(ZoneInfo("Asia/Shanghai")).date()
+
+    weather = QWeatherProvider(
+        ProviderHttpClient(
+            client,
+            provider="qweather",
+            base_url=str(settings.qweather_api_host),
+            timeout=settings.provider_timeout_seconds,
+            secrets=(qweather_key,),
+        ),
+        qweather_key,
+        today=china_today,
+    )
+    explanations = OpenAICompatibleExplanationProvider(
+        ProviderHttpClient(
+            client,
+            provider="llm",
+            base_url=str(settings.llm_base_url),
+            timeout=settings.provider_timeout_seconds,
+            secrets=(llm_key,),
+        ),
+        llm_key,
+        settings.llm_model,
+    )
+    return LiveAdapterBundle(
+        geocoder=amap,
+        places=amap,
+        distance=amap,
+        weather=weather,
+        explanations=explanations,
+    )

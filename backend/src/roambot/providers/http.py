@@ -39,15 +39,50 @@ class ProviderHttpClient:
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
+        return self._request_json(
+            method="GET",
+            operation=operation,
+            path=path,
+            params=params,
+            headers=headers,
+        )
+
+    def post_json(
+        self,
+        *,
+        operation: str,
+        path: str,
+        json_body: Mapping[str, Any],
+        headers: Mapping[str, str] | None = None,
+    ) -> dict[str, Any]:
+        return self._request_json(
+            method="POST",
+            operation=operation,
+            path=path,
+            headers=headers,
+            json_body=json_body,
+        )
+
+    def _request_json(
+        self,
+        *,
+        method: str,
+        operation: str,
+        path: str,
+        params: Mapping[str, str] | None = None,
+        headers: Mapping[str, str] | None = None,
+        json_body: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         request_id = uuid4().hex
         started = perf_counter()
         status: int | str = "error"
         try:
             response = self._client.request(
-                "GET",
+                method,
                 f"{self._base_url}/{path.lstrip('/')}",
                 params=params,
                 headers=headers,
+                json=json_body,
                 timeout=self._timeout,
             )
             status = response.status_code

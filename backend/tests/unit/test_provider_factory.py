@@ -5,9 +5,7 @@ from fastapi.testclient import TestClient
 
 from roambot.config import Settings
 from roambot.main import create_app
-from roambot.providers import factory
 from roambot.providers.factory import ConfigurationError, build_provider_runtime
-from roambot.providers.mock import MockProviderBundle
 from roambot.providers.protocols import (
     DistanceProvider,
     ExplanationProvider,
@@ -81,10 +79,7 @@ def test_live_runtime_reports_only_the_missing_provider(
 
 
 def test_live_runtime_adapters_satisfy_protocols_and_trace_is_request_local(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    mock = MockProviderBundle.default()
-    monkeypatch.setattr(factory, "_build_live_adapters", lambda **_: mock)
     runtime = build_provider_runtime(
         live_settings(),
         {
