@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from datetime import date, datetime, timedelta
-from math import sqrt
+from math import asin, cos, radians, sin, sqrt
 from statistics import fmean, pvariance
 from unicodedata import normalize
 
@@ -45,6 +45,7 @@ from roambot.providers.protocols import (
     ProviderError,
     WeatherProvider,
 )
+from roambot.providers.trace import ProviderEvent, ProviderTrace
 
 SINGLE_ORIGIN_DEFAULT_WEIGHTS = RankingWeights(
     weather=40,
@@ -60,7 +61,6 @@ MULTI_ORIGIN_DEFAULT_WEIGHTS = RankingWeights(
 )
 EXPLANATION_DEGRADED_NOTICE = "explanation_degraded"
 NO_CANDIDATES_NOTICE = "no_candidates"
-WEATHER_UNAVAILABLE_CODE = "weather_unavailable"
 DEFAULT_PROVIDER_LIMITS = {
     ProviderOperation.GEOCODE: 3,
     ProviderOperation.POI_SEARCH: 6,
@@ -91,6 +91,7 @@ class RecommendationService:
         source_kind: SourceKind,
         clock: Callable[[], datetime],
         provider_limits: Mapping[ProviderOperation, int] | None = None,
+        trace: ProviderTrace | None = None,
     ) -> None:
         self.geocoder = geocoder
         self.places = places
@@ -100,6 +101,7 @@ class RecommendationService:
         self.source_kind = source_kind
         self.clock = clock
         self.provider_limits = dict(provider_limits or DEFAULT_PROVIDER_LIMITS)
+        self.trace = trace
 
     def recommend(self, request: RecommendationRequest) -> RecommendationResponse:
         budget = ProviderBudget(self.provider_limits)
@@ -118,16 +120,31 @@ class RecommendationService:
             radius_km=request.max_distance_km,
         )
 
-        notices: list[str] = []
-        otherwise_eligible_count = 0
-        items: list[RecommendationItem] = []
+        eligible_destinations: list[tuple[Destination, float]] = []
         for destination in destinations:
             coverage_ratio = self._coverage_ratio(destination, request)
             if coverage_ratio is None:
                 continue
+            if (
+                self._haversine_km(origins[0].coordinate, destination.coordinate)
+                <= request.max_distance_km
+            ):
+                eligible_destinations.append((destination, coverage_ratio))
+            if len(eligible_destinations) == 5:
+                break
 
-            budget.consume(ProviderOperation.DISTANCE)
-            distances = self.distance.measure(origins, destination)
+        notices: list[str] = []
+        otherwise_eligible_count = 0
+        items: list[RecommendationItem] = []
+        for destination, coverage_ratio in eligible_destinations:
+            try:
+                budget.consume(ProviderOperation.DISTANCE)
+                distances = self.distance.measure(origins, destination)
+            except ProviderBudgetExceeded:
+                raise
+            except ProviderError:
+                distances = self._straight_line_estimates(origins, destination)
+                self._mark(ProviderEvent.STRAIGHT_LINE)
             primary_distance = distances[0].distance_km
             if primary_distance > request.max_distance_km:
                 continue
@@ -151,8 +168,8 @@ class RecommendationService:
 
         if not items and otherwise_eligible_count > 0 and notices:
             raise ProviderError(
-                WEATHER_UNAVAILABLE_CODE,
-                "weather unavailable for all recommendation candidates",
+                "unavailable",
+                "全部候选天气数据暂时不可用",
             )
 
         items = sorted(items, key=self._sort_key)[:5]
@@ -165,7 +182,7 @@ class RecommendationService:
 
         return RecommendationResponse(
             items=items,
-            source_state=SourceState(kind=self.source_kind, notices=notices),
+            source_state=self._source_state(len(items), notices),
             generated_at=self.clock().isoformat(),
         )
 
@@ -186,7 +203,13 @@ class RecommendationService:
                 raise PlaceNotFoundError from exc
             raise
         budget.consume(ProviderOperation.DISTANCE)
-        distances = self.distance.measure(origins, destination)
+        try:
+            distances = self.distance.measure(origins, destination)
+        except ProviderBudgetExceeded:
+            raise
+        except ProviderError:
+            distances = self._straight_line_estimates(origins, destination)
+            self._mark(ProviderEvent.STRAIGHT_LINE)
         item = self._score_candidate(
             destination=destination,
             origins=origins,
@@ -200,8 +223,8 @@ class RecommendationService:
         )
         if item is None:
             raise ProviderError(
-                WEATHER_UNAVAILABLE_CODE,
-                "weather unavailable for target destination",
+                "unavailable",
+                "指定地点天气数据暂时不可用",
             )
 
         items, explanation_notice = self._attach_explanations([item], budget)
@@ -209,7 +232,7 @@ class RecommendationService:
 
         return PlaceEvaluationResponse(
             item=items[0],
-            source_state=SourceState(kind=self.source_kind, notices=notices),
+            source_state=self._source_state(3, notices),
             generated_at=self.clock().isoformat(),
         )
 
@@ -333,6 +356,7 @@ class RecommendationService:
         except ProviderBudgetExceeded:
             raise
         except ProviderError:
+            self._mark(ProviderEvent.WEATHER_EXCLUDED)
             return None
 
         by_date = {day.date: day for day in weather}
@@ -350,6 +374,7 @@ class RecommendationService:
             budget.consume(ProviderOperation.LLM)
             explanations = self.explanations.explain(items)
         except ProviderError:
+            self._mark(ProviderEvent.TEMPLATE_EXPLANATION)
             return (
                 [
                     item.model_copy(update={"explanation": self._template_explanation(item)})
@@ -384,3 +409,46 @@ class RecommendationService:
             days.append(current)
             current += timedelta(days=1)
         return days
+
+    def _straight_line_estimates(
+        self,
+        origins: list[Origin],
+        destination: Destination,
+    ) -> list[DistanceEstimate]:
+        return [
+            DistanceEstimate(
+                origin_label=origin.label,
+                distance_km=round(
+                    self._haversine_km(origin.coordinate, destination.coordinate),
+                    2,
+                ),
+                duration_minutes=None,
+                estimated=True,
+            )
+            for origin in origins
+        ]
+
+    def _source_state(
+        self,
+        final_item_count: int,
+        legacy_notices: list[str],
+    ) -> SourceState:
+        if self.trace is not None:
+            return self.trace.to_source_state(final_item_count)
+        return SourceState(kind=self.source_kind, notices=legacy_notices)
+
+    def _mark(self, event: ProviderEvent) -> None:
+        if self.trace is not None:
+            self.trace.mark(event)
+
+    @staticmethod
+    def _haversine_km(left, right) -> float:
+        earth_radius_km = 6371.0088
+        left_latitude = radians(left.latitude)
+        right_latitude = radians(right.latitude)
+        latitude_delta = right_latitude - left_latitude
+        longitude_delta = radians(right.longitude - left.longitude)
+        haversine = sin(latitude_delta / 2) ** 2 + (
+            cos(left_latitude) * cos(right_latitude) * sin(longitude_delta / 2) ** 2
+        )
+        return 2 * earth_radius_km * asin(sqrt(haversine))

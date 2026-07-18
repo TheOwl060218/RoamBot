@@ -66,6 +66,7 @@ def get_recommendation_service(
             ProviderOperation.DISTANCE: settings.max_distance_calls,
             ProviderOperation.LLM: settings.max_llm_calls,
         },
+        trace=bundle.trace,
     )
 
 

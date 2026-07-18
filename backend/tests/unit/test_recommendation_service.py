@@ -53,7 +53,7 @@ def destination(
         name=name,
         address=name,
         city="Suzhou",
-        coordinate=Coordinate(longitude=120.5 + rank / 1000, latitude=31.2),
+        coordinate=Coordinate(longitude=120.05 + rank / 1000, latitude=31.02),
         type_name="test",
         type_code="test",
         scenery_tags=tags,
@@ -380,8 +380,8 @@ def test_recommend_fails_when_all_candidates_lost_to_weather(
     with pytest.raises(ProviderError) as exc_info:
         recommendation_service.recommend(request())
 
-    assert exc_info.value.code == "weather_unavailable"
-    assert str(exc_info.value) == "weather unavailable for all recommendation candidates"
+    assert exc_info.value.code == "unavailable"
+    assert str(exc_info.value) == "全部候选天气数据暂时不可用"
 
 
 def test_evaluate_fails_when_target_lacks_complete_weather() -> None:
@@ -396,5 +396,5 @@ def test_evaluate_fails_when_target_lacks_complete_weather() -> None:
     with pytest.raises(ProviderError) as exc_info:
         recommendation_service.evaluate(evaluation_request())
 
-    assert exc_info.value.code == "weather_unavailable"
-    assert str(exc_info.value) == "weather unavailable for target destination"
+    assert exc_info.value.code == "unavailable"
+    assert str(exc_info.value) == "指定地点天气数据暂时不可用"

@@ -135,7 +135,7 @@ def test_recommendation_place_search_not_found_returns_provider_unavailable(
     assert "provider-specific search details" not in response.text
 
 
-def test_place_evaluation_distance_not_found_returns_provider_unavailable(
+def test_place_evaluation_distance_failure_returns_straight_line_estimate(
     monkeypatch,
 ) -> None:
     class NotFoundDistanceProvider:
@@ -151,13 +151,13 @@ def test_place_evaluation_distance_not_found_returns_provider_unavailable(
         json=evaluation_payload(),
     )
 
-    assert response.status_code == 503
-    assert response.json() == {
-        "error": {
-            "code": "provider_unavailable",
-            "message": "Provider is temporarily unavailable.",
-            "fields": [],
-        }
+    assert response.status_code == 200
+    body = response.json()
+    assert body["item"]["distances"][0]["estimated"] is True
+    assert body["item"]["distances"][0]["duration_minutes"] is None
+    assert body["source_state"] == {
+        "kind": "degraded",
+        "notices": ["使用内置苏州演示数据", "部分路程使用直线距离估算"],
     }
     assert "provider-specific distance details" not in response.text
 
