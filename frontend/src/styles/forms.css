@@ -1,0 +1,67 @@
+.travel-form {
+  display: grid;
+  gap: 22px;
+  max-width: 760px;
+}
+
+.form-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.form-heading h1 { margin: 4px 0 0; font-size: 2rem; line-height: 1.2; }
+.eyebrow { margin: 0; color: var(--primary); font-size: 0.84rem; font-weight: 700; }
+
+.mode-switch { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); padding: 3px; background: var(--surface); }
+.mode-switch label { cursor: pointer; }
+.mode-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.mode-switch span { display: block; padding: 8px 12px; border-radius: 4px; color: var(--muted); font-weight: 600; }
+.mode-switch input:checked + span { color: var(--primary); background: #e3efe9; }
+.mode-switch input:focus-visible + span { outline: 3px solid #79b8a3; }
+
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.field { display: grid; gap: 7px; min-width: 0; color: var(--ink); font-size: 0.92rem; font-weight: 600; }
+.field input, .field select { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--ink); }
+.field input:focus { border-color: var(--primary); }
+.field-error { color: var(--danger); font-weight: 500; }
+
+.form-section { display: grid; gap: 13px; min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.form-section legend { padding: 0 6px; font-size: 0.96rem; font-weight: 700; }
+.companion-row { display: grid; grid-template-columns: minmax(0, 1fr) 40px; align-items: end; gap: 8px; }
+.icon-button, .text-button, .icon-text-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--ink); cursor: pointer; }
+.icon-button { width: 40px; padding: 0; }
+.text-button, .icon-text-button { width: fit-content; padding: 8px 11px; }
+
+.choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.choice { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
+.choice:has(input:checked) { border-color: #7aa998; background: #eef7f2; }
+.compact-section { grid-template-columns: repeat(2, minmax(0, max-content)); }
+.compact-section legend { grid-column: 1 / -1; }
+.inline-choice { display: inline-flex; align-items: center; gap: 7px; }
+.target-field { max-width: 520px; }
+
+.weight-summary { display: flex; min-height: 38px; overflow: hidden; border: 1px solid var(--border); border-radius: 4px; }
+.weight-summary span { display: grid; min-width: 78px; place-items: center; padding: 6px; background: #e3efe9; border-right: 1px solid var(--surface); font-size: 0.76rem; text-align: center; }
+.weight-summary span:nth-child(2) { background: #f1e9df; }
+.weight-summary span:nth-child(3) { background: #e8edf3; }
+.weight-summary span:nth-child(4) { background: #f2e6e1; }
+.weight-controls { display: grid; gap: 8px; }
+.range-field { display: grid; grid-template-columns: 110px minmax(120px, 1fr) 44px; align-items: center; gap: 10px; font-size: 0.84rem; }
+.range-field output { text-align: right; font-variant-numeric: tabular-nums; }
+
+.primary-button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--primary); border-radius: var(--radius); color: #fff; background: var(--primary); font-weight: 700; cursor: pointer; }
+.primary-button:hover { background: var(--primary-hover); }
+.primary-button:disabled { cursor: wait; opacity: 0.65; }
+.submit-button { width: min(100%, 260px); }
+
+@media (max-width: 700px) {
+  .form-heading { align-items: stretch; flex-direction: column; }
+  .mode-switch { align-self: stretch; }
+  .mode-switch label { flex: 1; text-align: center; }
+  .form-grid, .choice-grid { grid-template-columns: 1fr; }
+  .compact-section { grid-template-columns: 1fr; }
+  .range-field { grid-template-columns: 92px minmax(90px, 1fr) 40px; }
+  .submit-button { width: 100%; }
+}

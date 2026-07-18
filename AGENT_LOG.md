@@ -259,3 +259,24 @@
   排除 Markdown 后源码扫描返回 `SOURCE_SECRET_SCAN_CLEAN`。
 - 全部自动验证使用 Mock providers、临时 SQLite、临时凭据库和假 key；没有真实网络
   调用、没有产生高德/QWeather/LLM 费用，也没有向 GitHub 推送。
+
+## 2026-07-18 M3 响应式 WebUI 里程碑
+
+- 完成游客推荐、单人/多人输入、默认/自定义权重、结果排序与解释；登录后支持收藏、
+  历史快照、重新运行、删除和公开分享。范围保持为地点评估，不加入地图、导航或行程安排。
+- 一次集中里程碑审查未发现 Critical 问题；指出的受保护路由认证、失效会话清理、
+  收藏再评估预填、历史详情与删除确认、端到端验收覆盖五项 Important 缺口，已在一次
+  TDD 修复波次中全部完成，同时补齐 Escape/焦点管理和密码显示切换。
+- Playwright 覆盖桌面与移动端共 8 条关键旅程。人工检查 `1440x900`、`1024x768`、
+  `390x844`、`360x800`，均无横向溢出、控件重叠或结果卡越界。
+- Windows 一键验证命令：
+
+  ```powershell
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
+  ```
+
+  最终结果为后端 `156 passed`、Ruff 通过；前端 Vitest `18 passed`、ESLint 和
+  TypeScript 通过；Vite 生产构建成功；Playwright `8 passed`。`ExecutionPolicy
+  Bypass` 仅作用于当前测试进程，没有修改系统策略。
+- 本里程碑沿用现有前端依赖并下载 Playwright Chromium。测试使用 Mock provider、
+  临时数据库和假 key，没有调用高德、QWeather 或 LLM，也没有产生 API 费用或推送 GitHub。

@@ -1,6 +1,11 @@
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom'
 
-import { PlaceholderPage } from '../pages/PlaceholderPage'
+import { SearchPage } from '../pages/SearchPage'
+import { FavoritesPage } from '../pages/FavoritesPage'
+import { HistoryPage } from '../pages/HistoryPage'
+import { HistoryDetailPage } from '../pages/HistoryDetailPage'
+import { RequireAuth } from '../features/auth/RequireAuth'
+import { PublicSharePage } from '../features/shares/PublicSharePage'
 import { AppShell } from './AppShell'
 
 const router = createBrowserRouter([
@@ -11,10 +16,11 @@ const router = createBrowserRouter([
       </AppShell>
     ),
     children: [
-      { index: true, element: <PlaceholderPage title="推荐" /> },
-      { path: 'favorites', element: <PlaceholderPage title="收藏" /> },
-      { path: 'history', element: <PlaceholderPage title="历史" /> },
-      { path: 'share/:token', element: <PlaceholderPage title="分享快照" /> },
+      { index: true, element: <SearchPage /> },
+      { path: 'favorites', element: <RequireAuth><FavoritesPage /></RequireAuth> },
+      { path: 'history', element: <RequireAuth><HistoryPage /></RequireAuth> },
+      { path: 'history/:historyId', element: <RequireAuth><HistoryDetailPage /></RequireAuth> },
+      { path: 'share/:token', element: <PublicSharePage /> },
     ],
   },
 ])
