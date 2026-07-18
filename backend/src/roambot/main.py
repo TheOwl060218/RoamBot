@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
@@ -12,10 +14,30 @@ from roambot.api.routes.health import router as health_router
 from roambot.api.routes.history import router as history_router
 from roambot.api.routes.recommendations import router as recommendations_router
 from roambot.api.routes.shares import router as shares_router
+from roambot.config import Settings
+from roambot.providers.factory import build_provider_runtime
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="RoamBot API", version="0.1.0")
+def create_app(settings: Settings | None = None) -> FastAPI:
+    configured_settings = settings or Settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        runtime = getattr(app.state, "provider_runtime", None)
+        if runtime is None:
+            runtime = build_provider_runtime(
+                app.state.settings,
+                {},
+                cache_repository=None,
+            )
+            app.state.provider_runtime = runtime
+        try:
+            yield
+        finally:
+            runtime.close()
+
+    app = FastAPI(title="RoamBot API", version="0.1.0", lifespan=lifespan)
+    app.state.settings = configured_settings
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
     app.add_exception_handler(AuthApiError, auth_api_exception_handler)
     app.add_exception_handler(Exception, unexpected_exception_handler)

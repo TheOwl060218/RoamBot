@@ -15,22 +15,36 @@ from roambot.persistence.database import (
     create_engine_and_session_factory,
     initialize_schema,
 )
-from roambot.providers.mock import MockProviderBundle
+from roambot.providers.factory import ProviderBundle, build_provider_runtime
 from roambot.security.sessions import hash_token
 from roambot.services.auth import AuthenticatedSession, AuthService, InvalidSessionError
 from roambot.services.personal_data import PersonalDataService
 from roambot.services.recommendations import RecommendationService
 
 
-def get_recommendation_service() -> RecommendationService:
-    bundle = MockProviderBundle.default()
+def get_provider_bundle(request: Request) -> ProviderBundle:
+    runtime = getattr(request.app.state, "provider_runtime", None)
+    if runtime is None:
+        settings = get_settings(request)
+        runtime = build_provider_runtime(settings, {}, cache_repository=None)
+        request.app.state.provider_runtime = runtime
+    return runtime.new_request_bundle()
+
+
+PROVIDER_BUNDLE_DEPENDENCY = Depends(get_provider_bundle)
+
+
+def get_recommendation_service(
+    bundle: ProviderBundle = PROVIDER_BUNDLE_DEPENDENCY,
+) -> RecommendationService:
+    source_kind = SourceKind.DEMO if "demo" in bundle.trace.events else SourceKind.LIVE
     return RecommendationService(
         geocoder=bundle.geocoder,
         places=bundle.places,
         distance=bundle.distance,
         weather=bundle.weather,
         explanations=bundle.explanations,
-        source_kind=SourceKind.DEMO,
+        source_kind=source_kind,
         clock=lambda: datetime.now(UTC),
     )
 
