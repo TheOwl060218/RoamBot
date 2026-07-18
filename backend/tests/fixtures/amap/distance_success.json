@@ -1,0 +1,10 @@
+{
+  "status": "1",
+  "info": "OK",
+  "infocode": "10000",
+  "count": "2",
+  "results": [
+    {"origin_id": "1", "dest_id": "1", "distance": "12345", "duration": "1800"},
+    {"origin_id": "2", "dest_id": "1", "distance": "25000", "duration": "3600"}
+  ]
+}
