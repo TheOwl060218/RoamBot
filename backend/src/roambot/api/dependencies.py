@@ -15,11 +15,23 @@ from roambot.persistence.database import (
     create_engine_and_session_factory,
     initialize_schema,
 )
+from roambot.providers.budget import ProviderOperation
 from roambot.providers.factory import ProviderBundle, build_provider_runtime
 from roambot.security.sessions import hash_token
 from roambot.services.auth import AuthenticatedSession, AuthService, InvalidSessionError
 from roambot.services.personal_data import PersonalDataService
 from roambot.services.recommendations import RecommendationService
+
+
+def get_settings(request: Request) -> Settings:
+    settings = getattr(request.app.state, "settings", None)
+    if settings is None:
+        settings = Settings()
+        request.app.state.settings = settings
+    return settings
+
+
+SETTINGS_DEPENDENCY = Depends(get_settings)
 
 
 def get_provider_bundle(request: Request) -> ProviderBundle:
@@ -36,6 +48,7 @@ PROVIDER_BUNDLE_DEPENDENCY = Depends(get_provider_bundle)
 
 def get_recommendation_service(
     bundle: ProviderBundle = PROVIDER_BUNDLE_DEPENDENCY,
+    settings: Settings = SETTINGS_DEPENDENCY,
 ) -> RecommendationService:
     source_kind = SourceKind.DEMO if "demo" in bundle.trace.events else SourceKind.LIVE
     return RecommendationService(
@@ -46,6 +59,13 @@ def get_recommendation_service(
         explanations=bundle.explanations,
         source_kind=source_kind,
         clock=lambda: datetime.now(UTC),
+        provider_limits={
+            ProviderOperation.GEOCODE: settings.max_geocode_calls,
+            ProviderOperation.POI_SEARCH: settings.max_poi_search_calls,
+            ProviderOperation.WEATHER: settings.max_weather_calls,
+            ProviderOperation.DISTANCE: settings.max_distance_calls,
+            ProviderOperation.LLM: settings.max_llm_calls,
+        },
     )
 
 
@@ -64,17 +84,6 @@ class AuthApiError(Exception):
 class RequestSession:
     session_token: str
     authenticated: AuthenticatedSession
-
-
-def get_settings(request: Request) -> Settings:
-    settings = getattr(request.app.state, "settings", None)
-    if settings is None:
-        settings = Settings()
-        request.app.state.settings = settings
-    return settings
-
-
-SETTINGS_DEPENDENCY = Depends(get_settings)
 
 
 def get_session_factory(

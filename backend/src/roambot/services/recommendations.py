@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date, datetime, timedelta
 from math import sqrt
 from statistics import fmean, pvariance
@@ -32,6 +32,11 @@ from roambot.domain.scoring import (
     score_fairness,
     score_popularity,
 )
+from roambot.providers.budget import (
+    ProviderBudget,
+    ProviderBudgetExceeded,
+    ProviderOperation,
+)
 from roambot.providers.protocols import (
     DistanceProvider,
     ExplanationProvider,
@@ -56,6 +61,13 @@ MULTI_ORIGIN_DEFAULT_WEIGHTS = RankingWeights(
 EXPLANATION_DEGRADED_NOTICE = "explanation_degraded"
 NO_CANDIDATES_NOTICE = "no_candidates"
 WEATHER_UNAVAILABLE_CODE = "weather_unavailable"
+DEFAULT_PROVIDER_LIMITS = {
+    ProviderOperation.GEOCODE: 3,
+    ProviderOperation.POI_SEARCH: 6,
+    ProviderOperation.WEATHER: 5,
+    ProviderOperation.DISTANCE: 5,
+    ProviderOperation.LLM: 1,
+}
 
 
 class OriginNotFoundError(RuntimeError):
@@ -78,6 +90,7 @@ class RecommendationService:
         explanations: ExplanationProvider,
         source_kind: SourceKind,
         clock: Callable[[], datetime],
+        provider_limits: Mapping[ProviderOperation, int] | None = None,
     ) -> None:
         self.geocoder = geocoder
         self.places = places
@@ -86,14 +99,18 @@ class RecommendationService:
         self.explanations = explanations
         self.source_kind = source_kind
         self.clock = clock
+        self.provider_limits = dict(provider_limits or DEFAULT_PROVIDER_LIMITS)
 
     def recommend(self, request: RecommendationRequest) -> RecommendationResponse:
+        budget = ProviderBudget(self.provider_limits)
         origins = self._resolve_origins(
             request.main_origin,
             request.companion_origins,
             request.city,
+            budget,
         )
         weights = self._weights(request.weights, len(origins))
+        budget.consume(ProviderOperation.POI_SEARCH)
         destinations = self.places.search(
             center=origins[0].coordinate,
             city=request.city,
@@ -109,6 +126,7 @@ class RecommendationService:
             if coverage_ratio is None:
                 continue
 
+            budget.consume(ProviderOperation.DISTANCE)
             distances = self.distance.measure(origins, destination)
             primary_distance = distances[0].distance_km
             if primary_distance > request.max_distance_km:
@@ -124,6 +142,7 @@ class RecommendationService:
                 end_date=request.end_date,
                 weights=weights,
                 coverage_ratio=coverage_ratio,
+                budget=budget,
             )
             if item is None:
                 notices.append(f"partial_weather:{destination.provider_id}")
@@ -140,7 +159,7 @@ class RecommendationService:
         if not items:
             notices.append(NO_CANDIDATES_NOTICE)
         else:
-            items, explanation_notice = self._attach_explanations(items)
+            items, explanation_notice = self._attach_explanations(items, budget)
             if explanation_notice is not None:
                 notices.append(explanation_notice)
 
@@ -151,18 +170,22 @@ class RecommendationService:
         )
 
     def evaluate(self, request: PlaceEvaluationRequest) -> PlaceEvaluationResponse:
+        budget = ProviderBudget(self.provider_limits)
         origins = self._resolve_origins(
             request.main_origin,
             request.companion_origins,
             request.city,
+            budget,
         )
         weights = self._weights(request.weights, len(origins))
         try:
+            budget.consume(ProviderOperation.POI_SEARCH)
             destination = self.places.resolve(request.target_place, request.city)
         except ProviderError as exc:
             if exc.code == "not_found":
                 raise PlaceNotFoundError from exc
             raise
+        budget.consume(ProviderOperation.DISTANCE)
         distances = self.distance.measure(origins, destination)
         item = self._score_candidate(
             destination=destination,
@@ -173,6 +196,7 @@ class RecommendationService:
             end_date=request.end_date,
             weights=weights,
             coverage_ratio=1,
+            budget=budget,
         )
         if item is None:
             raise ProviderError(
@@ -180,7 +204,7 @@ class RecommendationService:
                 "weather unavailable for target destination",
             )
 
-        items, explanation_notice = self._attach_explanations([item])
+        items, explanation_notice = self._attach_explanations([item], budget)
         notices = [explanation_notice] if explanation_notice is not None else []
 
         return PlaceEvaluationResponse(
@@ -194,6 +218,7 @@ class RecommendationService:
         main_origin: str,
         companion_origins: list[str],
         city: str,
+        budget: ProviderBudget,
     ) -> list[Origin]:
         origins: list[Origin] = []
         addresses = [
@@ -205,6 +230,7 @@ class RecommendationService:
         ]
         for field_path, address in addresses:
             try:
+                budget.consume(ProviderOperation.GEOCODE)
                 origins.append(self.geocoder.geocode(address, city))
             except ProviderError as exc:
                 if exc.code == "not_found":
@@ -243,8 +269,9 @@ class RecommendationService:
         end_date: date,
         weights: RankingWeights,
         coverage_ratio: float,
+        budget: ProviderBudget,
     ) -> RecommendationItem | None:
-        weather = self._complete_weather(destination, start_date, end_date)
+        weather = self._complete_weather(destination, start_date, end_date, budget)
         if weather is None:
             return None
 
@@ -298,9 +325,13 @@ class RecommendationService:
         destination: Destination,
         start_date: date,
         end_date: date,
+        budget: ProviderBudget,
     ) -> list[DailyWeather] | None:
         try:
+            budget.consume(ProviderOperation.WEATHER)
             weather = self.weather.daily(destination.coordinate, start_date, end_date)
+        except ProviderBudgetExceeded:
+            raise
         except ProviderError:
             return None
 
@@ -313,8 +344,10 @@ class RecommendationService:
     def _attach_explanations(
         self,
         items: list[RecommendationItem],
+        budget: ProviderBudget,
     ) -> tuple[list[RecommendationItem], str | None]:
         try:
+            budget.consume(ProviderOperation.LLM)
             explanations = self.explanations.explain(items)
         except ProviderError:
             return (
