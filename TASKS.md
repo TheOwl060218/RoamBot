@@ -71,4 +71,4 @@
 - [ ] `Dockerfile`
 - [ ] `.env.example`
 - [ ] WebUI 可访问地址
-- [ ] 最后一次 CI/CD pass 记录
+- [x] 最后一次 CI/CD pass 记录（GitHub Actions `29689474384`，提交 `1ad45cb`）

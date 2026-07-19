@@ -42,6 +42,7 @@
 - `docker-build` job [88194128137](https://github.com/TheOwl060218/RoamBot/actions/runs/29687387752/job/88194128137) 通过；生产镜像完成 Mock 冒烟检查并推送 commit SHA 标签至 GHCR。
 - 未登录 registry 的本机执行 `docker manifest inspect ghcr.io/theowl060218/roambot:219437a849f65df40c5e9511536458174a527d96` 返回 manifest，确认该提交镜像可公开获取。
 - 这次结果证明 `219437a` 所含源码、测试与构建流程通过；最终文档提交仍需触发并记录新的最后一次 CI。
+- 交付文档与 Windows Mock 安全护栏提交 `1ad45cbf0ef57b871ccdb360e6752546804efb21` 后，GitHub Actions 运行 [29689474384](https://github.com/TheOwl060218/RoamBot/actions/runs/29689474384) 再次为 `success`：`unit-test` job [88199537762](https://github.com/TheOwl060218/RoamBot/actions/runs/29689474384/job/88199537762) 与 `docker-build` job [88199696957](https://github.com/TheOwl060218/RoamBot/actions/runs/29689474384/job/88199696957) 均通过。
 
 Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆盖 `1024x768` 与 `360x800`。未保留含账户、详细出发地、token 或 Cookie 的截图作为提交证据。
 
@@ -60,4 +61,4 @@ Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆�
 - GitLab CI Lint/远程流水线：仓库只配置 GitHub remote，未运行 GitLab 远程 CI。
 - 公网 WebUI：尚未选择并授权部署平台；本地 URL 不是公网交付地址。
 
-最终交付前必须用最新提交重新运行完整门禁，并将实际远程 CI 与部署结果补到本文件；不得把本地验证写成远程成功。
+本文件记录的远程 CI 已覆盖交付文档草稿与最新源码。公网部署和真实 provider 结果仍必须在实际完成后补充；不得把本地验证写成远程成功。

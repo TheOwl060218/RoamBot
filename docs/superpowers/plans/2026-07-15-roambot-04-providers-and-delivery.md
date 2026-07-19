@@ -553,7 +553,7 @@ Run `git diff --check`, scan tracked files for secret patterns, and commit `ci: 
 
 ### Task 10: Documentation, Assignment Evidence, and Final Verification
 
-**Progress (2026-07-19):** README、后端运行说明、反思写作提纲和验证证据已形成草稿；GitHub Actions 运行 `29687387752` 的 `unit-test` 与 `docker-build` 均通过。真实 provider smoke、公网 WebUI、学生本人反思正文和最终文档提交后的最后一次 CI 仍待完成。
+**Progress (2026-07-19):** README、后端运行说明、反思写作提纲和验证证据已形成草稿；交付文档提交 `1ad45cb` 的 GitHub Actions 运行 `29689474384` 中，`unit-test` 与 `docker-build` 均通过。真实 provider smoke、公网 WebUI 和学生本人反思正文仍待完成。
 
 **Status:** in progress; external deployment and remote CI evidence remain pending.
 

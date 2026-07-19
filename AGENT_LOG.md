@@ -320,3 +320,4 @@
 - `REFLECTION.md` 只提供事实提纲。课程反思正文必须由学生本人完成，不能把 AI 生成正文作为个人反思提交。
 - 仍未配置真实 provider 凭据，也未执行真实 smoke；公网 WebUI 需要外部部署平台账号与授权，均保持为明确待办而非伪造完成状态。
 - 最终集中审查未发现 Critical；其有效 Important 指出 Windows 测试入口未像 Linux 入口一样拒绝 Live 配置。先用脚本文本断言复现缺少保护，再为 `scripts/test.ps1` 增加 Mock/demo 默认值与显式拒绝，避免继承本机 Live 环境后误运行自动测试。
+- 文档与安全护栏提交 `1ad45cb` 的 GitHub Actions 运行 `29689474384` 最终为 `success`；`unit-test` 和 `docker-build` 均通过。另一次宿主机一键测试运行到浏览器旅程前均通过，但因保留给用户测试的容器占用 `8000` 而停止；随后使用不占宿主端口的 `roambot-ci:local --network none` 完整复验通过。
