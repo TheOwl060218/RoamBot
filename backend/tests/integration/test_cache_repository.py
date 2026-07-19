@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from roambot.persistence.cache import SessionCacheStore
 from roambot.persistence.repositories import CacheEntry, CacheRepository
 from roambot.persistence.tables import ApiCacheTable
 
@@ -28,6 +29,24 @@ def canonical_json(payload: object) -> str:
 def session_factory(auth_fixture):
     _, factory = auth_fixture(clock=lambda: NOW)
     return factory
+
+
+def test_session_cache_store_commits_put_and_delete_across_sessions(auth_fixture) -> None:
+    factory = session_factory(auth_fixture)
+    store = SessionCacheStore(factory)
+
+    store.put(
+        "f" * 64,
+        "amap",
+        "geocode",
+        {"schema_version": 1, "model": "Origin", "value": {"label": "public"}},
+        NOW,
+        NOW + timedelta(hours=1),
+    )
+
+    assert store.get_fresh("f" * 64, NOW) is not None
+    store.delete("f" * 64)
+    assert store.get_fresh("f" * 64, NOW) is None
 
 
 def test_get_fresh_uses_strict_expiry_boundary_and_keeps_expired_row(

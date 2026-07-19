@@ -1,0 +1,41 @@
+name: roambot
+
+x-roambot-service: &roambot-service
+  build:
+    context: .
+  image: roambot:local
+  ports:
+    - "8000:8000"
+  volumes:
+    - roambot-data:/data
+  restart: unless-stopped
+
+services:
+  roambot:
+    <<: *roambot-service
+    environment:
+      ROAMBOT_PROVIDER_MODE: mock
+      ROAMBOT_DEMO_MODE: "true"
+
+  roambot-live:
+    <<: *roambot-service
+    profiles: ["live"]
+    environment:
+      ROAMBOT_PROVIDER_MODE: live
+      ROAMBOT_DEMO_MODE: "false"
+      ROAMBOT_QWEATHER_API_HOST: ${ROAMBOT_QWEATHER_API_HOST:-}
+      ROAMBOT_LLM_BASE_URL: ${ROAMBOT_LLM_BASE_URL:-}
+      ROAMBOT_LLM_MODEL: ${ROAMBOT_LLM_MODEL:-}
+    secrets:
+      - source: roambot_master_password
+        target: roambot_master_password
+        uid: "10001"
+        gid: "10001"
+        mode: 0400
+
+volumes:
+  roambot-data:
+
+secrets:
+  roambot_master_password:
+    file: ${ROAMBOT_MASTER_PASSWORD_FILE_SOURCE:-./secrets/roambot_master_password}

@@ -290,3 +290,14 @@
 - Provider/安全里程碑原计划的一次集中只读审查在有限等待窗口内未返回结果，已终止以避免继续消耗时间；未伪造审查结论。主控随后完成全量 Mock 验证与秘密扫描。
 - 最终本地验证：`226 passed`、Ruff `All checks passed!`、`git diff --check` 退出 0、源码扫描 `SOURCE_SECRET_SCAN_CLEAN`。
 - 尚未申请或录入真实 provider 凭据，未执行人工 smoke，未产生高德/QWeather/LLM 调用或费用；真实连通性与苏州坐标/天气合理性仍待用户明确批准后验证。
+
+## 2026-07-19 M4.8 单镜像 Docker 分发
+
+- `create_app` 支持注入 `frontend_dist`，API 路由优先；`/assets` 精确静态挂载，仅无文件后缀且非 `/api` 的 GET 路径回退到 React `index.html`。
+- 新增生产 entrypoint：固定监听 `0.0.0.0:8000`，Mock 模式不读取 vault；Live 模式只从权限受限的 secret 文件或 TTY 隐藏提示读取主密码，非交互缺失时固定退出 78。
+- 主密码文件只移除末尾 CR/LF，读取 byte buffer 后尽力清零；vault 只解锁一次，`create_app` 复制凭据后 entrypoint 清空本地字典。配置 repr 不展示主密码文件字段。
+- Live provider 缓存使用 `SessionCacheStore`，每次缓存读写打开短生命周期 SQLAlchemy session/事务，避免并发请求共享非线程安全 Session。
+- 三阶段镜像使用 Node 24 Alpine 构建前端、Python 3.13 slim 构建 wheel、Python 3.13 slim 非 root 用户运行；单镜像同时提供 `/api/v1` 和 SPA，持久数据目录为 `/data`。
+- TDD 证据：静态服务、entrypoint、跨 session 缓存共 14 条定向测试通过；完整门槛为后端 `236 passed`、Ruff 通过、前端 Vitest `18 passed`、ESLint/TypeScript/生产构建通过、Playwright `8 passed`。
+- 首次 Docker 构建因工具 10 分钟上限超时且未生成镜像；启动 Docker Desktop 后用 plain progress 重试成功。最终源码新鲜构建成功，临时 Mock 容器健康 `ready`，`/` 和 `/history` 为 200，Mock 推荐为 200 且 `source=demo`。
+- 镜像历史与容器日志只含固定构建/启动命令和 HTTP 状态，未发现 key、主密码或请求 payload。容器 `roambot-check` 保持运行供用户测试，命名卷 `roambot-check-data` 保留。

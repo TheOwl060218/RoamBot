@@ -16,6 +16,10 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("data")
     database_name: str = "roambot.db"
+    master_password_file: Path = Field(
+        default=Path("/run/secrets/roambot_master_password"),
+        repr=False,
+    )
     secure_cookies: bool = False
     session_hours: int = 24
     provider_mode: ProviderMode = ProviderMode.MOCK
