@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from typing import Protocol
-from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -185,7 +184,7 @@ def _build_live_adapters(
     )
 
     def china_today() -> date:
-        return datetime.now(ZoneInfo("Asia/Shanghai")).date()
+        return datetime.now(timezone(timedelta(hours=8))).date()
 
     weather = QWeatherProvider(
         ProviderHttpClient(

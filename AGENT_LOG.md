@@ -280,3 +280,13 @@
   Bypass` 仅作用于当前测试进程，没有修改系统策略。
 - 本里程碑沿用现有前端依赖并下载 Playwright Chromium。测试使用 Mock provider、
   临时数据库和假 key，没有调用高德、QWeather 或 LLM，也没有产生 API 费用或推送 GitHub。
+
+## 2026-07-19 M4.1-M4.7 Provider 接入与人工 Smoke 入口
+
+- 已完成 mock/live 配置边界、请求预算与脱敏 HTTP 边界、高德地理编码/POI/距离、QWeather 七日天气、cache-first 与降级策略，以及单次有界 LLM 推荐理由。
+- 新增 `roambot providers smoke`，固定使用苏州公共演示地点；完整运行上限为高德 3 次、QWeather 1 次、LLM 1 次，支持 `--only amap|qweather|llm` 和 `--skip-llm`，不自动重试。
+- Windows 环境缺少 IANA `tzdata` 时 `ZoneInfo("Asia/Shanghai")` 会在请求前失败，已改为标准库固定 UTC+8；该用途只计算中国自然日，不需要新增依赖。
+- M4.7 TDD：命令不存在时新增测试为 RED；实现后 6 条零网络 CLI 测试通过，覆盖固定调用顺序、provider 单独检查、跳过 LLM、隐藏主密码输入和失败输出脱敏。
+- Provider/安全里程碑原计划的一次集中只读审查在有限等待窗口内未返回结果，已终止以避免继续消耗时间；未伪造审查结论。主控随后完成全量 Mock 验证与秘密扫描。
+- 最终本地验证：`226 passed`、Ruff `All checks passed!`、`git diff --check` 退出 0、源码扫描 `SOURCE_SECRET_SCAN_CLEAN`。
+- 尚未申请或录入真实 provider 凭据，未执行人工 smoke，未产生高德/QWeather/LLM 调用或费用；真实连通性与苏州坐标/天气合理性仍待用户明确批准后验证。

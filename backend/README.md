@@ -89,3 +89,38 @@ git diff --check
 
 以上自动测试全部使用临时数据库、临时凭据库、假 key 和 Mock providers，不执行外部
 网络 I/O，也不证明真实高德、QWeather 或 LLM 服务已连通。
+
+## 真实 Provider 人工 Smoke
+
+自动测试和 CI 始终使用 Mock providers。只有下面这条人工命令可以访问真实服务；运行前必须先明确确认，因为完整检查最多消耗 5 次调用：高德 3 次、QWeather 1 次、LLM 1 次。命令不会自动重试，也不会输出 key、主密码、请求 URL、请求头、原始响应、私人地址或 LLM prompt。
+
+先配置非敏感运行参数。`ROAMBOT_QWEATHER_API_HOST` 必须填写和风天气控制台分配的账户专属 API Host；示例值不可直接使用：
+
+```powershell
+$env:ROAMBOT_PROVIDER_MODE = "live"
+$env:ROAMBOT_DEMO_MODE = "false"
+$env:ROAMBOT_QWEATHER_API_HOST = "https://YOUR-HOST.qweatherapi.com"
+$env:ROAMBOT_LLM_BASE_URL = "https://YOUR-SCHOOL-API-HOST"
+$env:ROAMBOT_LLM_MODEL = "YOUR-MODEL-NAME"
+```
+
+API key 和主密码不得写入环境变量、`.env`、命令参数或聊天。使用已有隐藏输入命令录入：
+
+```powershell
+.\.venv\Scripts\roambot.exe credentials status
+.\.venv\Scripts\roambot.exe credentials set amap
+.\.venv\Scripts\roambot.exe credentials set qweather
+.\.venv\Scripts\roambot.exe credentials set llm
+```
+
+可先逐个验证服务，或跳过可能计费的 LLM：
+
+```powershell
+.\.venv\Scripts\roambot.exe providers smoke --only amap
+.\.venv\Scripts\roambot.exe providers smoke --only qweather
+.\.venv\Scripts\roambot.exe providers smoke --only llm
+.\.venv\Scripts\roambot.exe providers smoke --skip-llm
+.\.venv\Scripts\roambot.exe providers smoke
+```
+
+命令只使用“苏州站”和“金鸡湖景区”等公共演示地点，输出仅包含 provider 成功/失败状态、固定调用次数、缓存状态、候选数和生成时间。未获得明确的真实调用许可前，不要运行该命令。

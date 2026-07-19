@@ -53,6 +53,7 @@
 - [x] Task 9：LLM 解释接口与 mock
 - [x] M2：SQLite/Alembic、账户、会话、收藏、历史、分享、缓存与加密凭据 CLI
 - [x] Task 10：WebUI
+- [x] M4.1-M4.7：真实 Provider 适配、缓存降级与零网络人工 Smoke 命令
 - [ ] Task 11：Docker 分发
 - [ ] Task 12：CI 与最终文档
 
