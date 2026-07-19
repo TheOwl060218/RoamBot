@@ -548,11 +548,12 @@ SQLite/Alembic 持久化契约固定如下：
 暂定技术栈：
 - 后端：Python + FastAPI。
 - 前端：React + TypeScript + Vite，适配桌面与手机浏览器。
+- 界面设计：使用面向工具型应用的自定义响应式 React/CSS 组件与 Lucide 图标；本项目未引入 Open Design skill，原因是实现环境未提供该 skill，且第一版优先保证任务流完整、可测试与可演示，视觉细节由用户在可运行版本上逐轮验收。
 - 数据库：SQLite；测试使用隔离的临时数据库，Docker 使用持久化数据卷。
 - 凭据存储：使用成熟密码学库实现带主密码的认证加密文件，不自行实现密码学算法。
 - 测试：后端 pytest；前端 Vitest；关键用户流程 Playwright。
 - 分发：多阶段 Docker 构建，最终以单镜像、单域名部署，并发布到公开镜像仓库。
-- CI：GitLab CI，包含 `unit-test` job。
+- CI：GitLab CI 保留作业指定的 `unit-test` job；GitHub Actions 在每次 push/PR 运行同一套断网测试并构建生产镜像。
 - LLM：OpenAI-compatible provider 抽象，默认演示模型使用学校额度平台的 DeepSeek V4 Flash；测试使用 mock/template。
 
 理由：

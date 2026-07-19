@@ -311,3 +311,12 @@
 - 用户手工测试发现最大距离清空时立即回填 `0`，且继续输入会显示 `0200`；表单改为保留字符串编辑态、提交时转数值，并增加回归测试。修复版单镜像已重新部署到本地演示容器，原命名卷保留。
 - 最终本地 CI 验收使用 `docker run --network none`：后端 `238 passed`、Ruff 通过、前端 Vitest `20 passed`、ESLint/TypeScript/Vite 构建通过、Playwright 桌面与移动端 `8 passed`。全程无法访问真实高德、QWeather 或 LLM。
 - 当前仓库远程仅为 GitHub，未配置 GitLab 项目，因此没有执行或声称远程 GitLab CI Lint/流水线成功；只完成了本地容器化等价验证，该限制留待最终证据记录。
+
+## 2026-07-19 M4.10 远程 CI 与交付文档草稿
+
+- 新增最小 GitHub Actions 工作流，复用 `ci/Dockerfile`：`unit-test` 在 `--network none` 下运行完整门禁，`docker-build` 仅在其通过后构建生产镜像、执行 Mock 健康检查并按提交 SHA 推送 GHCR。
+- 提交 `219437a` 推送至 `origin/feat/roambot-v1`；远程运行 `29687387752` 的 `unit-test` 与 `docker-build` 均为 `success`。这是真实 GitHub runner 证据，不替代尚未运行的 GitLab 远程流水线。
+- README 与后端说明补齐 Mock/Docker 快速启动、开发环境、迁移备份、加密凭据、Live 参数、调用预算、缓存降级、测试 CI、安全边界和已知限制。
+- `REFLECTION.md` 只提供事实提纲。课程反思正文必须由学生本人完成，不能把 AI 生成正文作为个人反思提交。
+- 仍未配置真实 provider 凭据，也未执行真实 smoke；公网 WebUI 需要外部部署平台账号与授权，均保持为明确待办而非伪造完成状态。
+- 最终集中审查未发现 Critical；其有效 Important 指出 Windows 测试入口未像 Linux 入口一样拒绝 Live 配置。先用脚本文本断言复现缺少保护，再为 `scripts/test.ps1` 增加 Mock/demo 默认值与显式拒绝，避免继承本机 Live 环境后误运行自动测试。

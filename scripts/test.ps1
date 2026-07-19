@@ -17,6 +17,16 @@ function Invoke-NativeStep {
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+if (-not $env:ROAMBOT_PROVIDER_MODE) {
+    $env:ROAMBOT_PROVIDER_MODE = 'mock'
+}
+if (-not $env:ROAMBOT_DEMO_MODE) {
+    $env:ROAMBOT_DEMO_MODE = 'true'
+}
+if ($env:ROAMBOT_PROVIDER_MODE -ne 'mock' -or $env:ROAMBOT_DEMO_MODE -ne 'true') {
+    throw 'Automated tests require mock provider mode with demo data.'
+}
+
 $python = Join-Path $root '.venv\Scripts\python.exe'
 if (-not (Test-Path $python)) {
     throw 'Python virtual environment not found. Create .venv and install backend dev dependencies first.'
