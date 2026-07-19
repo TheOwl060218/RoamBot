@@ -37,7 +37,7 @@ export function TravelForm({
   const [city, setCity] = useState('苏州')
   const [mainOrigin, setMainOrigin] = useState('')
   const [companions, setCompanions] = useState<string[]>([])
-  const [maxDistance, setMaxDistance] = useState(50)
+  const [maxDistance, setMaxDistance] = useState('50')
   const [startDate, setStartDate] = useState(chinaDate(1))
   const [endDate, setEndDate] = useState(chinaDate(1))
   const [sceneryTypes, setSceneryTypes] = useState<SceneryType[]>([])
@@ -49,6 +49,7 @@ export function TravelForm({
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
   const errors = { ...localErrors, ...fieldErrors }
   const originCount = (companions.length + 1) as 1 | 2 | 3
+  const maxDistanceKm = Number(maxDistance)
 
   function changeCompanions(next: string[]) {
     const switchesGroupMode = (companions.length === 0) !== (next.length === 0)
@@ -81,7 +82,7 @@ export function TravelForm({
     companions.forEach((origin, index) => {
       if (!origin.trim()) next[`companion_origins[${index}]`] = '请输入同行人出发地'
     })
-    if (maxDistance <= 0 || maxDistance > 500) {
+    if (maxDistance === '' || maxDistanceKm <= 0 || maxDistanceKm > 500) {
       next.max_distance_km = '最大距离必须在 0 到 500 km 之间'
     }
     if (startDate < chinaDate(0) || endDate > chinaDate(6)) {
@@ -105,7 +106,7 @@ export function TravelForm({
       city: city.trim() || '苏州',
       main_origin: mainOrigin.trim(),
       companion_origins: companions.map((origin) => origin.trim()),
-      max_distance_km: maxDistance,
+      max_distance_km: maxDistanceKm,
       start_date: startDate,
       end_date: endDate,
       weights,
@@ -158,7 +159,7 @@ export function TravelForm({
             min="1"
             max="500"
             value={maxDistance}
-            onChange={(event) => setMaxDistance(Number(event.target.value))}
+            onChange={(event) => setMaxDistance(event.target.value.replace(/^0+(?=\d)/, ''))}
           />
           {errors.max_distance_km && <small className="field-error">{errors.max_distance_km}</small>}
         </label>

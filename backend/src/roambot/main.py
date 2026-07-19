@@ -36,17 +36,16 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         runtime = getattr(app.state, "provider_runtime", None)
-        owned_engine = None
         if runtime is None:
             cache_repository = None
             if app.state.settings.provider_mode is ProviderMode.LIVE:
                 session_factory = getattr(app.state, "session_factory", None)
                 if session_factory is None:
-                    owned_engine, session_factory = create_engine_and_session_factory(
+                    auth_engine, session_factory = create_engine_and_session_factory(
                         app.state.settings.database_path
                     )
-                    initialize_schema(owned_engine)
-                    app.state.auth_engine = owned_engine
+                    initialize_schema(auth_engine)
+                    app.state.auth_engine = auth_engine
                     app.state.session_factory = session_factory
                 cache_repository = SessionCacheStore(session_factory)
             try:
@@ -64,8 +63,9 @@ def create_app(
             yield
         finally:
             runtime.close()
-            if owned_engine is not None:
-                owned_engine.dispose()
+            auth_engine = getattr(app.state, "auth_engine", None)
+            if auth_engine is not None:
+                auth_engine.dispose()
 
     app = FastAPI(title="RoamBot API", version="0.1.0", lifespan=lifespan)
     app.state.settings = configured_settings

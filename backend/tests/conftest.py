@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ipaddress
+import socket
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +21,37 @@ from roambot.services.auth import AuthService
 
 type AuthFixture = Callable[..., tuple[AuthService, SessionFactory]]
 type AuthApiFixture = Callable[..., tuple[TestClient, AuthService, SessionFactory]]
+
+
+def _loopback_socket_address(address: object) -> bool:
+    if not isinstance(address, tuple) or not address:
+        return True
+    host = str(address[0]).split("%", maxsplit=1)[0]
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+@pytest.fixture(autouse=True)
+def deny_external_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_create_connection = socket.create_connection
+    original_socket_connect = socket.socket.connect
+
+    def guarded_create_connection(address: object, *args: object, **kwargs: object):
+        if not _loopback_socket_address(address):
+            raise AssertionError(f"outbound network is disabled in tests: {address!r}")
+        return original_create_connection(address, *args, **kwargs)
+
+    def guarded_socket_connect(instance: socket.socket, address: object):
+        if not _loopback_socket_address(address):
+            raise AssertionError(f"outbound network is disabled in tests: {address!r}")
+        return original_socket_connect(instance, address)
+
+    monkeypatch.setattr(socket, "create_connection", guarded_create_connection)
+    monkeypatch.setattr(socket.socket, "connect", guarded_socket_connect)
 
 
 @pytest.fixture

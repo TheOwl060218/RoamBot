@@ -301,3 +301,13 @@
 - TDD 证据：静态服务、entrypoint、跨 session 缓存共 14 条定向测试通过；完整门槛为后端 `236 passed`、Ruff 通过、前端 Vitest `18 passed`、ESLint/TypeScript/生产构建通过、Playwright `8 passed`。
 - 首次 Docker 构建因工具 10 分钟上限超时且未生成镜像；启动 Docker Desktop 后用 plain progress 重试成功。最终源码新鲜构建成功，临时 Mock 容器健康 `ready`，`/` 和 `/history` 为 200，Mock 推荐为 200 且 `source=demo`。
 - 镜像历史与容器日志只含固定构建/启动命令和 HTTP 状态，未发现 key、主密码或请求 payload。容器 `roambot-check` 保持运行供用户测试，命名卷 `roambot-check-data` 保留。
+
+## 2026-07-19 M4.9 零真实调用 GitLab CI
+
+- 新增 GitLab `unit-test` 与 `docker-build` 两阶段流水线：测试镜像固定使用 Python 3.13、Node 24 和 Playwright Chromium；生产镜像只在单元测试成功后构建、Mock 健康检查并推送提交 SHA，默认分支额外推送 `latest`。
+- 后端测试会在 DNS 前拒绝所有非回环 socket 连接，并检查 HTTP provider 测试使用 `MockTransport`；前端测试扫描生产源码中的 provider host、Bearer、主密码与 API key 模式。统一测试脚本拒绝非 Mock/demo 配置。
+- CI 镜像首次构建遇到 Debian `502 Bad Gateway`，随后又遇到 PyPI SSL 断连；为下载步骤增加有限重试后构建成功。该处理只提高依赖下载稳定性，不会重试真实 provider 请求。
+- Linux 严格警告模式发现并修复认证 SQLite 引擎未在应用关闭时释放的问题；成功读取主密码的跨平台测试显式使用 POSIX `0600` 临时文件，生产权限检查未放宽。
+- 用户手工测试发现最大距离清空时立即回填 `0`，且继续输入会显示 `0200`；表单改为保留字符串编辑态、提交时转数值，并增加回归测试。修复版单镜像已重新部署到本地演示容器，原命名卷保留。
+- 最终本地 CI 验收使用 `docker run --network none`：后端 `238 passed`、Ruff 通过、前端 Vitest `20 passed`、ESLint/TypeScript/Vite 构建通过、Playwright 桌面与移动端 `8 passed`。全程无法访问真实高德、QWeather 或 LLM。
+- 当前仓库远程仅为 GitHub，未配置 GitLab 项目，因此没有执行或声称远程 GitLab CI Lint/流水线成功；只完成了本地容器化等价验证，该限制留待最终证据记录。

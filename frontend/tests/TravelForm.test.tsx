@@ -43,6 +43,21 @@ describe('TravelForm', () => {
     )
   })
 
+  it('allows clearing the maximum distance and replaces a leading zero', async () => {
+    const user = userEvent.setup()
+    render(<TravelForm onSubmit={vi.fn()} />)
+    const input = screen.getByRole('spinbutton')
+
+    await user.clear(input)
+    expect(input).toHaveValue(null)
+
+    await user.type(input, '0')
+    expect(input).toHaveDisplayValue('0')
+
+    await user.type(input, '200')
+    expect(input).toHaveDisplayValue('200')
+  })
+
   it('persists only weight preferences and restores them after remounting', () => {
     const first = render(<TravelForm onSubmit={vi.fn()} />)
     fireEvent.change(screen.getByRole('slider', { name: '天气适配权重' }), {

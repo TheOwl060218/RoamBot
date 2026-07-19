@@ -36,6 +36,7 @@ def test_resolve_master_password_reads_file_and_removes_only_trailing_newlines(
 
     secret_file = tmp_path / "master-password"
     secret_file.write_bytes(b"  keep surrounding spaces  \r\n")
+    secret_file.chmod(0o600)
 
     password = resolve_master_password(
         live_settings(tmp_path, secret_file),
@@ -134,6 +135,7 @@ def test_live_main_unlocks_once_and_passes_credentials_only_in_memory(
     (dist / "index.html").write_text("spa", encoding="utf-8")
     secret_file = tmp_path / "master-password"
     secret_file.write_text("vault-password\n", encoding="utf-8")
+    secret_file.chmod(0o600)
     settings = live_settings(tmp_path, secret_file)
     vault = CredentialVault(tmp_path / "credentials.vault")
     vault.create(

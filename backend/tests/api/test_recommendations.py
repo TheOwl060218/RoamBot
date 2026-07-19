@@ -36,8 +36,13 @@ def evaluation_payload() -> dict[str, object]:
     return request
 
 
+def post_to_app(path: str, request: dict[str, object]):
+    with TestClient(create_app()) as client:
+        return client.post(path, json=request)
+
+
 def test_guest_recommendation_returns_ranked_items() -> None:
-    response = TestClient(create_app()).post("/api/v1/recommendations", json=payload())
+    response = post_to_app("/api/v1/recommendations", payload())
 
     assert response.status_code == 200
     body = response.json()
@@ -46,9 +51,9 @@ def test_guest_recommendation_returns_ranked_items() -> None:
 
 
 def test_guest_place_evaluation_returns_requested_item() -> None:
-    response = TestClient(create_app()).post(
+    response = post_to_app(
         "/api/v1/place-evaluations",
-        json=evaluation_payload(),
+        evaluation_payload(),
     )
 
     assert response.status_code == 200
@@ -61,7 +66,7 @@ def test_invalid_request_returns_stable_error() -> None:
     invalid = payload()
     invalid["max_distance_km"] = 0
 
-    response = TestClient(create_app()).post("/api/v1/recommendations", json=invalid)
+    response = post_to_app("/api/v1/recommendations", invalid)
 
     assert response.status_code == 422
     assert response.json() == {
@@ -83,7 +88,7 @@ def test_unknown_origin_returns_origin_not_found() -> None:
     request = payload()
     request["main_origin"] = "unknown origin"
 
-    response = TestClient(create_app()).post("/api/v1/recommendations", json=request)
+    response = post_to_app("/api/v1/recommendations", request)
 
     assert response.status_code == 422
     assert response.json() == {
@@ -99,7 +104,7 @@ def test_unknown_target_place_returns_place_not_found() -> None:
     request = evaluation_payload()
     request["target_place"] = "unknown place"
 
-    response = TestClient(create_app()).post("/api/v1/place-evaluations", json=request)
+    response = post_to_app("/api/v1/place-evaluations", request)
 
     assert response.status_code == 404
     assert response.json() == {
@@ -122,7 +127,7 @@ def test_recommendation_place_search_not_found_returns_provider_unavailable(
     failing_bundle = replace(bundle, places=NotFoundPlaceSearchProvider())
     monkeypatch.setattr(MockProviderBundle, "default", staticmethod(lambda: failing_bundle))
 
-    response = TestClient(create_app()).post("/api/v1/recommendations", json=payload())
+    response = post_to_app("/api/v1/recommendations", payload())
 
     assert response.status_code == 503
     assert response.json() == {
@@ -146,9 +151,9 @@ def test_place_evaluation_distance_failure_returns_straight_line_estimate(
     failing_bundle = replace(bundle, distance=NotFoundDistanceProvider())
     monkeypatch.setattr(MockProviderBundle, "default", staticmethod(lambda: failing_bundle))
 
-    response = TestClient(create_app()).post(
+    response = post_to_app(
         "/api/v1/place-evaluations",
-        json=evaluation_payload(),
+        evaluation_payload(),
     )
 
     assert response.status_code == 200
@@ -166,7 +171,7 @@ def test_recommendation_unknown_companion_reports_actual_field_path() -> None:
     request = payload()
     request["companion_origins"] = ["unknown companion"]
 
-    response = TestClient(create_app()).post("/api/v1/recommendations", json=request)
+    response = post_to_app("/api/v1/recommendations", request)
 
     assert response.status_code == 422
     assert response.json()["error"]["fields"] == [
@@ -181,7 +186,7 @@ def test_place_evaluation_unknown_companion_reports_actual_field_path() -> None:
     request = evaluation_payload()
     request["companion_origins"] = ["unknown companion"]
 
-    response = TestClient(create_app()).post("/api/v1/place-evaluations", json=request)
+    response = post_to_app("/api/v1/place-evaluations", request)
 
     assert response.status_code == 422
     assert response.json()["error"]["fields"] == [
@@ -207,9 +212,9 @@ def test_place_evaluation_geocodes_each_origin_once(monkeypatch) -> None:
     counting_bundle = replace(bundle, geocoder=geocoder)
     monkeypatch.setattr(MockProviderBundle, "default", staticmethod(lambda: counting_bundle))
 
-    response = TestClient(create_app()).post(
+    response = post_to_app(
         "/api/v1/place-evaluations",
-        json=evaluation_payload(),
+        evaluation_payload(),
     )
 
     assert response.status_code == 200
@@ -227,7 +232,7 @@ def test_weather_provider_failure_returns_stable_unavailable(
     failing_bundle = replace(bundle, weather=FailingWeatherProvider())
     monkeypatch.setattr(MockProviderBundle, "default", staticmethod(lambda: failing_bundle))
 
-    response = TestClient(create_app()).post("/api/v1/recommendations", json=payload())
+    response = post_to_app("/api/v1/recommendations", payload())
 
     assert response.status_code == 503
     assert response.json() == {
