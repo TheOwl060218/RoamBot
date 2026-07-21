@@ -11,7 +11,7 @@ describe('search accessibility baseline', () => {
     expect(screen.getByLabelText('城市')).toBeInTheDocument()
     expect(screen.getByLabelText('最大距离（km）')).toBeInTheDocument()
     expect(screen.getByLabelText('主出发地')).toBeInTheDocument()
-    expect(screen.getAllByRole('slider')).toHaveLength(3)
+    expect(screen.getAllByRole('slider')).toHaveLength(2)
 
     for (const control of container.querySelectorAll('button, input, select')) {
       expect(control).not.toHaveAttribute('tabindex', '-1')

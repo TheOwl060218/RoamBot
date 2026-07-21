@@ -79,14 +79,18 @@ describe('TravelForm', () => {
 
   it('persists only weight preferences and restores them after remounting', () => {
     const first = render(<TravelForm onSubmit={vi.fn()} />)
-    fireEvent.change(screen.getByRole('slider', { name: '天气适配权重' }), {
-      target: { value: '50' },
-    })
+    const firstBoundary = screen.getByRole('slider', { name: '天气与距离分界' })
+    fireEvent.keyDown(firstBoundary, { key: 'ArrowRight' })
+    fireEvent.keyDown(firstBoundary, { key: 'ArrowRight' })
     first.unmount()
 
     render(<TravelForm onSubmit={vi.fn()} />)
 
-    expect(screen.getByRole('slider', { name: '天气适配权重' })).toHaveValue('50')
+    expect(screen.getByRole('slider', { name: '天气与距离分界' })).toHaveAttribute(
+      'aria-valuenow',
+      '50',
+    )
+    expect(screen.getByText('天气适配 50%')).toBeInTheDocument()
     expect(Object.keys(localStorage)).toEqual(['roambot.ui.display-weights.v2'])
     expect(localStorage.getItem('roambot.ui.display-weights.v2')).not.toMatch(
       /fairness|苏州|origin|target/,
@@ -100,6 +104,9 @@ describe('TravelForm', () => {
 
     render(<TravelForm onSubmit={vi.fn()} />)
 
-    expect(screen.getByRole('slider', { name: '天气适配权重' })).toHaveValue('40')
+    expect(screen.getByRole('slider', { name: '天气与距离分界' })).toHaveAttribute(
+      'aria-valuenow',
+      '40',
+    )
   })
 })
