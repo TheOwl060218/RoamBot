@@ -1,4 +1,5 @@
 import type { DailySuitability, DailyWeather } from '../../api/types'
+import { weatherMatchLabel } from './matchLabels'
 
 type DailyWeatherListProps = {
   weather: DailyWeather[]
@@ -17,7 +18,9 @@ export function DailyWeatherList({ weather, suitability }: DailyWeatherListProps
               <strong>{day.condition}</strong>
             </div>
             <div className="weather-temperature">{day.temp_min_c}–{day.temp_max_c}°C</div>
-            <div className="weather-score">适宜度 {score?.score.toFixed(1) ?? '—'}</div>
+            <div className="weather-score">
+              适宜程度 {score ? weatherMatchLabel(score.score) : '暂无判断'}
+            </div>
             {score && <p>{score.reasons.join('；')}</p>}
           </article>
         )

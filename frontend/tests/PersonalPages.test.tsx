@@ -100,6 +100,9 @@ describe('personal and shared pages', () => {
       </MemoryRouter>,
     )
     expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
+    expect(screen.getByText('出游匹配指数')).toBeInTheDocument()
+    expect(screen.getByText('指数用于比较本次候选地点，不代表官方评价。')).toBeInTheDocument()
+    expect(screen.queryByText('88.0')).not.toBeInTheDocument()
     expect(screen.queryByText(/主出发地|同行人出发地/)).not.toBeInTheDocument()
   })
 

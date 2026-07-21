@@ -2,6 +2,13 @@ import { Clock3, Heart, MapPin } from 'lucide-react'
 
 import type { RecommendationItem } from '../../api/types'
 import { DailyWeatherList } from './DailyWeatherList'
+import {
+  distanceMatchLabel,
+  fairnessMatchLabel,
+  popularityMatchLabel,
+  tripMatchIndex,
+  weatherMatchLabel,
+} from './matchLabels'
 
 const sceneryLabels: Record<string, string> = {
   lake: '湖景',
@@ -19,6 +26,8 @@ type ResultCardProps = {
 
 export function ResultCard({ item, onFavorite }: ResultCardProps) {
   const { destination, score } = item
+  const index = tripMatchIndex(score.total)
+  const isGroup = item.distances.length > 1
   return (
     <article className="result-card">
       <header className="result-header">
@@ -29,18 +38,20 @@ export function ResultCard({ item, onFavorite }: ResultCardProps) {
           <h2>{destination.name}</h2>
           <p className="destination-address"><MapPin aria-hidden="true" size={16} />{destination.address}</p>
         </div>
-        <div className="score-total" aria-label={`综合推荐指数 ${score.total.toFixed(1)}`}>
-          <strong>{score.total.toFixed(1)}</strong>
-          <span>推荐指数</span>
+        <div className="match-index" aria-label={`出游匹配指数 ${index}`}>
+          <strong>{index}</strong>
+          <span>出游匹配指数</span>
         </div>
       </header>
 
-      <div className="score-grid" aria-label="分项评分">
-        <div><span>天气</span><strong>{score.weather.toFixed(1)}</strong></div>
-        <div><span>距离</span><strong>{score.distance.toFixed(1)}</strong></div>
-        <div><span>公平性</span><strong>{score.fairness.toFixed(1)}</strong></div>
-        <div><span>RoamBot 热度估算</span><strong>{score.popularity.toFixed(1)}</strong></div>
+      <div className={`match-grid${isGroup ? ' match-grid-group' : ''}`} aria-label="匹配因素">
+        <div><span>天气适配</span><strong>{weatherMatchLabel(score.weather)}</strong></div>
+        <div><span>路程体验</span><strong>{distanceMatchLabel(score.distance)}</strong></div>
+        {isGroup && <div><span>同行均衡</span><strong>{fairnessMatchLabel(score.fairness)}</strong></div>}
+        <div><span>景区人气</span><strong>{popularityMatchLabel(score.popularity)}</strong></div>
       </div>
+
+      <p className="index-note">指数用于比较本次候选地点，不代表官方评价。</p>
 
       <div className="distance-list">
         {item.distances.map((distance) => (

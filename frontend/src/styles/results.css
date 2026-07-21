@@ -14,14 +14,16 @@
 .tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
 .tag-row span { padding: 3px 7px; border-radius: 3px; color: var(--primary); background: #e8f2ed; font-size: 0.72rem; font-weight: 700; }
 .destination-address { display: flex; align-items: center; gap: 5px; margin: 0; color: var(--muted); font-size: 0.84rem; }
-.score-total { display: grid; min-width: 78px; text-align: right; }
-.score-total strong { color: var(--accent); font-size: 2rem; line-height: 1; }
-.score-total span { margin-top: 5px; color: var(--muted); font-size: 0.72rem; }
-.score-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border); }
-.score-grid div { display: grid; gap: 4px; padding: 9px; border-right: 1px solid var(--border); }
-.score-grid div:last-child { border-right: 0; }
-.score-grid span { color: var(--muted); font-size: 0.7rem; }
-.score-grid strong { font-size: 0.98rem; }
+.match-index { display: grid; min-width: 96px; text-align: right; }
+.match-index strong { color: var(--accent); font-size: 2rem; line-height: 1; }
+.match-index span { margin-top: 5px; color: var(--muted); font-size: 0.72rem; }
+.match-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); }
+.match-grid-group { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.match-grid div { display: grid; gap: 4px; padding: 9px; border-right: 1px solid var(--border); }
+.match-grid div:last-child { border-right: 0; }
+.match-grid span { color: var(--muted); font-size: 0.7rem; }
+.match-grid strong { font-size: 0.9rem; }
+.index-note { margin: -7px 0 0; color: var(--muted); font-size: 0.72rem; }
 .distance-list { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .distance-list span { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 0.82rem; }
 .distance-list em { color: var(--warning); font-style: normal; font-weight: 700; }
@@ -42,8 +44,8 @@
 
 @media (max-width: 600px) {
   .results-heading, .result-header { align-items: start; flex-direction: column; }
-  .score-total { text-align: left; }
-  .score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .score-grid div:nth-child(2) { border-right: 0; }
-  .score-grid div:nth-child(-n + 2) { border-bottom: 1px solid var(--border); }
+  .match-index { text-align: left; }
+  .match-grid, .match-grid-group { grid-template-columns: 1fr; }
+  .match-grid div { border-right: 0; border-bottom: 1px solid var(--border); }
+  .match-grid div:last-child { border-bottom: 0; }
 }

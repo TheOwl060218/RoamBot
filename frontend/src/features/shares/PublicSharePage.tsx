@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom'
 import { apiClient } from '../../api/client'
 import type { PublicSnapshot } from '../../api/types'
 import { DailyWeatherList } from '../search/DailyWeatherList'
+import { tripMatchIndex } from '../search/matchLabels'
 
 export function PublicSharePage() {
   const { token = '' } = useParams()
@@ -25,12 +26,18 @@ export function PublicSharePage() {
         <div><p className="eyebrow">RoamBot 匿名分享</p><h1>{snapshot.city}出行结果</h1></div>
         <span>{snapshot.start_date} 至 {snapshot.end_date}</span>
       </header>
-      <p className="privacy-note">该页面只包含脱敏后的地点、天气和评分，不包含账户身份与出发地址。</p>
+      <p className="privacy-note">该页面只包含脱敏后的地点、天气和匹配指数，不包含账户身份与出发地址。</p>
       <div className="personal-list">
         {snapshot.items.map((item, index) => (
           <article className="shared-result" key={`${item.destination.name}-${index}`}>
-            <header><div><p className="eyebrow">{item.destination.city}</p><h2>{item.destination.name}</h2><p>{item.destination.address}</p></div><strong>{item.score.total.toFixed(1)}</strong></header>
+            <header>
+              <div><p className="eyebrow">{item.destination.city}</p><h2>{item.destination.name}</h2><p>{item.destination.address}</p></div>
+              <div className="match-index" aria-label={`出游匹配指数 ${tripMatchIndex(item.score.total)}`}>
+                <strong>{tripMatchIndex(item.score.total)}</strong><span>出游匹配指数</span>
+              </div>
+            </header>
             <DailyWeatherList weather={item.weather} suitability={item.daily_suitability} />
+            <p className="index-note">指数用于比较本次候选地点，不代表官方评价。</p>
             <p>{item.explanation}</p>
           </article>
         ))}

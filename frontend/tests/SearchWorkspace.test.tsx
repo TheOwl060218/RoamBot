@@ -72,7 +72,7 @@ describe('SearchWorkspace', () => {
     await user.click(screen.getByRole('button', { name: '开始推荐' }))
 
     expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
-    expect(screen.getByText('86.6')).toBeInTheDocument()
+    expect(screen.getByLabelText('出游匹配指数 87')).toBeInTheDocument()
     expect(screen.getByText('演示数据')).toBeInTheDocument()
     expect(screen.getByText(/12.34 km/)).toBeInTheDocument()
     expect(screen.getByText(/天气晴朗/)).toBeInTheDocument()

@@ -11,6 +11,7 @@ test('guest receives a demo recommendation without writing history', async ({ pa
   await page.goto('/')
   await submitRecommendation(page)
 
-  await expect(page.getByText('推荐指数', { exact: true })).toBeVisible()
+  await expect(page.getByText('出游匹配指数', { exact: true })).toBeVisible()
+  await expect(page.getByText('指数用于比较本次候选地点，不代表官方评价。').first()).toBeVisible()
   expect(historyRequests).toBe(0)
 })

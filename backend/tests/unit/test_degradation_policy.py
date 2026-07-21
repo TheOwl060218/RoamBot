@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -16,7 +16,7 @@ from roambot.providers.protocols import ProviderError
 from roambot.providers.trace import ProviderEvent, ProviderTrace
 from roambot.services.recommendations import RecommendationService
 
-START = date(2026, 7, 20)
+START = datetime.now(timezone(timedelta(hours=8))).date()
 GENERATED = datetime(2026, 7, 18, 8, 0, tzinfo=UTC)
 
 
