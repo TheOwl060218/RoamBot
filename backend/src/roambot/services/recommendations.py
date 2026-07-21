@@ -54,10 +54,10 @@ SINGLE_ORIGIN_DEFAULT_WEIGHTS = RankingWeights(
     popularity=30,
 )
 MULTI_ORIGIN_DEFAULT_WEIGHTS = RankingWeights(
-    weather=40,
-    distance=0,
-    fairness=40,
-    popularity=20,
+    weather=32,
+    distance=24,
+    fairness=20,
+    popularity=24,
 )
 EXPLANATION_DEGRADED_NOTICE = "explanation_degraded"
 NO_CANDIDATES_NOTICE = "no_candidates"

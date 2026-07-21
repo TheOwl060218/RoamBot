@@ -2,17 +2,17 @@ import { useState, type FormEvent } from 'react'
 
 import type {
   PlaceEvaluationRequest,
-  RankingWeights,
   RecommendationRequest,
   SceneryType,
   SearchMode,
 } from '../../api/types'
 import {
   chinaDate,
-  groupWeights,
+  defaultDisplayWeights,
   loadWeightPreference,
   saveWeightPreference,
-  singleWeights,
+  toRankingWeights,
+  type DisplayWeights,
 } from './formState'
 import { OriginFields } from './OriginFields'
 import { ScenerySelector } from './ScenerySelector'
@@ -43,8 +43,8 @@ export function TravelForm({
   const [sceneryTypes, setSceneryTypes] = useState<SceneryType[]>([])
   const [matchMode, setMatchMode] = useState<'any' | 'cover_all'>('any')
   const [targetPlace, setTargetPlace] = useState(initialTarget)
-  const [weights, setWeights] = useState<RankingWeights>(
-    () => loadWeightPreference(initialMode, 1) ?? singleWeights,
+  const [weights, setWeights] = useState<DisplayWeights>(
+    () => loadWeightPreference(initialMode, 1) ?? defaultDisplayWeights,
   )
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
   const errors = { ...localErrors, ...fieldErrors }
@@ -56,22 +56,22 @@ export function TravelForm({
     setCompanions(next)
     if (switchesGroupMode) {
       const nextCount = (next.length + 1) as 1 | 2 | 3
-      setWeights(loadWeightPreference(mode, nextCount) ?? (next.length === 0 ? singleWeights : groupWeights))
+      setWeights(loadWeightPreference(mode, nextCount) ?? defaultDisplayWeights)
     }
   }
 
   function changeMode(nextMode: SearchMode) {
     setMode(nextMode)
-    setWeights(loadWeightPreference(nextMode, originCount) ?? (originCount === 1 ? singleWeights : groupWeights))
+    setWeights(loadWeightPreference(nextMode, originCount) ?? defaultDisplayWeights)
   }
 
-  function changeWeights(next: RankingWeights) {
+  function changeWeights(next: DisplayWeights) {
     setWeights(next)
     saveWeightPreference(mode, originCount, next)
   }
 
   function resetWeights() {
-    const next = originCount === 1 ? singleWeights : groupWeights
+    const next = defaultDisplayWeights
     setWeights(next)
     saveWeightPreference(mode, originCount, next)
   }
@@ -109,7 +109,7 @@ export function TravelForm({
       max_distance_km: maxDistanceKm,
       start_date: startDate,
       end_date: endDate,
-      weights,
+      weights: toRankingWeights(weights, originCount),
     }
     if (mode === 'recommendation') {
       await onSubmit({ ...common, scenery_types: sceneryTypes, scenery_match_mode: matchMode })
@@ -233,7 +233,6 @@ export function TravelForm({
       )}
 
       <WeightSegments
-        originCount={originCount}
         value={weights}
         onChange={changeWeights}
         onReset={resetWeights}

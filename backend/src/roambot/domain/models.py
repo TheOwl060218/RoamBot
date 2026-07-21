@@ -95,12 +95,14 @@ class TravelRequestBase(DomainModel):
             raise ValueError("date range must start today or later")
         if (self.end_date - today).days > 6:
             raise ValueError("date range must stay within the next 7 days")
-        if (
-            self.weights is not None
-            and self.origin_count == 1
-            and self.weights.fairness != 0
-        ):
-            raise ValueError("single-origin fairness weight must be zero")
+        if self.weights is not None:
+            total = sum(self.weights.model_dump().values())
+            if abs(total - 100) > 1e-6:
+                raise ValueError("explicit ranking weights must total 100")
+            if self.origin_count == 1 and self.weights.fairness != 0:
+                raise ValueError("single-origin fairness weight must be zero")
+            if self.origin_count > 1 and self.weights.fairness != 20:
+                raise ValueError("multi-origin fairness weight must be 20")
         return self
 
     @computed_field

@@ -43,6 +43,25 @@ describe('TravelForm', () => {
     )
   })
 
+  it('reserves twenty percent for fairness when a companion is added', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<TravelForm onSubmit={onSubmit} />)
+
+    await user.type(screen.getByLabelText('主出发地'), '苏州站')
+    await user.click(screen.getByRole('button', { name: '添加同行人' }))
+    await user.type(screen.getByLabelText('同行人 1 出发地'), '苏州园区站')
+    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
+    await user.click(screen.getByRole('button', { name: '开始推荐' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companion_origins: ['苏州园区站'],
+        weights: { weather: 32, distance: 24, fairness: 20, popularity: 24 },
+      }),
+    )
+  })
+
   it('allows clearing the maximum distance and replaces a leading zero', async () => {
     const user = userEvent.setup()
     render(<TravelForm onSubmit={vi.fn()} />)
@@ -68,7 +87,19 @@ describe('TravelForm', () => {
     render(<TravelForm onSubmit={vi.fn()} />)
 
     expect(screen.getByRole('slider', { name: '天气适配权重' })).toHaveValue('50')
-    expect(Object.keys(localStorage)).toEqual(['roambot.ui.weights.v1'])
-    expect(localStorage.getItem('roambot.ui.weights.v1')).not.toMatch(/苏州|origin|target/)
+    expect(Object.keys(localStorage)).toEqual(['roambot.ui.display-weights.v2'])
+    expect(localStorage.getItem('roambot.ui.display-weights.v2')).not.toMatch(
+      /fairness|苏州|origin|target/,
+    )
+  })
+
+  it('ignores preferences stored with the old four-weight format', () => {
+    localStorage.setItem('roambot.ui.weights.v1', JSON.stringify({
+      recommendation: { weather: 70, distance: 10, fairness: 10, popularity: 10 },
+    }))
+
+    render(<TravelForm onSubmit={vi.fn()} />)
+
+    expect(screen.getByRole('slider', { name: '天气适配权重' })).toHaveValue('40')
   })
 })

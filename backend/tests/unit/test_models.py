@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from roambot.domain.models import (
     PlaceEvaluationRequest,
+    RankingWeights,
     RecommendationRequest,
     SceneryMatchMode,
     SceneryType,
@@ -30,6 +31,66 @@ def test_recommendation_accepts_three_origins_and_scenery() -> None:
     )
 
     assert request.origin_count == 3
+
+
+def test_group_request_requires_fixed_twenty_percent_fairness() -> None:
+    start, end = valid_dates()
+    values = {
+        "city": "苏州",
+        "main_origin": "苏州站",
+        "companion_origins": ["苏州园区站"],
+        "max_distance_km": 80,
+        "start_date": start,
+        "end_date": end,
+        "scenery_types": [SceneryType.LAKE],
+    }
+
+    request = RecommendationRequest.model_validate(
+        {
+            **values,
+            "weights": RankingWeights(
+                weather=32,
+                distance=24,
+                fairness=20,
+                popularity=24,
+            ),
+        }
+    )
+    assert request.weights is not None
+    assert request.weights.fairness == 20
+
+    with pytest.raises(ValidationError):
+        RecommendationRequest.model_validate(
+            {
+                **values,
+                "weights": RankingWeights(
+                    weather=40,
+                    distance=20,
+                    fairness=10,
+                    popularity=30,
+                ),
+            }
+        )
+
+
+def test_explicit_weights_must_total_one_hundred() -> None:
+    start, end = valid_dates()
+
+    with pytest.raises(ValidationError):
+        RecommendationRequest(
+            city="苏州",
+            main_origin="苏州站",
+            max_distance_km=80,
+            start_date=start,
+            end_date=end,
+            scenery_types=[SceneryType.LAKE],
+            weights=RankingWeights(
+                weather=4,
+                distance=3,
+                fairness=0,
+                popularity=3,
+            ),
+        )
 
 
 @pytest.mark.parametrize(

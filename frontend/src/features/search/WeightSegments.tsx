@@ -1,26 +1,22 @@
 import { RotateCcw } from 'lucide-react'
 
-import type { RankingWeights } from '../../api/types'
+import type { DisplayWeights } from './formState'
 
-type WeightKey = keyof RankingWeights
+type WeightKey = keyof DisplayWeights
 const labels: Record<WeightKey, string> = {
   weather: '天气适配',
   distance: '距离远近',
-  fairness: '多人公平性',
   popularity: '景区热度',
 }
 
 type WeightSegmentsProps = {
-  originCount: 1 | 2 | 3
-  value: RankingWeights
-  onChange: (value: RankingWeights) => void
+  value: DisplayWeights
+  onChange: (value: DisplayWeights) => void
   onReset: () => void
 }
 
-export function WeightSegments({ originCount, value, onChange, onReset }: WeightSegmentsProps) {
-  const active: WeightKey[] = originCount === 1
-    ? ['weather', 'distance', 'popularity']
-    : ['weather', 'distance', 'fairness', 'popularity']
+export function WeightSegments({ value, onChange, onReset }: WeightSegmentsProps) {
+  const active: WeightKey[] = ['weather', 'distance', 'popularity']
 
   function update(key: WeightKey, requested: number) {
     const index = active.indexOf(key)

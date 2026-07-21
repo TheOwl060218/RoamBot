@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 
 import pytest
 
@@ -19,10 +19,13 @@ from roambot.domain.models import (
 )
 from roambot.providers.mock import WEATHER_BY_DATE, MockProviderBundle
 from roambot.providers.protocols import ProviderError
-from roambot.services.recommendations import RecommendationService
+from roambot.services.recommendations import (
+    MULTI_ORIGIN_DEFAULT_WEIGHTS,
+    RecommendationService,
+)
 
-START = date(2026, 7, 20)
-END = date(2026, 7, 22)
+START = datetime.now(timezone(timedelta(hours=8))).date()
+END = START + timedelta(days=2)
 GENERATED_AT = datetime(2026, 7, 16, 8, 30, tzinfo=UTC)
 
 
@@ -31,7 +34,20 @@ def fixed_clock() -> datetime:
 
 
 def weather_range() -> list[DailyWeather]:
-    return [WEATHER_BY_DATE[START], WEATHER_BY_DATE[date(2026, 7, 21)], WEATHER_BY_DATE[END]]
+    templates = list(WEATHER_BY_DATE.values())[:3]
+    return [
+        template.model_copy(update={"date": START + timedelta(days=index)})
+        for index, template in enumerate(templates)
+    ]
+
+
+def test_group_default_weights_reserve_twenty_percent_for_fairness() -> None:
+    assert MULTI_ORIGIN_DEFAULT_WEIGHTS.model_dump() == {
+        "weather": 32,
+        "distance": 24,
+        "fairness": 20,
+        "popularity": 24,
+    }
 
 
 def origin(label: str, longitude: float = 120.0, latitude: float = 31.0) -> Origin:
