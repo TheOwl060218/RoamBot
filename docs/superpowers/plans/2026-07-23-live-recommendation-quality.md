@@ -512,7 +512,7 @@ Commit: `git commit -am "feat: present ratings and travel advice"`
 - Consumes: completed backend and frontend behavior from Tasks 1-6.
 - Produces: reproducible verification evidence without live-provider charges.
 
-- [ ] **Step 1: Run the complete backend quality gate**
+- [x] **Step 1: Run the complete backend quality gate**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests -q`
 
@@ -520,7 +520,7 @@ Run: `./.venv/Scripts/python.exe -m ruff check backend`
 
 Expected: all tests pass and Ruff reports no violations.
 
-- [ ] **Step 2: Run the complete frontend quality gate**
+- [x] **Step 2: Run the complete frontend quality gate**
 
 Run: `npm --prefix frontend test`
 
@@ -530,13 +530,13 @@ Run: `npm --prefix frontend run build`
 
 Expected: Vitest, ESLint, and the production build all pass.
 
-- [ ] **Step 3: Run one consolidated Mock Playwright pass**
+- [x] **Step 3: Run one consolidated Mock Playwright pass**
 
 Run: `npm --prefix frontend run e2e`
 
 Expected: recommendation, account/history, public share, and responsive smoke tests pass without live API calls.
 
-- [ ] **Step 4: Record actual evidence and commit**
+- [x] **Step 4: Record actual evidence and commit**
 
 Append only actual command results, test counts, dates, and any intentionally deferred visual items to `docs/evidence/verification.md`.
 

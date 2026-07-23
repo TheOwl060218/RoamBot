@@ -1,5 +1,29 @@
 # RoamBot 验证证据
 
+## 2026-07-23 推荐质量改进验证
+
+- 分支：`feat/roambot-v1`
+- 模式：后端自动测试、前端组件测试和浏览器验收均使用 Mock/demo Provider。
+- 真实调用：0；本轮自动验证未读取凭据库，也未调用高德、QWeather 或 LLM。
+- 范围：场景化天气建议、高德五分制评分、列表级类型覆盖、最多 7 个结果、事实型推荐理由、2 条一组的 LLM 润色、旧历史兼容，以及最小前端呈现。
+
+| 命令或检查 | 实际结果 |
+| --- | --- |
+| `.\.venv\Scripts\python.exe -m pytest backend/tests -q -W error` | `269 passed in 10.97s` |
+| `.\.venv\Scripts\python.exe -m ruff check backend` | `All checks passed!` |
+| 完整 Vitest | 11 个文件，`28 passed` |
+| ESLint | 退出 0 |
+| TypeScript `tsc -b` | 退出 0 |
+| Vite 生产构建 | 退出 0；1811 modules transformed |
+| Playwright Mock 验收 | 桌面 4 + 移动端 4，`8 passed in 13.7s` |
+| 高熵凭据值扫描 | `SECRET_VALUE_SCAN_CLEAN` |
+
+Playwright 因现有人工测试容器占用 `8000`，使用测试专用端口 `8010/5183`；受控服务器在 `try/finally` 中启动并关闭，未替换或中断现有容器。验收覆盖访客推荐、账户/收藏/历史主流程、匿名分享和响应式关系。
+
+本轮保留的后续视觉工作包括：双栏纵向失衡、推荐卡信息密度、2 至 7 日天气卡片时间序列布局，以及状态颜色语义。当前只实现评分、状态、中文日期、自然语言天气提醒和统一来源说明所需的最小样式。
+
+本轮源码尚未推送，因此下方既有 GitHub Actions 记录不覆盖这次改动；必须在后续明确推送并取得新的成功流水线后，才能宣称远程 CI 已验证本轮版本。正在 `127.0.0.1:8000` 运行的人工测试容器也仍是重建前版本。
+
 ## 验证范围
 
 - 日期：2026-07-19（Asia/Shanghai）
