@@ -47,6 +47,19 @@ def test_guest_recommendation_returns_ranked_items() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["items"][0]["destination"]["name"] == VALID_DESTINATION.name
+    assert body["items"][0]["destination"]["rating"] == 4.8
+    assert body["items"][0]["daily_suitability"][0]["status"] in {
+        "suitable",
+        "caution",
+        "not_recommended",
+    }
+    assert body["items"][0]["daily_suitability"][0]["summary"]
+    assert body["items"][0]["overall_advice"] in {
+        "suitable",
+        "some_dates_caution",
+        "some_dates_not_recommended",
+    }
+    assert body["uncovered_scenery_types"] == []
     assert body["source_state"]["kind"] == "demo"
 
 

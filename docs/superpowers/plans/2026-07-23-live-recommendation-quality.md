@@ -371,7 +371,7 @@ Commit: `git commit -am "feat: add factual batched recommendation reasons"`
 - Produces: public snapshots with only safe rating/advice fields.
 - Preserves: old history snapshots by supplying `rating=None` and deriving missing display advice from saved weather/suitability data.
 
-- [ ] **Step 1: Add failing API and compatibility tests**
+- [x] **Step 1: Add failing API and compatibility tests**
 
 ```python
 def test_recommendation_response_contains_rating_advice_and_coverage() -> None:
@@ -389,13 +389,13 @@ def test_old_snapshot_without_new_fields_still_opens_and_shares() -> None:
     }
 ```
 
-- [ ] **Step 2: Run API tests and confirm failure**
+- [x] **Step 2: Run API tests and confirm failure**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/api/test_recommendations.py backend/tests/api/test_history.py backend/tests/api/test_shares.py -q`
 
 Expected: FAIL because public allowlists and response models do not include the new fields.
 
-- [ ] **Step 3: Extend safe projections with explicit legacy defaults**
+- [x] **Step 3: Extend safe projections with explicit legacy defaults**
 
 ```python
 def _optional_field(value: dict[str, object], field: str, default: object) -> object:
@@ -409,7 +409,7 @@ public_item["overall_advice"] = _optional_field(
 
 Add `status` and `summary` to the suitability safe projection, deriving them from the old saved score/reasons when absent. Do not expose distances, origin labels, precise origins, prompts, credentials, or cookies. Keep private history data immutable.
 
-- [ ] **Step 4: Run API tests and commit**
+- [x] **Step 4: Run API tests and commit**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/api/test_recommendations.py backend/tests/api/test_history.py backend/tests/api/test_shares.py -q`
 

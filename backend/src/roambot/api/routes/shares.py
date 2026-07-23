@@ -11,7 +11,12 @@ from roambot.api.dependencies import (
     require_csrf,
 )
 from roambot.api.errors import error_response
-from roambot.domain.models import DailySuitability, DailyWeather, ScoreBreakdown
+from roambot.domain.models import (
+    DailySuitability,
+    DailyWeather,
+    OverallAdviceStatus,
+    ScoreBreakdown,
+)
 from roambot.services.personal_data import PersonalDataService, ResourceNotFoundError
 
 router = APIRouter(tags=["shares"])
@@ -39,6 +44,7 @@ class PublicDestinationResponse(BaseModel):
     address: str
     city: str
     scenery_tags: list[str]
+    rating: float | None = None
 
 
 class PublicItemResponse(BaseModel):
@@ -49,6 +55,7 @@ class PublicItemResponse(BaseModel):
     daily_suitability: list[DailySuitability]
     score: ScoreBreakdown
     explanation: str
+    overall_advice: OverallAdviceStatus
 
 
 class PublicSnapshotResponse(BaseModel):
@@ -61,6 +68,7 @@ class PublicSnapshotResponse(BaseModel):
     end_date: str
     items: list[PublicItemResponse]
     generated_at: str
+    uncovered_scenery_types: list[str]
 
 
 class PublicShareEnvelope(BaseModel):

@@ -210,12 +210,13 @@ def test_public_share_is_anonymous_fixed_deeply_sanitized_and_provider_free(
         {
             "destination": {
                 key: item["destination"][key]
-                for key in ("name", "address", "city", "scenery_tags")
+                for key in ("name", "address", "city", "scenery_tags", "rating")
             },
             "weather": item["weather"],
             "daily_suitability": item["daily_suitability"],
             "score": item["score"],
             "explanation": item["explanation"],
+            "overall_advice": item["overall_advice"],
         }
         for item in result["items"]
     ]
@@ -228,6 +229,7 @@ def test_public_share_is_anonymous_fixed_deeply_sanitized_and_provider_free(
             "end_date": request["end_date"],
             "items": expected_items,
             "generated_at": result["generated_at"],
+            "uncovered_scenery_types": result["uncovered_scenery_types"],
         }
     }
     assert response.json() == expected
@@ -261,6 +263,47 @@ def test_public_share_is_anonymous_fixed_deeply_sanitized_and_provider_free(
         "group_accessibility",
         "source_state",
     }.intersection(_recursive_keys(response.json()))
+
+
+def test_old_snapshot_without_rating_or_advice_still_shares(
+    auth_api_fixture,
+) -> None:
+    client, _, session_factory = auth_api_fixture()
+    csrf = register(client, "alice_01")
+    history_id = create_history(client, csrf, with_companion=False)
+
+    with session_factory.begin() as db:
+        history = db.get(HistoryTable, history_id)
+        assert history is not None
+        result = json.loads(history.result_json)
+        result.pop("uncovered_scenery_types", None)
+        for item in result["items"]:
+            item["destination"].pop("rating", None)
+            item.pop("overall_advice", None)
+            for day in item["daily_suitability"]:
+                day.pop("status", None)
+                day.pop("summary", None)
+        history.result_json = json.dumps(result, ensure_ascii=False)
+
+    share = create_share(client, csrf, history_id).json()["share"]
+    response = client.get(public_url(share["url"]))
+
+    assert response.status_code == 200
+    snapshot = response.json()["snapshot"]
+    assert snapshot["uncovered_scenery_types"] == []
+    first = snapshot["items"][0]
+    assert first["destination"]["rating"] is None
+    assert first["daily_suitability"][0]["status"] in {
+        "suitable",
+        "caution",
+        "not_recommended",
+    }
+    assert first["daily_suitability"][0]["summary"]
+    assert first["overall_advice"] in {
+        "suitable",
+        "some_dates_caution",
+        "some_dates_not_recommended",
+    }
 
 
 def test_public_share_removes_normalized_origin_labels_from_public_text(

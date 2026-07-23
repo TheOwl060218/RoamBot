@@ -281,6 +281,7 @@ def _public_snapshot(record: PublicShareRecord) -> dict[str, object]:
         "end_date": request["end_date"],
         "items": [_public_item(_mapping(item)) for item in raw_items],
         "generated_at": result["generated_at"],
+        "uncovered_scenery_types": result.get("uncovered_scenery_types", []),
     }
     private_strings = {
         str(request["main_origin"]),
@@ -299,22 +300,68 @@ def _public_item(item: dict[str, object]) -> dict[str, object]:
     suitability = item["daily_suitability"]
     if not isinstance(weather, list) or not isinstance(suitability, list):
         raise ValueError("history daily values must be lists")
+    destination = _mapping(item["destination"])
+    public_destination = _project(destination, _DESTINATION_FIELDS)
+    public_destination["rating"] = destination.get("rating")
+    public_suitability = [
+        _public_suitability(_mapping(day))
+        for day in suitability
+    ]
     return {
-        "destination": _project(
-            _mapping(item["destination"]),
-            _DESTINATION_FIELDS,
-        ),
+        "destination": public_destination,
         "weather": [
             _project(_mapping(day), _WEATHER_FIELDS)
             for day in weather
         ],
-        "daily_suitability": [
-            _project(_mapping(day), _SUITABILITY_FIELDS)
-            for day in suitability
-        ],
+        "daily_suitability": public_suitability,
         "score": _project(_mapping(item["score"]), _SCORE_FIELDS),
         "explanation": item["explanation"],
+        "overall_advice": item.get(
+            "overall_advice",
+            _derive_legacy_overall_advice(public_suitability),
+        ),
     }
+
+
+def _public_suitability(day: dict[str, object]) -> dict[str, object]:
+    public = _project(day, _SUITABILITY_FIELDS)
+    status = day.get("status") or _derive_legacy_daily_status(day)
+    public["status"] = status
+    public["summary"] = day.get("summary") or _legacy_daily_summary(status)
+    return public
+
+
+def _derive_legacy_daily_status(day: dict[str, object]) -> str:
+    score = day["score"]
+    if not isinstance(score, int | float) or isinstance(score, bool):
+        raise ValueError("history suitability score must be numeric")
+    if score >= 75:
+        return "suitable"
+    if score >= 50:
+        return "caution"
+    return "not_recommended"
+
+
+def _legacy_daily_summary(status: object) -> str:
+    summaries = {
+        "suitable": "该日期天气条件适合前往",
+        "caution": "该日期天气条件一般，建议关注天气变化",
+        "not_recommended": "该日期不建议前往，请考虑调整日期",
+    }
+    if status not in summaries:
+        raise ValueError("history suitability status is invalid")
+    return summaries[status]
+
+
+def _derive_legacy_overall_advice(
+    suitability: list[dict[str, object]],
+) -> str:
+    statuses = {day["status"] for day in suitability}
+    if "not_recommended" in statuses:
+        return "some_dates_not_recommended"
+    if "caution" in statuses:
+        return "some_dates_caution"
+    return "suitable"
 
 
 def _mapping(value: object) -> dict[str, object]:
