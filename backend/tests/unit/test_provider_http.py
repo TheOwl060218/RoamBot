@@ -49,6 +49,24 @@ def test_get_json_returns_an_object_without_logging_request_details(
     assert_sanitized(caplog.text)
 
 
+def test_base_url_path_prefix_is_preserved() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/chat/completions"
+        return httpx.Response(200, json={"status": "ok"})
+
+    client = ProviderHttpClient(
+        httpx.Client(transport=httpx.MockTransport(handler)),
+        provider="llm",
+        base_url="https://provider.example.com/v1",
+    )
+
+    assert client.post_json(
+        operation="explain",
+        path="/chat/completions",
+        json_body={"model": "test"},
+    ) == {"status": "ok"}
+
+
 @pytest.mark.parametrize(
     "handler,expected_code",
     [

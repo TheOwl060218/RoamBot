@@ -49,6 +49,18 @@ def test_live_mode_requires_live_only_settings() -> None:
             Settings(**{**valid, field: value})
 
 
+def test_live_mode_accepts_llm_base_url_with_api_path_prefix() -> None:
+    settings = Settings(
+        provider_mode="live",
+        demo_mode=False,
+        qweather_api_host="https://student.qweatherapi.com",
+        llm_base_url="https://llm.example.com/v1",
+        llm_model="deepseek-v4-flash",
+    )
+
+    assert str(settings.llm_base_url) == "https://llm.example.com/v1"
+
+
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -58,7 +70,6 @@ def test_live_mode_requires_live_only_settings() -> None:
         ("qweather_api_host", "https://student.qweatherapi.com?debug=1"),
         ("qweather_api_host", "https://student.qweatherapi.com#fragment"),
         ("llm_base_url", "https://user:pass@llm.example.com"),
-        ("llm_base_url", "https://llm.example.com/v1"),
         ("llm_base_url", "https://llm.example.com?debug=1"),
     ],
 )

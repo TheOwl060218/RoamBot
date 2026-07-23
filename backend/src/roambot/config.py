@@ -46,7 +46,7 @@ class Settings(BaseSettings):
                 raise ValueError("provider URL is invalid") from exc
         return value
 
-    @field_validator("amap_base_url", "qweather_api_host", "llm_base_url")
+    @field_validator("amap_base_url", "qweather_api_host")
     @classmethod
     def validate_provider_root(cls, value: AnyHttpUrl | None) -> AnyHttpUrl | None:
         if value is None:
@@ -60,6 +60,21 @@ class Settings(BaseSettings):
             or value.fragment is not None
         ):
             raise ValueError("provider URL must be an HTTPS origin")
+        return value
+
+    @field_validator("llm_base_url")
+    @classmethod
+    def validate_llm_base_url(cls, value: AnyHttpUrl | None) -> AnyHttpUrl | None:
+        if value is None:
+            return None
+        if (
+            value.scheme != "https"
+            or value.username is not None
+            or value.password is not None
+            or value.query is not None
+            or value.fragment is not None
+        ):
+            raise ValueError("LLM base URL must be a safe HTTPS URL")
         return value
 
     @field_validator("qweather_api_host")
