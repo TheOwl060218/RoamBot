@@ -74,6 +74,7 @@ class AMapProvider:
         use_around = radius_km <= 50
         for scenery_type in selected_types:
             params = self._place_params(SEARCH_TERMS[scenery_type], city)
+            filter_locally = not use_around
             if use_around:
                 params.update(
                     {
@@ -95,8 +96,21 @@ class AMapProvider:
                 candidate.model_copy(update={"popularity_rank": rank})
                 for rank, candidate in enumerate(self._parse_pois(payload, city), start=1)
             ]
+            if use_around and not candidates:
+                payload = self._http.get_json(
+                    operation="poi_search",
+                    path="/v5/place/text",
+                    params=self._place_params(SEARCH_TERMS[scenery_type], city),
+                )
+                candidates = [
+                    candidate.model_copy(update={"popularity_rank": rank})
+                    for rank, candidate in enumerate(
+                        self._parse_pois(payload, city), start=1
+                    )
+                ]
+                filter_locally = True
             for candidate in candidates:
-                if not use_around and _haversine_km(center, candidate.coordinate) > radius_km:
+                if filter_locally and _haversine_km(center, candidate.coordinate) > radius_km:
                     continue
                 if candidate.provider_id in seen:
                     continue

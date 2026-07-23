@@ -195,10 +195,13 @@ class CachedPlaceProvider(_CachedProvider):
         }
         key = make_cache_key(self._provider, "poi_search", params)
         cached = self._get(key, "DestinationList", _DESTINATIONS)
-        if cached is not None:
+        if cached:
             return cached
+        if cached == []:
+            self._cache.delete(key)
         value = self._inner.search(center, city, scenery_types, radius_km)
-        self._put(key, "poi_search", "DestinationList", value)
+        if value:
+            self._put(key, "poi_search", "DestinationList", value)
         return value
 
     def resolve(self, name: str, city: str) -> Destination:

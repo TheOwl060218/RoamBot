@@ -179,6 +179,39 @@ def test_radius_above_50_km_uses_text_and_locally_filters_far_candidates() -> No
     assert [item.name for item in results] == ["同里古镇"]
 
 
+def test_empty_around_search_falls_back_to_text_with_local_radius_filter() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/v5/place/around":
+            return httpx.Response(
+                200,
+                json={
+                    "status": "1",
+                    "info": "OK",
+                    "infocode": "10000",
+                    "count": "0",
+                    "pois": [],
+                },
+            )
+        assert request.url.path == "/v5/place/text"
+        assert "location" not in request.url.params
+        assert "radius" not in request.url.params
+        return httpx.Response(200, json=fixture("poi_around_success.json"))
+
+    results = provider_for(handler).search(
+        Coordinate(longitude=120.617, latitude=31.335),
+        "苏州",
+        (SceneryType.LAKE,),
+        50,
+    )
+
+    assert calls == ["/v5/place/around", "/v5/place/text"]
+    assert len(results) == 2
+    assert SceneryType.LAKE in results[0].scenery_tags
+
+
 def test_no_scenery_type_skips_http_and_malformed_declared_results_fail() -> None:
     def forbidden(_: httpx.Request) -> httpx.Response:
         raise AssertionError("HTTP should not be called")

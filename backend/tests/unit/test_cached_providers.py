@@ -150,6 +150,40 @@ def test_place_search_and_resolve_use_typed_seven_day_cache_entries() -> None:
     assert all(entry.expires_at == NOW + CACHE_TTLS["poi_search"] for entry in entries)
 
 
+def test_empty_place_search_cache_is_refreshed_instead_of_reused() -> None:
+    inner = CountingBundle()
+    cache = MemoryCache()
+    trace = ProviderTrace()
+    provider = CachedPlaceProvider(inner, cache, "amap", lambda: NOW, trace)
+    center = Coordinate(longitude=120.617, latitude=31.335)
+    key = make_cache_key(
+        "amap",
+        "poi_search",
+        {
+            "query_kind": "search",
+            "center": "120.617000,31.335000",
+            "city": "苏州",
+            "scenery_types": [SceneryType.LAKE],
+            "radius_km": "50.000",
+        },
+    )
+    cache.put(
+        key,
+        "amap",
+        "poi_search",
+        {"schema_version": 1, "model": "DestinationList", "value": []},
+        NOW,
+        NOW + CACHE_TTLS["poi_search"],
+    )
+
+    results = provider.search(center, "苏州", (SceneryType.LAKE,), 50)
+
+    assert results
+    assert inner.calls["search"] == 1
+    assert cache.deleted == [key]
+    assert json.loads(cache.entries[key].payload_json)["value"]
+
+
 def test_distance_and_weather_caches_preserve_order_and_exact_ttls() -> None:
     inner = CountingBundle()
     cache = MemoryCache()
