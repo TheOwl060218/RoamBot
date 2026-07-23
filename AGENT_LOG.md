@@ -329,3 +329,11 @@
 - 推荐卡不再把内部计算称为分数：总值显示为整数“出游匹配指数”，天气、路程、同行均衡和人气使用定性等级，每日适宜程度也不显示数值；API 与历史快照继续保留数值以支持稳定排序。
 - TDD 先复现旧多人默认、任意公平性、三滑杆结构和数值评分文案，再分别实现。测试日期从固定 2026-07-20 改为相对 Asia/Shanghai 当天，避免测试随日历自然过期。
 - 本轮仍仅使用 Mock provider 和本地测试数据，没有配置或调用真实高德、QWeather 或 LLM。
+
+## 2026-07-23 集中验收与本地演示重建
+
+- 按用户要求只做一次集中审查。审查发现权重分界按钮的实际命中宽度为 24px；Playwright 回归先得到 `Received: 24`，随后将命中区域扩为 44px、视觉握柄保持 24px，桌面与移动端定向复验 `2 passed`。
+- 并行浏览器首请求暴露 Mock 模式下 SQLite 懒初始化竞争，日志出现 `table users already exists`。新增并发单测先复现 `create_count == 2`，再为会话工厂加入双重检查锁；单测通过，双浏览器并发复验不再出现重复建表。
+- 最终 Windows 一键门禁完整通过：后端 `242 passed`，Ruff `All checks passed!`；前端 Vitest `28 passed`，ESLint、TypeScript、Vite 生产构建通过；Playwright 桌面/移动端 `8 passed`。`git diff --check` 通过，源码秘密扫描返回 `SOURCE_SECRET_SCAN_CLEAN`。
+- 从当前源码重建 `roambot:local`，仅替换 `roambot-check`，原 `roambot-check-data` 数据卷保留。容器状态 `healthy`，首页返回 200，`/api/v1/health` 返回 `ready`。
+- 全程使用 Mock provider，未调用真实高德、QWeather 或 LLM，未产生 API 费用；本地提交暂不推送 GitHub，等待用户批准。

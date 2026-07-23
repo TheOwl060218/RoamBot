@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from secrets import compare_digest
+from threading import Lock
 
 from fastapi import Depends, Request
 from fastapi.responses import JSONResponse
@@ -71,6 +72,7 @@ def get_recommendation_service(
 
 
 SESSION_COOKIE_NAME = "roambot_session"
+_SESSION_FACTORY_LOCK = Lock()
 
 
 class AuthApiError(Exception):
@@ -93,10 +95,15 @@ def get_session_factory(
 ) -> SessionFactory:
     session_factory = getattr(request.app.state, "session_factory", None)
     if session_factory is None:
-        engine, session_factory = create_engine_and_session_factory(settings.database_path)
-        initialize_schema(engine)
-        request.app.state.auth_engine = engine
-        request.app.state.session_factory = session_factory
+        with _SESSION_FACTORY_LOCK:
+            session_factory = getattr(request.app.state, "session_factory", None)
+            if session_factory is None:
+                engine, session_factory = create_engine_and_session_factory(
+                    settings.database_path
+                )
+                initialize_schema(engine)
+                request.app.state.auth_engine = engine
+                request.app.state.session_factory = session_factory
     return session_factory
 
 

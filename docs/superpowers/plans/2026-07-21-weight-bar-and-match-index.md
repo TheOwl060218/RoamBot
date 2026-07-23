@@ -34,15 +34,15 @@
 - Produces: `toRankingWeights(display, originCount): RankingWeights`.
 - Produces: defaults `displayWeights = {weather:40,distance:30,popularity:30}` and effective group defaults `{weather:32,distance:24,fairness:20,popularity:24}`.
 
-- [ ] **Step 1: Write failing frontend submission and persistence tests**
+- [x] **Step 1: Write failing frontend submission and persistence tests**
 
 Assert a single-origin submit emits `40/30/0/30`, adding a companion emits `32/24/20/24`, and the new storage key ignores the old four-weight record.
 
-- [ ] **Step 2: Run focused frontend tests and observe RED**
+- [x] **Step 2: Run focused frontend tests and observe RED**
 
 Run: `node frontend/node_modules/vitest/vitest.mjs run frontend/tests/TravelForm.test.tsx`
 
-- [ ] **Step 3: Implement the display model and conversion**
+- [x] **Step 3: Implement the display model and conversion**
 
 Use:
 
@@ -59,11 +59,11 @@ export function toRankingWeights(value: DisplayWeights, originCount: 1 | 2 | 3):
 
 Change storage to `roambot.ui.display-weights.v2` and validate exactly three non-negative integer values totaling 100.
 
-- [ ] **Step 4: Write failing backend contract/default tests**
+- [x] **Step 4: Write failing backend contract/default tests**
 
 Assert multi-origin defaults equal `32/24/20/24`; explicit multi-origin weights reject fairness other than 20 or a non-100 total; single-origin still rejects nonzero fairness.
 
-- [ ] **Step 5: Implement backend validation and defaults, then run focused suites**
+- [x] **Step 5: Implement backend validation and defaults, then run focused suites**
 
 Run:
 
@@ -72,7 +72,7 @@ Run:
 node frontend/node_modules/vitest/vitest.mjs run frontend/tests/TravelForm.test.tsx
 ```
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1**
 
 Commit: `feat: fix group fairness at twenty percent`
 
@@ -88,23 +88,23 @@ Commit: `feat: fix group fairness at twenty percent`
 - Consumes: `DisplayWeights` and `onChange(DisplayWeights)` from Task 1.
 - Produces: two cumulative boundaries `[weather, weather + distance]`, converted back to three percentages.
 
-- [ ] **Step 1: Write failing component tests**
+- [x] **Step 1: Write failing component tests**
 
 Require exactly two slider handles, labels and percentages for three dimensions, 5% keyboard changes, no crossing, allowed overlap, reset, and total 100 after every change.
 
-- [ ] **Step 2: Run the component tests and observe RED**
+- [x] **Step 2: Run the component tests and observe RED**
 
 Run: `node frontend/node_modules/vitest/vitest.mjs run frontend/tests/WeightSegments.test.tsx`
 
-- [ ] **Step 3: Implement cumulative-boundary helpers and the accessible control**
+- [x] **Step 3: Implement cumulative-boundary helpers and the accessible control**
 
 Use two `role="slider"` handles over one stable track. Pointer movement converts client X to 0–100, rounds to 5, clamps boundary 1 to `[0,boundary2]` and boundary 2 to `[boundary1,100]`; arrow keys move by 5. Render labels and values below the track so zero-width segments remain legible.
 
-- [ ] **Step 4: Add responsive styling and verify component/accessibility tests**
+- [x] **Step 4: Add responsive styling and verify component/accessibility tests**
 
 Ensure a minimum 44px touch target, no negative/overlapping text layout, three fixed legend cells, and visible focus outlines.
 
-- [ ] **Step 5: Commit Task 2**
+- [x] **Step 5: Commit Task 2**
 
 Commit: `feat: replace weight sliders with proportion bar`
 
@@ -123,23 +123,22 @@ Commit: `feat: replace weight sliders with proportion bar`
 - Produces: pure dimension label functions using thresholds `85/70/50`.
 - Produces: integer “出游匹配指数”, qualitative dimension labels, and the fixed comparison disclaimer.
 
-- [ ] **Step 1: Write failing result-card tests**
+- [x] **Step 1: Write failing result-card tests**
 
 Assert the card shows `出游匹配指数`, rounded integer total, qualitative weather/distance/popularity labels, group-only balance label, and the disclaimer. Assert it does not render numeric sub-scores or the user-facing text `分项评分`/`总分`.
 
-- [ ] **Step 2: Implement label helpers and card rendering**
+- [x] **Step 2: Implement label helpers and card rendering**
 
 Map thresholds exactly as the design table. Determine group mode from `item.distances.length > 1`; omit balance for single-origin results.
 
-- [ ] **Step 3: Update the E2E expectation and documentation**
+- [x] **Step 3: Update the E2E expectation and documentation**
 
 Keep all internal API fields unchanged. Record the fixed 20% rule and clarify that the index compares only candidates in the current query.
 
-- [ ] **Step 4: Run one concentrated verification**
+- [x] **Step 4: Run one concentrated verification**
 
 Run focused tests, full backend/frontend test/lint/type/build, Playwright desktop/mobile, `git diff --check`, and the existing secret scan. Rebuild `roambot:local`, replace only `roambot-check` while retaining `roambot-check-data`, and verify `/api/v1/health` before handoff.
 
-- [ ] **Step 5: Commit and push after user-visible verification**
+- [x] **Step 5: Commit locally and defer push until user approval**
 
-Commit: `feat: present trip match index`.
-
+Local commit: `feat: present trip match index`. Remote push remains intentionally deferred.

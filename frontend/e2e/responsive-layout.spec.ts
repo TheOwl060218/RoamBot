@@ -24,4 +24,13 @@ test('form and results keep their intended responsive relationship', async ({ pa
     pageWidth: document.documentElement.scrollWidth,
   }))
   expect(dimensions.pageWidth).toBe(dimensions.viewportWidth)
+
+  const handles = await page.getByRole('slider').all()
+  expect(handles).toHaveLength(2)
+  for (const handle of handles) {
+    const hitArea = await handle.boundingBox()
+    expect(hitArea).not.toBeNull()
+    expect(hitArea!.width).toBeGreaterThanOrEqual(44)
+    expect(hitArea!.height).toBeGreaterThanOrEqual(44)
+  }
 })
