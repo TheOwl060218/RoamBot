@@ -55,9 +55,16 @@ Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆�
 
 本地修复版容器 `roambot-check` 状态为 `running/healthy`，`GET /api/v1/health` 返回 `{"status":"ready"}`，WebUI 位于 `http://127.0.0.1:8000`。命名卷 `roambot-check-data` 在容器替换时保留。
 
+## 真实 Provider 人工检查
+
+- 2026-07-23，用户在本机隐藏终端逐项批准并运行人工 smoke；真实凭据和主密码未进入聊天、源码或日志。
+- 高德：用户报告 smoke 成功；精确脱敏调用计数未留存，因此不在证据中猜测。
+- QWeather：`ok calls=1`，其余 provider 均为 `skipped calls=0`。
+- 学校 OpenAI-compatible LLM：Base URL `https://njusehub.info/v1`，模型 `deepseek-v4-flash`，结果为 `ok calls=1`，其余 provider 均为 `skipped calls=0`。
+- 上述结果只证明固定小样本在执行时连通；自动测试和 CI 仍强制 Mock/demo 模式并保持零真实调用。
+
 ## 尚未宣称通过的外部验证
 
-- 真实 provider smoke：未申请/录入凭据，已跳过；Mock 通过不证明真实服务连通。
 - GitLab CI Lint/远程流水线：仓库只配置 GitHub remote，未运行 GitLab 远程 CI。
 - 公网 WebUI：尚未选择并授权部署平台；本地 URL 不是公网交付地址。
 

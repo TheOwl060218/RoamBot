@@ -413,13 +413,13 @@ The command requires `ROAMBOT_PROVIDER_MODE=live`, unlocks the vault using a hid
 
 Add `--skip-llm` and provider-specific `--only amap|qweather|llm` options so credentials can be verified independently. A failure exits nonzero after a sanitized message. Do not retry automatically.
 
-- [ ] **Step 3: Pause for credential handoff**
+- [x] **Step 3: Pause for credential handoff**
 
 Only now ask the user to create the AMap Web Service key, QWeather API key plus account-specific API Host, and school OpenAI-compatible key/base URL/model. Instruct the user to run local hidden CLI prompts; never ask them to paste values into chat.
 
 Run `roambot credentials status` and report only configured booleans. If a provider is not configured, run the smoke test for configured providers and record the skipped one; do not block mock-mode delivery.
 
-- [ ] **Step 4: Run the manual smoke with explicit approval**
+- [x] **Step 4: Run the manual smoke with explicit approval**
 
 Before a real call, state the exact five-call maximum and ask for approval because it may consume provider quota. Then run the local command once. Record only sanitized status and call counts in `AGENT_LOG.md`; do not record returned personal/location payloads or credentials.
 

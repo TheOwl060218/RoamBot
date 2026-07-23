@@ -337,3 +337,11 @@
 - 最终 Windows 一键门禁完整通过：后端 `242 passed`，Ruff `All checks passed!`；前端 Vitest `28 passed`，ESLint、TypeScript、Vite 生产构建通过；Playwright 桌面/移动端 `8 passed`。`git diff --check` 通过，源码秘密扫描返回 `SOURCE_SECRET_SCAN_CLEAN`。
 - 从当前源码重建 `roambot:local`，仅替换 `roambot-check`，原 `roambot-check-data` 数据卷保留。容器状态 `healthy`，首页返回 200，`/api/v1/health` 返回 `ready`。
 - 全程使用 Mock provider，未调用真实高德、QWeather 或 LLM，未产生 API 费用；本地提交暂不推送 GitHub，等待用户批准。
+
+## 2026-07-23 真实 Provider 人工 Smoke
+
+- 用户在本机隐藏终端完成高德、QWeather 与学校 OpenAI-compatible LLM 凭据录入；聊天、源码、日志和提交中均未出现真实 key 或主密码。
+- 三项真实请求均在用户逐项明确批准后执行，且使用 `--only` 隔离其他 provider，不自动重试。高德 smoke 由用户报告成功，但原始脱敏调用计数未留存，因此不补写推测值。
+- QWeather 脱敏结果为 `qweather: ok calls=1`，同时 `amap: skipped calls=0`、`llm: skipped calls=0`；生成时间为 `2026-07-23T08:14:33.052855+00:00`。
+- LLM 使用 Base URL `https://njusehub.info/v1` 与模型 `deepseek-v4-flash`。配置兼容修复提交 `00bd503` 后，脱敏结果为 `llm: ok calls=1`，同时 `amap: skipped calls=0`、`qweather: skipped calls=0`；生成时间为 `2026-07-23T08:37:20.589913+00:00`。
+- 真实 smoke 只证明固定苏州小样本在当时连通，不替代日常 Mock 自动测试，也不保证供应商后续可用性、配额或数据质量。
