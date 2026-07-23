@@ -16,8 +16,11 @@ from roambot.domain.models import (
     DailyWeather,
     Destination,
     DistanceEstimate,
+    ExplanationContext,
     GroupAccessibilityScore,
+    RankingWeights,
     RecommendationItem,
+    SceneryMatchMode,
     SceneryType,
     ScoreBreakdown,
 )
@@ -206,7 +209,7 @@ def _synthetic_item(
             coverage_penalty=0,
             total=86,
         ),
-        explanation="",
+        explanation="该地点用于验证公开地点事实的中文推荐理由润色能力。",
     )
 
 
@@ -248,9 +251,19 @@ def _run_provider_smoke(
 
     if SmokeProvider.LLM in selected:
         item = _synthetic_item(destination, distances, weather)
+        context = ExplanationContext(
+            requested_scenery_types=tuple(sorted(destination.scenery_tags)),
+            scenery_match_mode=SceneryMatchMode.ANY,
+            display_weights=RankingWeights(
+                weather=40,
+                distance=30,
+                fairness=0,
+                popularity=30,
+            ),
+        )
         explanations = _call(
             SmokeProvider.LLM,
-            lambda: bundle.explanations.explain([item]),
+            lambda: bundle.explanations.explain([item], context),
         )
         if not isinstance(explanations, list) or len(explanations) != 1:
             raise SmokeStepError(SmokeProvider.LLM, "bad_response")

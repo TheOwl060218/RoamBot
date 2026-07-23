@@ -10,6 +10,8 @@ const python = process.platform === 'win32'
 const node = JSON.stringify(process.execPath)
 const runId = process.env.ROAMBOT_E2E_RUN_ID ?? String(process.pid)
 const reuseExistingServer = process.env.PW_REUSE_SERVERS === '1'
+const backendPort = Number(process.env.ROAMBOT_E2E_BACKEND_PORT ?? 8000)
+const frontendPort = Number(process.env.ROAMBOT_E2E_FRONTEND_PORT ?? 5173)
 
 export default defineConfig({
   testDir: './e2e',
@@ -18,14 +20,14 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [['line']],
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: `http://127.0.0.1:${frontendPort}`,
     trace: 'retain-on-failure',
   },
   webServer: [
     {
-      command: `${python} -m uvicorn roambot.main:app --app-dir backend/src --host 127.0.0.1 --port 8000`,
+      command: `${python} -m uvicorn roambot.main:app --app-dir backend/src --host 127.0.0.1 --port ${backendPort}`,
       cwd: rootDir,
-      port: 8000,
+      port: backendPort,
       reuseExistingServer,
       env: {
         ...process.env,
@@ -36,10 +38,14 @@ export default defineConfig({
       },
     },
     {
-      command: `${node} node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173`,
+      command: `${node} node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${frontendPort}`,
       cwd: frontendDir,
-      port: 5173,
+      port: frontendPort,
       reuseExistingServer,
+      env: {
+        ...process.env,
+        ROAMBOT_E2E_API_TARGET: `http://127.0.0.1:${backendPort}`,
+      },
     },
   ],
   projects: [

@@ -7,8 +7,11 @@ from roambot.domain.models import (
     DailyWeather,
     Destination,
     DistanceEstimate,
+    ExplanationContext,
     GroupAccessibilityScore,
+    RankingWeights,
     RecommendationItem,
+    SceneryMatchMode,
     SceneryType,
     ScoreBreakdown,
 )
@@ -63,7 +66,7 @@ def make_item(destination: Destination) -> RecommendationItem:
             coverage_penalty=0,
             total=86,
         ),
-        explanation="",
+        explanation=f"本地事实理由：{destination.name}符合本次风景类型偏好。",
     )
 
 
@@ -110,7 +113,17 @@ def test_mock_providers_return_deterministic_ordered_data() -> None:
         destination=places[1],
     )
     explanations = providers.explanations.explain(
-        [make_item(places[0]), make_item(places[1])]
+        [make_item(places[0]), make_item(places[1])],
+        ExplanationContext(
+            requested_scenery_types=(SceneryType.LAKE, SceneryType.OLD_TOWN),
+            scenery_match_mode=SceneryMatchMode.ANY,
+            display_weights=RankingWeights(
+                weather=40,
+                distance=30,
+                fairness=0,
+                popularity=30,
+            ),
+        ),
     )
 
     assert [place.name for place in places] == ["金鸡湖景区", "同里古镇", "苏州博物馆"]
@@ -118,8 +131,8 @@ def test_mock_providers_return_deterministic_ordered_data() -> None:
     assert [estimate.origin_label for estimate in distances] == ["苏州站", "苏州园区站"]
     assert all(estimate.distance_km >= 0 for estimate in distances)
     assert explanations == [
-        "金鸡湖景区：湖景休闲取向，分数86.0，适合当前这组行程偏好。",
-        "同里古镇：古镇漫游取向，分数86.0，适合当前这组行程偏好。",
+        "本地事实理由：金鸡湖景区符合本次风景类型偏好。",
+        "本地事实理由：同里古镇符合本次风景类型偏好。",
     ]
 
 
