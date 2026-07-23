@@ -157,6 +157,47 @@ def test_logged_in_success_captures_both_complete_canonical_snapshots(
         )
 
 
+def test_old_history_detail_derives_new_display_fields_without_rewriting_storage(
+    auth_api_fixture,
+) -> None:
+    client, _, session_factory = auth_api_fixture()
+    csrf = register(client, "alice_01")
+    client.post(
+        "/api/v1/recommendations",
+        json=recommendation_payload(),
+        headers={"X-CSRF-Token": csrf},
+    )
+    history_id = history_ids(client)[0]
+
+    with session_factory.begin() as db:
+        history = db.get(HistoryTable, history_id)
+        assert history is not None
+        result = json.loads(history.result_json)
+        result.pop("uncovered_scenery_types", None)
+        for item in result["items"]:
+            item["destination"].pop("rating", None)
+            item.pop("overall_advice", None)
+            for day in item["daily_suitability"]:
+                day.pop("status", None)
+                day.pop("summary", None)
+        history.result_json = json.dumps(result, ensure_ascii=False)
+        stored_old_json = history.result_json
+
+    response = client.get(f"{HISTORY_URL}/{history_id}")
+
+    assert response.status_code == 200
+    displayed = response.json()["history"]["result"]
+    assert displayed["uncovered_scenery_types"] == []
+    assert displayed["items"][0]["destination"]["rating"] is None
+    assert displayed["items"][0]["daily_suitability"][0]["status"]
+    assert displayed["items"][0]["daily_suitability"][0]["summary"]
+    assert displayed["items"][0]["overall_advice"]
+    with session_factory() as db:
+        history = db.get(HistoryTable, history_id)
+        assert history is not None
+        assert history.result_json == stored_old_json
+
+
 def test_logged_in_missing_csrf_makes_zero_provider_calls(auth_api_fixture) -> None:
     client, _, session_factory = auth_api_fixture()
     register(client, "alice_01")

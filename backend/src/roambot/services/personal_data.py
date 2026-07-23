@@ -229,13 +229,42 @@ def _canonical_json(value: dict[str, object]) -> str:
 def _snapshot(record: HistoryRecord) -> HistorySnapshot:
     if record.mode not in {"recommendation", "place_evaluation"}:
         raise ValueError("unsupported history mode")
+    result = _normalize_history_result(_mapping(json.loads(record.result_json)))
     return HistorySnapshot(
         id=record.id,
         mode=record.mode,
         request=json.loads(record.request_json),
-        result=json.loads(record.result_json),
+        result=result,
         created_at=record.created_at,
     )
+
+
+def _normalize_history_result(result: dict[str, object]) -> dict[str, object]:
+    raw_items = result.get("items")
+    if raw_items is None:
+        raw_items = [result["item"]]
+    if not isinstance(raw_items, list):
+        raise ValueError("history result items must be a list")
+    for raw_item in raw_items:
+        item = _mapping(raw_item)
+        destination = _mapping(item["destination"])
+        destination.setdefault("rating", None)
+        suitability = item["daily_suitability"]
+        if not isinstance(suitability, list):
+            raise ValueError("history suitability must be a list")
+        normalized_suitability: list[dict[str, object]] = []
+        for raw_day in suitability:
+            day = _mapping(raw_day)
+            status = day.get("status") or _derive_legacy_daily_status(day)
+            day["status"] = status
+            day["summary"] = day.get("summary") or _legacy_daily_summary(status)
+            normalized_suitability.append(day)
+        item["overall_advice"] = item.get("overall_advice") or (
+            _derive_legacy_overall_advice(normalized_suitability)
+        )
+    if "items" in result:
+        result.setdefault("uncovered_scenery_types", [])
+    return result
 
 
 _DESTINATION_FIELDS = ("name", "address", "city", "scenery_tags")
