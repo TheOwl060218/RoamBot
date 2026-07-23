@@ -10,8 +10,11 @@ from roambot.domain.models import (
     DailyWeather,
     Destination,
     DistanceEstimate,
+    ExplanationContext,
     GroupAccessibilityScore,
+    RankingWeights,
     RecommendationItem,
+    SceneryMatchMode,
     SceneryType,
     ScoreBreakdown,
 )
@@ -86,6 +89,19 @@ def provider_for(handler: object) -> OpenAICompatibleExplanationProvider:
     return OpenAICompatibleExplanationProvider(http, FAKE_KEY, "deepseek-v4-flash")
 
 
+def explanation_context() -> ExplanationContext:
+    return ExplanationContext(
+        requested_scenery_types=(SceneryType.LAKE,),
+        scenery_match_mode=SceneryMatchMode.COVER_ALL,
+        display_weights=RankingWeights(
+            weather=40,
+            distance=30,
+            fairness=0,
+            popularity=30,
+        ),
+    )
+
+
 def response(explanations: list[dict[str, str]]) -> httpx.Response:
     return httpx.Response(
         200,
@@ -108,7 +124,7 @@ def test_empty_items_make_no_llm_call() -> None:
     def forbidden(_: httpx.Request) -> httpx.Response:
         raise AssertionError("HTTP should not be called")
 
-    assert provider_for(forbidden).explain([]) == []
+    assert provider_for(forbidden).explain([], explanation_context()) == []
 
 
 def test_one_call_uses_structured_request_and_reorders_output() -> None:
@@ -128,6 +144,12 @@ def test_one_call_uses_structured_request_and_reorders_output() -> None:
         assert FAKE_KEY not in serialized
         assert "username" not in serialized
         assert "share_token" not in serialized
+        assert '"score"' not in serialized
+        assert '"address"' not in serialized
+        assert '"coordinate"' not in serialized
+        user_payload = json.loads(body["messages"][1]["content"])
+        assert user_payload["preferences"]["requested_scenery_types"] == ["lake"]
+        assert user_payload["preferences"]["scenery_match_mode"] == "cover_all"
         return response(
             [
                 {
@@ -142,7 +164,8 @@ def test_one_call_uses_structured_request_and_reorders_output() -> None:
         )
 
     explanations = provider_for(handler).explain(
-        [item("poi-1", "金鸡湖景区"), item("poi-2", "湖滨公园")]
+        [item("poi-1", "金鸡湖景区"), item("poi-2", "湖滨公园")],
+        explanation_context(),
     )
 
     assert len(requests) == 1
@@ -184,6 +207,6 @@ def test_malformed_partial_or_markdown_output_is_rejected(content: str) -> None:
     )
 
     with pytest.raises(ProviderError) as captured:
-        provider.explain([item("poi-1", "金鸡湖景区")])
+        provider.explain([item("poi-1", "金鸡湖景区")], explanation_context())
     assert captured.value.code == "bad_response"
     assert str(captured.value) == "AI 解释格式无效"

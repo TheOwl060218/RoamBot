@@ -162,7 +162,8 @@ class CountingExplanationProvider:
         self.fail = fail
         self.calls: list[list[RecommendationItem]] = []
 
-    def explain(self, items: list[RecommendationItem]) -> list[str]:
+    def explain(self, items: list[RecommendationItem], context: object) -> list[str]:
+        del context
         self.calls.append(items)
         if self.fail:
             raise ProviderError("llm_unavailable", "explanations unavailable")
@@ -176,6 +177,7 @@ def service(
     weather_by_id: dict[str, list[DailyWeather] | ProviderError] | None = None,
     origins: dict[str, Origin] | None = None,
     explanations_fail: bool = False,
+    explanation_provider: CountingExplanationProvider | None = None,
     resolved: Destination | None = None,
 ) -> tuple[
     RecommendationService,
@@ -199,7 +201,9 @@ def service(
         | ({resolved.provider_id: weather_range()} if resolved is not None else {}),
         coordinate_ids,
     )
-    explanations = CountingExplanationProvider(fail=explanations_fail)
+    explanations = explanation_provider or CountingExplanationProvider(
+        fail=explanations_fail
+    )
     recommendation_service = RecommendationService(
         geocoder=geocoder,
         places=places,
@@ -435,9 +439,60 @@ def test_explanation_failure_uses_template_without_changing_score() -> None:
     assert [item.explanation for item in degraded.items] != [
         item.explanation for item in passing.items
     ]
-    assert degraded.items[0].explanation.startswith("Alpha scored ")
+    assert "湖景" in degraded.items[0].explanation
+    assert "10.00 公里" in degraded.items[0].explanation
+    assert "高德评分 4.5 / 5" in degraded.items[0].explanation
+    assert "scored" not in degraded.items[0].explanation
+    assert "-40" not in degraded.items[0].explanation
     assert degraded.source_state.notices == ["explanation_degraded"]
     assert len(degraded_explanations.calls) == 1
+
+
+class GroupedExplanationProvider(CountingExplanationProvider):
+    def __init__(self, failing_call: int) -> None:
+        super().__init__()
+        self.failing_call = failing_call
+
+    def explain(self, items: list[RecommendationItem], context: object) -> list[str]:
+        del context
+        self.calls.append(items)
+        if len(self.calls) == self.failing_call:
+            raise ProviderError("llm_unavailable", "group unavailable")
+        return [
+            f"润色结果：{item.destination.name}符合本次出行条件。"
+            for item in items
+        ]
+
+
+def test_seven_results_are_polished_in_groups_of_two_without_retry() -> None:
+    types = list(SceneryType)
+    candidates = [
+        destination(
+            f"place-{index}",
+            f"Place {index}",
+            frozenset({scenery_type}),
+            rating=5 - index / 10,
+        )
+        for index, scenery_type in enumerate(types, start=1)
+    ]
+    candidates.append(
+        destination("extra", "Extra", frozenset({SceneryType.LAKE}), rank=2, rating=4.3)
+    )
+    explanations = GroupedExplanationProvider(failing_call=2)
+    recommendation_service, *_ = service(
+        destinations=candidates,
+        distances={candidate.provider_id: [10] for candidate in candidates},
+        explanation_provider=explanations,
+    )
+
+    result = recommendation_service.recommend(
+        request(scenery_types=types, scenery_match_mode=SceneryMatchMode.COVER_ALL)
+    )
+
+    assert [len(call) for call in explanations.calls] == [2, 2, 2, 1]
+    assert result.items[0].explanation.startswith("润色结果：")
+    assert result.items[2].explanation.startswith("该地点符合")
+    assert result.source_state.notices == ["explanation_degraded"]
 
 
 def test_no_candidates_returns_empty_items_with_notice() -> None:

@@ -9,6 +9,7 @@ from roambot.domain.models import (
     DailyWeather,
     Destination,
     DistanceEstimate,
+    ExplanationContext,
     Origin,
     RecommendationItem,
     SceneryType,
@@ -226,18 +227,15 @@ class MockWeatherProvider:
 
 
 class MockExplanationProvider:
-    def explain(self, items: list[RecommendationItem]) -> list[str]:
+    def explain(
+        self,
+        items: list[RecommendationItem],
+        context: ExplanationContext,
+    ) -> list[str]:
+        del context
         explanations: list[str] = []
         for item in items:
-            ordered_tags = sorted(
-                item.destination.scenery_tags,
-                key=lambda tag: tag.value,
-            )
-            primary_tag = next(iter(ordered_tags), None)
-            label = SCENERY_LABELS.get(primary_tag, "城市漫游")
-            explanations.append(
-                f"{item.destination.name}：{label}取向，分数{item.score.total:.1f}，适合当前这组行程偏好。"
-            )
+            explanations.append(item.explanation)
         return explanations
 
 

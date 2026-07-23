@@ -4,7 +4,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from roambot.domain.models import RecommendationItem
+from roambot.domain.models import ExplanationContext, RecommendationItem
 from roambot.providers.http import ProviderHttpClient
 from roambot.providers.protocols import ProviderError
 
@@ -45,11 +45,15 @@ class OpenAICompatibleExplanationProvider:
         self._api_key = api_key
         self._model = model
 
-    def explain(self, items: list[RecommendationItem]) -> list[str]:
+    def explain(
+        self,
+        items: list[RecommendationItem],
+        context: ExplanationContext,
+    ) -> list[str]:
         if not items:
             return []
-        if len(items) > 5:
-            raise ProviderError("bad_request", "AI 解释最多支持五个地点")
+        if len(items) > 2:
+            raise ProviderError("bad_request", "AI 润色每组最多支持两个地点")
 
         payload = self._http.post_json(
             operation="llm",
@@ -72,6 +76,18 @@ class OpenAICompatibleExplanationProvider:
                         "content": json.dumps(
                             {
                                 "destinations": [_public_summary(item) for item in items],
+                                "preferences": {
+                                    "requested_scenery_types": [
+                                        tag.value
+                                        for tag in context.requested_scenery_types
+                                    ],
+                                    "scenery_match_mode": (
+                                        context.scenery_match_mode.value
+                                    ),
+                                    "display_weights": (
+                                        context.display_weights.model_dump(mode="json")
+                                    ),
+                                },
                                 "limitations": "距离和天气为本次评估快照，仅用于推荐理由。",
                             },
                             ensure_ascii=False,
@@ -113,8 +129,17 @@ def _public_summary(item: RecommendationItem) -> dict[str, object]:
         "destination_id": item.destination.provider_id,
         "name": item.destination.name,
         "scenery": sorted(tag.value for tag in item.destination.scenery_tags),
-        "score": item.score.model_dump(mode="json"),
-        "distance_km": [distance.distance_km for distance in item.distances],
+        "rating": item.destination.rating,
+        "average_distance_km": round(
+            item.group_accessibility.average_distance_km,
+            2,
+        ),
+        "maximum_distance_km": round(item.group_accessibility.max_distance_km, 2),
+        "average_duration_minutes": _average_duration(item),
+        "overall_advice": (
+            item.overall_advice.value if item.overall_advice is not None else None
+        ),
+        "local_reason": item.explanation,
         "weather": [
             {
                 "date": day.date.isoformat(),
@@ -122,7 +147,24 @@ def _public_summary(item: RecommendationItem) -> dict[str, object]:
                 "temp_min_c": day.temp_min_c,
                 "temp_max_c": day.temp_max_c,
                 "precipitation_mm": day.precipitation_mm,
+                "advice_status": suitability.status,
+                "advice_summary": suitability.summary,
             }
-            for day in item.weather
+            for day, suitability in zip(
+                item.weather,
+                item.daily_suitability,
+                strict=True,
+            )
         ],
     }
+
+
+def _average_duration(item: RecommendationItem) -> float | None:
+    durations = [
+        distance.duration_minutes
+        for distance in item.distances
+        if distance.duration_minutes is not None
+    ]
+    if not durations:
+        return None
+    return round(sum(durations) / len(durations), 1)

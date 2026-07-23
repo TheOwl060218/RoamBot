@@ -8,6 +8,7 @@ from roambot.domain.models import (
     DailyWeather,
     Destination,
     DistanceEstimate,
+    ExplanationContext,
     Origin,
     RecommendationItem,
     SceneryType,
@@ -55,5 +56,9 @@ class WeatherProvider(Protocol):
 
 @runtime_checkable
 class ExplanationProvider(Protocol):
-    def explain(self, items: list[RecommendationItem]) -> list[str]:
+    def explain(
+        self,
+        items: list[RecommendationItem],
+        context: ExplanationContext,
+    ) -> list[str]:
         raise NotImplementedError

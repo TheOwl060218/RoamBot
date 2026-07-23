@@ -95,7 +95,8 @@ class SmokeAdapters:
             for offset in range(7)
         ]
 
-    def explain(self, items: list[object]) -> list[str]:
+    def explain(self, items: list[object], context: object) -> list[str]:
+        del context
         self.calls.append("llm")
         assert len(items) == 1
         return ["A public synthetic recommendation explanation for smoke testing."]

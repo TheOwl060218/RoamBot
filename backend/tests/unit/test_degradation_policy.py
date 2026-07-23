@@ -102,7 +102,8 @@ class Explanations:
     def __init__(self, fail: bool = False) -> None:
         self.fail = fail
 
-    def explain(self, items):
+    def explain(self, items, context):
+        del context
         if self.fail:
             raise ProviderError("unavailable", "llm down")
         return [f"推荐 {item.destination.name}" for item in items]
@@ -223,7 +224,9 @@ def test_llm_failure_keeps_scores_and_marks_template_explanation() -> None:
     result = recommendation.recommend(request())
 
     assert result.items[0].score.total > 0
-    assert result.items[0].explanation.endswith("for this trip.")
+    assert result.items[0].explanation.startswith("该地点符合你选择的湖景")
+    assert "10.00 公里" in result.items[0].explanation
+    assert "scored" not in result.items[0].explanation
     assert result.source_state.notices == [
         "推荐理由由本地模板生成",
         "符合条件的候选不足 3 个",

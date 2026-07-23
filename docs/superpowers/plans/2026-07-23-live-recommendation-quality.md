@@ -285,7 +285,7 @@ Commit: `git commit -am "feat: balance recommendation types and advice"`
 - Changes: `ExplanationProvider.explain(items, context) -> list[str]`.
 - Produces: `_local_explanation(item, context, coverage_kept) -> str`.
 
-- [ ] **Step 1: Add failing local-fallback, privacy, and grouping tests**
+- [x] **Step 1: Add failing local-fallback, privacy, and grouping tests**
 
 ```python
 def test_seven_results_are_polished_in_groups_of_two_without_retry() -> None:
@@ -304,13 +304,13 @@ def test_llm_payload_excludes_precise_origin_and_internal_score_dump() -> None:
     assert '"score"' not in serialized_request
 ```
 
-- [ ] **Step 2: Run explanation tests and confirm failure**
+- [x] **Step 2: Run explanation tests and confirm failure**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_explanation_provider.py backend/tests/unit/test_recommendation_service.py backend/tests/unit/test_degradation_policy.py -q`
 
 Expected: FAIL because the service makes one LLM call and falls back to an English score sentence.
 
-- [ ] **Step 3: Generate local factual reasons before LLM calls**
+- [x] **Step 3: Generate local factual reasons before LLM calls**
 
 ```python
 def _local_explanation(self, item, context, coverage_kept=False) -> str:
@@ -328,7 +328,7 @@ def _local_explanation(self, item, context, coverage_kept=False) -> str:
 
 Attach these local reasons to every item first. They must remain useful if every LLM call fails.
 
-- [ ] **Step 4: Polish in independent two-item groups**
+- [x] **Step 4: Polish in independent two-item groups**
 
 ```python
 for start in range(0, len(items), 2):
@@ -347,7 +347,7 @@ for start in range(0, len(items), 2):
 
 Send only public place facts, rounded distance/duration, weather/advice facts, selected types, coverage mode, and display weights. Do not send origin labels, addresses, raw score objects, credentials, or user/account identifiers. Validate exact destination IDs and reject malformed group output without retrying.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_explanation_provider.py backend/tests/unit/test_recommendation_service.py backend/tests/unit/test_degradation_policy.py -q`
 

@@ -134,6 +134,12 @@ class RecommendationRequest(TravelRequestBase):
     scenery_match_mode: SceneryMatchMode = SceneryMatchMode.ANY
 
 
+class ExplanationContext(DomainModel):
+    requested_scenery_types: tuple[SceneryType, ...]
+    scenery_match_mode: SceneryMatchMode
+    display_weights: RankingWeights
+
+
 class PlaceEvaluationRequest(TravelRequestBase):
     target_place: str = Field(min_length=1, max_length=200)
 

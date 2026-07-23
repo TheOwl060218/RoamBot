@@ -10,6 +10,7 @@ from roambot.domain.models import (
     DailyWeather,
     Destination,
     DistanceEstimate,
+    ExplanationContext,
     GroupAccessibilityScore,
     Origin,
     OverallAdviceStatus,
@@ -179,7 +180,16 @@ class RecommendationService:
         if not items:
             notices.append(NO_CANDIDATES_NOTICE)
         else:
-            items, explanation_notice = self._attach_explanations(items, budget)
+            context = ExplanationContext(
+                requested_scenery_types=tuple(request.scenery_types),
+                scenery_match_mode=request.scenery_match_mode,
+                display_weights=weights,
+            )
+            items, explanation_notice = self._attach_explanations(
+                items,
+                budget,
+                context,
+            )
             if explanation_notice is not None:
                 notices.append(explanation_notice)
 
@@ -232,7 +242,16 @@ class RecommendationService:
                 "指定地点天气数据暂时不可用",
             )
 
-        items, explanation_notice = self._attach_explanations([item], budget)
+        context = ExplanationContext(
+            requested_scenery_types=tuple(sorted(destination.scenery_tags)),
+            scenery_match_mode=SceneryMatchMode.ANY,
+            display_weights=weights,
+        )
+        items, explanation_notice = self._attach_explanations(
+            [item],
+            budget,
+            context,
+        )
         notices = [explanation_notice] if explanation_notice is not None else []
 
         return PlaceEvaluationResponse(
@@ -455,30 +474,101 @@ class RecommendationService:
         self,
         items: list[RecommendationItem],
         budget: ProviderBudget,
+        context: ExplanationContext,
     ) -> tuple[list[RecommendationItem], str | None]:
-        try:
-            budget.consume(ProviderOperation.LLM)
-            explanations = self.explanations.explain(items)
-        except ProviderError:
-            self._mark(ProviderEvent.TEMPLATE_EXPLANATION)
-            return (
-                [
-                    item.model_copy(update={"explanation": self._template_explanation(item)})
-                    for item in items
-                ],
-                EXPLANATION_DEGRADED_NOTICE,
+        coverage_ids = self._coverage_representative_ids(items, context)
+        explained = [
+            item.model_copy(
+                update={
+                    "explanation": self._local_explanation(
+                        item,
+                        context,
+                        item.destination.provider_id in coverage_ids,
+                    )
+                }
             )
-
-        return (
-            [
+            for item in items
+        ]
+        degraded = False
+        for start in range(0, len(explained), 2):
+            group = explained[start : start + 2]
+            try:
+                budget.consume(ProviderOperation.LLM)
+                polished = self.explanations.explain(group, context)
+            except (ProviderError, ProviderBudgetExceeded):
+                degraded = True
+                continue
+            explained[start : start + 2] = [
                 item.model_copy(update={"explanation": explanation})
-                for item, explanation in zip(items, explanations, strict=True)
-            ],
-            None,
+                for item, explanation in zip(group, polished, strict=True)
+            ]
+
+        if degraded:
+            self._mark(ProviderEvent.TEMPLATE_EXPLANATION)
+            return explained, EXPLANATION_DEGRADED_NOTICE
+        return explained, None
+
+    def _local_explanation(
+        self,
+        item: RecommendationItem,
+        context: ExplanationContext,
+        coverage_kept: bool,
+    ) -> str:
+        labels = {
+            "lake": "湖景",
+            "sea": "海景",
+            "old_town": "古镇/历史街区",
+            "museum": "博物馆",
+            "park": "公园/绿地/湿地",
+            "mountain": "山地/徒步",
+        }
+        matched = [
+            labels[tag.value]
+            for tag in context.requested_scenery_types
+            if tag in item.destination.scenery_tags
+        ]
+        matched_text = "、".join(matched) or "风景类型"
+        advice = {
+            OverallAdviceStatus.SUITABLE: "所选日期均适合前往",
+            OverallAdviceStatus.SOME_DATES_CAUTION: (
+                "部分日期天气条件一般，建议关注逐日提示"
+            ),
+            OverallAdviceStatus.SOME_DATES_NOT_RECOMMENDED: (
+                "部分日期不建议前往，请根据逐日提示调整日期"
+            ),
+        }.get(item.overall_advice, "请结合逐日天气提示安排出行")
+        rating = (
+            f"高德评分 {item.destination.rating:.1f} / 5"
+            if item.destination.rating is not None
+            else "高德暂未提供评分"
+        )
+        coverage = "，并补足了本次类型覆盖" if coverage_kept else ""
+        distance = item.group_accessibility.average_distance_km
+        return (
+            f"该地点符合你选择的{matched_text}{coverage}，"
+            f"平均路程约 {distance:.2f} 公里；{advice}；{rating}。"
         )
 
-    def _template_explanation(self, item: RecommendationItem) -> str:
-        return f"{item.destination.name} scored {item.score.total:.2f} for this trip."
+    def _coverage_representative_ids(
+        self,
+        items: list[RecommendationItem],
+        context: ExplanationContext,
+    ) -> set[str]:
+        if context.scenery_match_mode != SceneryMatchMode.COVER_ALL:
+            return set()
+        representatives: set[str] = set()
+        for scenery_type in context.requested_scenery_types:
+            representative = next(
+                (
+                    item
+                    for item in items
+                    if scenery_type in item.destination.scenery_tags
+                ),
+                None,
+            )
+            if representative is not None:
+                representatives.add(representative.destination.provider_id)
+        return representatives
 
     def _sort_key(self, item: RecommendationItem) -> tuple[float, float, str, str]:
         return (
