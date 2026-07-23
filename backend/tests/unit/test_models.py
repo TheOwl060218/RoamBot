@@ -4,6 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from roambot.domain.models import (
+    Coordinate,
+    Destination,
     PlaceEvaluationRequest,
     RankingWeights,
     RecommendationRequest,
@@ -15,6 +17,26 @@ from roambot.domain.models import (
 def valid_dates() -> tuple[date, date]:
     start = datetime.now(timezone(timedelta(hours=8))).date() + timedelta(days=1)
     return start, start + timedelta(days=2)
+
+
+def test_destination_accepts_optional_five_point_rating() -> None:
+    values = {
+        "provider_id": "amap:test",
+        "name": "Test place",
+        "address": "Test address",
+        "city": "Suzhou",
+        "coordinate": Coordinate(longitude=120.7, latitude=31.3),
+        "type_name": "Scenic area",
+        "type_code": "110000",
+        "scenery_tags": frozenset({SceneryType.LAKE}),
+        "popularity_rank": 1,
+    }
+
+    assert Destination(**values, rating=4.7).rating == 4.7
+    assert Destination(**values).rating is None
+
+    with pytest.raises(ValidationError):
+        Destination(**values, rating=5.1)
 
 
 def test_recommendation_accepts_three_origins_and_scenery() -> None:

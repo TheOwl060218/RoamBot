@@ -17,14 +17,22 @@ def test_weights_are_normalized() -> None:
     }
 
 
-def test_coverage_penalty_reduces_total() -> None:
+def test_list_level_coverage_does_not_change_item_score() -> None:
     weights = RankingWeights(weather=40, distance=30, fairness=0, popularity=30)
 
     full = final_score(80, 80, 100, 80, weights, coverage_ratio=1)
     partial = final_score(80, 80, 100, 80, weights, coverage_ratio=0.5)
 
     assert full == pytest.approx(80)
-    assert partial == pytest.approx(70)
+    assert partial == pytest.approx(80)
+
+
+def test_missing_rating_reallocates_only_user_visible_dimensions() -> None:
+    single = RankingWeights(weather=40, distance=30, fairness=0, popularity=30)
+    group = RankingWeights(weather=32, distance=24, fairness=20, popularity=24)
+
+    assert final_score(80, 70, 100, None, single, coverage_ratio=1) == 75.71
+    assert final_score(80, 70, 50, None, group, coverage_ratio=1) == 70.57
 
 
 def test_normalize_weights_keeps_full_precision() -> None:
@@ -47,6 +55,6 @@ def test_final_score_clips_coverage_ratio_and_total_at_both_bounds() -> None:
     weights = RankingWeights(weather=1, distance=1, fairness=1, popularity=1)
 
     assert final_score(80, 80, 80, 80, weights, coverage_ratio=1.5) == 80
-    assert final_score(80, 80, 80, 80, weights, coverage_ratio=-0.5) == 60
+    assert final_score(80, 80, 80, 80, weights, coverage_ratio=-0.5) == 80
     assert final_score(120, 120, 120, 120, weights, coverage_ratio=5) == 100
     assert final_score(0, 0, 0, 0, weights, coverage_ratio=-5) == 0

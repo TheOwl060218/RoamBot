@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 
+import roambot.domain.scoring as scoring
 from roambot.domain.models import DailyWeather, SceneryType
 from roambot.domain.scoring import (
     aggregate_weather,
@@ -37,6 +38,83 @@ def test_outdoor_rain_is_worse_than_museum_rain() -> None:
     assert outdoor.score < indoor.score
 
 
+def test_extreme_heat_penalty_distinguishes_outdoor_mixed_and_indoor() -> None:
+    hot = weather(condition="Sunny", temp_max_c=36)
+
+    outdoor = score_daily_weather(hot, frozenset({SceneryType.LAKE}))
+    mixed = score_daily_weather(
+        hot,
+        frozenset({SceneryType.LAKE, SceneryType.MUSEUM}),
+    )
+    indoor = score_daily_weather(hot, frozenset({SceneryType.MUSEUM}))
+
+    assert [outdoor.score, mixed.score, indoor.score] == [60, 70, 85]
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected_scores"),
+    [
+        ({"precipitation_mm": 8}, [65, 75, 85]),
+        ({"wind_speed_kmh": 35}, [75, 82, 90]),
+        ({"uv_index": 9}, [90, 95, 100]),
+    ],
+)
+def test_weather_factors_use_outdoor_mixed_indoor_penalty_matrix(
+    changes: dict[str, float], expected_scores: list[float]
+) -> None:
+    day = weather(**changes)
+    scores = [
+        score_daily_weather(day, frozenset({SceneryType.PARK})).score,
+        score_daily_weather(
+            day,
+            frozenset({SceneryType.PARK, SceneryType.MUSEUM}),
+        ).score,
+        score_daily_weather(day, frozenset({SceneryType.MUSEUM})).score,
+    ]
+
+    assert scores == expected_scores
+
+
+@pytest.mark.parametrize(
+    ("day", "tags", "expected_status"),
+    [
+        (weather(), frozenset({SceneryType.PARK}), "suitable"),
+        (
+            weather(condition="Sunny", temp_max_c=36),
+            frozenset({SceneryType.LAKE}),
+            "caution",
+        ),
+        (
+            weather(condition="Heavy rain", precipitation_mm=20),
+            frozenset({SceneryType.LAKE}),
+            "not_recommended",
+        ),
+    ],
+)
+def test_daily_weather_exposes_explicit_travel_advice_status(
+    day: DailyWeather,
+    tags: frozenset[SceneryType],
+    expected_status: str,
+) -> None:
+    result = score_daily_weather(day, tags)
+
+    assert result.status == expected_status
+
+
+def test_daily_weather_summary_uses_facts_and_hides_internal_penalties() -> None:
+    result = score_daily_weather(
+        weather(condition="Sunny", temp_max_c=36),
+        frozenset({SceneryType.LAKE}),
+    )
+
+    assert "7月20日" in result.summary
+    assert "最高温度预计达到36℃" in result.summary
+    assert "户外" in result.summary
+    assert "防暑" in result.summary
+    assert "-40" not in result.summary
+    assert all("-40" not in reason for reason in result.reasons)
+
+
 def test_multi_day_formula_is_seventy_thirty() -> None:
     assert aggregate_weather([90, 85, 30]) == 56.83
 
@@ -50,6 +128,13 @@ def test_distance_and_fairness_are_bounded() -> None:
 def test_popularity_converts_rank() -> None:
     assert score_popularity(rank=1) == 100
     assert score_popularity(rank=25) == 4
+
+
+def test_rating_converts_five_point_value_to_internal_scale() -> None:
+    assert scoring.score_rating(4.7) == 94
+
+    with pytest.raises(ValueError):
+        scoring.score_rating(5.1)
 
 
 @pytest.mark.parametrize(

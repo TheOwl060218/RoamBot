@@ -38,7 +38,7 @@
 - Produces: `score_rating(rating: float) -> float` and rating-aware `final_score(..., popularity: float | None, ...)`.
 - Preserves: existing `popularity` compatibility keys and `coverage_penalty`, which becomes `0` for list-level coverage.
 
-- [ ] **Step 1: Add failing domain and scoring tests**
+- [x] **Step 1: Add failing domain and scoring tests**
 
 ```python
 def test_destination_accepts_optional_five_point_rating() -> None:
@@ -58,13 +58,13 @@ def test_rating_is_scaled_and_missing_rating_reallocates_weight() -> None:
     assert final_score(80, 70, 100, None, weights(), coverage_ratio=1) == 75.71
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm they fail**
+- [x] **Step 2: Run the focused tests and confirm they fail**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_models.py backend/tests/unit/test_scoring.py backend/tests/unit/test_ranking.py -q`
 
 Expected: FAIL because rating and advice fields and `score_rating` do not exist.
 
-- [ ] **Step 3: Add enums, fields, and exposure-aware weather calculation**
+- [x] **Step 3: Add enums, fields, and exposure-aware weather calculation**
 
 ```python
 class TravelAdviceStatus(StrEnum):
@@ -91,7 +91,7 @@ class DailySuitability(DomainModel):
 
 Implement an internal exposure classifier: museum-only is indoor, outdoor tags are outdoor, mixed tags or missing tags are mixed. Apply the exact penalty matrix and `75/50` status thresholds from the approved design. Build `summary` from the actual date and weather values without exposing numeric deductions.
 
-- [ ] **Step 4: Replace rank scoring with rating scaling and missing-value normalization**
+- [x] **Step 4: Replace rank scoring with rating scaling and missing-value normalization**
 
 ```python
 def score_rating(rating: float) -> float:
@@ -115,7 +115,7 @@ def final_score(weather, distance, fairness, popularity, weights, coverage_ratio
 
 For multi-origin requests, keep fairness at its fixed 20%; when rating is absent, renormalize only the weather/distance share inside the remaining 80% and then add fairness.
 
-- [ ] **Step 5: Run focused tests and commit**
+- [x] **Step 5: Run focused tests and commit**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_models.py backend/tests/unit/test_scoring.py backend/tests/unit/test_ranking.py -q`
 

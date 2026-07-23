@@ -3,7 +3,13 @@ from __future__ import annotations
 from math import sqrt
 from statistics import fmean, pvariance
 
-from roambot.domain.models import DailySuitability, DailyWeather, SceneryType
+from roambot.domain.models import (
+    DailySuitability,
+    DailyWeather,
+    SceneryExposure,
+    SceneryType,
+    TravelAdviceStatus,
+)
 
 OUTDOOR = frozenset(
     {
@@ -14,6 +20,51 @@ OUTDOOR = frozenset(
         SceneryType.MOUNTAIN,
     }
 )
+INDOOR = frozenset({SceneryType.MUSEUM})
+
+
+def _exposure(scenery_tags: frozenset[SceneryType]) -> SceneryExposure:
+    has_outdoor = bool(scenery_tags & OUTDOOR)
+    has_indoor = bool(scenery_tags & INDOOR)
+    if has_outdoor and not has_indoor:
+        return SceneryExposure.OUTDOOR
+    if has_indoor and not has_outdoor:
+        return SceneryExposure.INDOOR
+    return SceneryExposure.MIXED
+
+
+def _penalty(
+    exposure: SceneryExposure,
+    *,
+    outdoor: int,
+    mixed: int,
+    indoor: int,
+) -> int:
+    return {
+        SceneryExposure.OUTDOOR: outdoor,
+        SceneryExposure.MIXED: mixed,
+        SceneryExposure.INDOOR: indoor,
+    }[exposure]
+
+
+def _number(value: float) -> str:
+    return f"{value:g}"
+
+
+def _exposure_label(exposure: SceneryExposure) -> str:
+    return {
+        SceneryExposure.OUTDOOR: "户外场景",
+        SceneryExposure.MIXED: "室内外混合场景",
+        SceneryExposure.INDOOR: "室内场景",
+    }[exposure]
+
+
+def _advice_status(score: float) -> TravelAdviceStatus:
+    if score >= 75:
+        return TravelAdviceStatus.SUITABLE
+    if score >= 50:
+        return TravelAdviceStatus.CAUTION
+    return TravelAdviceStatus.NOT_RECOMMENDED
 
 
 def clamp(value: float) -> float:
@@ -25,63 +76,116 @@ def score_daily_weather(
 ) -> DailySuitability:
     score = 100.0
     reasons: list[str] = []
-    outdoor = not scenery_tags or bool(scenery_tags & OUTDOOR)
+    exposure = _exposure(scenery_tags)
+    exposure_label = _exposure_label(exposure)
 
     if not scenery_tags:
-        reasons.append("风景类型未知")
+        reasons.append("地点类型信息有限，天气影响按室内外混合场景估算")
 
     if weather.precipitation_mm > 10:
-        penalty = 60 if outdoor else 35
+        penalty = _penalty(exposure, outdoor=60, mixed=45, indoor=35)
         score -= penalty
-        reasons.append(f"强降水 -{penalty}")
+        reasons.append(
+            f"预计降水量达到{_number(weather.precipitation_mm)}毫米，"
+            f"{exposure_label}受影响明显，建议调整出行日期"
+        )
     elif weather.precipitation_mm > 1:
-        penalty = 35 if outdoor else 15
+        penalty = _penalty(exposure, outdoor=35, mixed=25, indoor=15)
         score -= penalty
-        reasons.append(f"降雨 -{penalty}")
+        reasons.append(
+            f"预计有{_number(weather.precipitation_mm)}毫米降水，"
+            f"{exposure_label}需准备雨具并留意路面情况"
+        )
     elif weather.precipitation_mm > 0:
-        penalty = 10 if outdoor else 5
+        penalty = _penalty(exposure, outdoor=10, mixed=8, indoor=5)
         score -= penalty
-        reasons.append(f"微量降水 -{penalty}")
+        reasons.append(
+            f"预计有少量降水，{exposure_label}建议随身携带雨具"
+        )
 
     hottest = weather.temp_max_c
     coldest = weather.temp_min_c
     if hottest > 35 or coldest < 0:
-        score -= 40
-        reasons.append("极端温度 -40")
+        penalty = _penalty(exposure, outdoor=40, mixed=30, indoor=15)
+        score -= penalty
+        if hottest > 35:
+            reasons.append(
+                f"最高温度预计达到{_number(hottest)}℃，{exposure_label}，"
+                "建议避开高温时段并做好防暑准备"
+            )
+        else:
+            reasons.append(
+                f"最低温度预计降至{_number(coldest)}℃，{exposure_label}，"
+                "建议注意保暖并缩短室外停留"
+            )
     elif hottest > 32 or coldest < 10:
-        score -= 25
-        reasons.append("温度不舒适 -25")
+        penalty = _penalty(exposure, outdoor=25, mixed=18, indoor=10)
+        score -= penalty
+        reasons.append(
+            f"预计温度范围为{_number(coldest)}–{_number(hottest)}℃，"
+            f"{exposure_label}体感可能不舒适，请合理安排时段"
+        )
     elif hottest > 28 or coldest < 18:
-        score -= 10
-        reasons.append("温度稍有偏离 -10")
+        penalty = _penalty(exposure, outdoor=10, mixed=8, indoor=5)
+        score -= penalty
+        reasons.append(
+            f"预计温度范围为{_number(coldest)}–{_number(hottest)}℃，"
+            "建议按实际体感准备衣物"
+        )
 
     if weather.wind_speed_kmh > 40:
-        score -= 40 if outdoor else 20
-        reasons.append("大风")
+        score -= _penalty(exposure, outdoor=40, mixed=30, indoor=20)
+        reasons.append(
+            f"预计风速达到{_number(weather.wind_speed_kmh)}公里/小时，"
+            f"{exposure_label}不宜长时间停留"
+        )
     elif weather.wind_speed_kmh > 30:
-        score -= 25 if outdoor else 10
-        reasons.append("风力较强")
-    elif weather.wind_speed_kmh > 20 and outdoor:
-        score -= 10
-        reasons.append("户外风力影响")
+        score -= _penalty(exposure, outdoor=25, mixed=18, indoor=10)
+        reasons.append(
+            f"预计风速达到{_number(weather.wind_speed_kmh)}公里/小时，"
+            f"{exposure_label}请注意防风"
+        )
+    elif weather.wind_speed_kmh > 20:
+        score -= _penalty(exposure, outdoor=10, mixed=5, indoor=0)
+        reasons.append(
+            f"预计风速为{_number(weather.wind_speed_kmh)}公里/小时，"
+            "户外活动可能受到一定影响"
+        )
 
     if weather.visibility_km < 2:
         score -= 30
-        reasons.append("能见度很低")
+        reasons.append(
+            f"预计能见度仅{_number(weather.visibility_km)}公里，建议谨慎出行"
+        )
     elif weather.visibility_km < 5:
         score -= 15
-        reasons.append("能见度较低")
+        reasons.append(
+            f"预计能见度为{_number(weather.visibility_km)}公里，请留意交通安全"
+        )
     elif weather.visibility_km < 10:
         score -= 5
-        reasons.append("能见度一般")
+        reasons.append(
+            f"预计能见度为{_number(weather.visibility_km)}公里，远景观赏可能受影响"
+        )
 
-    if weather.uv_index > 8 and outdoor:
-        score -= 10
-        reasons.append("紫外线强")
+    if weather.uv_index > 8:
+        score -= _penalty(exposure, outdoor=10, mixed=5, indoor=0)
+        reasons.append(
+            f"紫外线指数预计达到{_number(weather.uv_index)}，"
+            "户外停留时请做好防晒"
+        )
 
     if not reasons:
-        reasons.append("天气条件总体舒适")
-    return DailySuitability(date=weather.date, score=clamp(score), reasons=reasons)
+        reasons.append(f"{exposure_label}的天气条件总体较适合出行")
+    final_score = clamp(score)
+    summary = f"{weather.date.month}月{weather.date.day}日" + "；".join(reasons) + "。"
+    return DailySuitability(
+        date=weather.date,
+        score=final_score,
+        reasons=reasons,
+        status=_advice_status(final_score),
+        summary=summary,
+    )
 
 
 def aggregate_weather(scores: list[float]) -> float:
@@ -111,3 +215,9 @@ def score_popularity(rank: int, local_bonus: float = 0) -> float:
     if not -20 <= local_bonus <= 20:
         raise ValueError("popularity bonus must be between -20 and 20")
     return clamp(100 - 4 * (rank - 1) + local_bonus)
+
+
+def score_rating(rating: float) -> float:
+    if not 0 <= rating <= 5:
+        raise ValueError("rating must be between zero and five")
+    return clamp(rating * 20)

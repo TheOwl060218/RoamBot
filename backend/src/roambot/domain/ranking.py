@@ -14,16 +14,29 @@ def final_score(
     weather: float,
     distance: float,
     fairness: float,
-    popularity: float,
+    popularity: float | None,
     weights: RankingWeights,
     coverage_ratio: float,
 ) -> float:
-    normalized = normalize_weights(weights)
-    weighted = (
-        weather * normalized["weather"]
-        + distance * normalized["distance"]
-        + fairness * normalized["fairness"]
-        + popularity * normalized["popularity"]
-    )
-    coverage_penalty = 20 * (1 - max(0.0, min(1.0, coverage_ratio)))
-    return clamp(weighted - coverage_penalty)
+    del coverage_ratio
+    total_weight = sum(weights.model_dump().values())
+    fairness_fraction = weights.fairness / total_weight
+    base_fraction = 1 - fairness_fraction
+    base_values = {
+        "weather": weather,
+        "distance": distance,
+        "popularity": popularity,
+    }
+    available = {
+        name: value
+        for name, value in base_values.items()
+        if value is not None and getattr(weights, name) > 0
+    }
+    available_weight = sum(getattr(weights, name) for name in available)
+    weighted_base = 0.0
+    if available_weight > 0:
+        weighted_base = sum(
+            value * getattr(weights, name) / available_weight
+            for name, value in available.items()
+        )
+    return clamp(weighted_base * base_fraction + fairness * fairness_fraction)

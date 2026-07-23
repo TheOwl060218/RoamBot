@@ -31,6 +31,18 @@ class SceneryMatchMode(StrEnum):
     COVER_ALL = "cover_all"
 
 
+class SceneryExposure(StrEnum):
+    INDOOR = "indoor"
+    OUTDOOR = "outdoor"
+    MIXED = "mixed"
+
+
+class TravelAdviceStatus(StrEnum):
+    SUITABLE = "suitable"
+    CAUTION = "caution"
+    NOT_RECOMMENDED = "not_recommended"
+
+
 class SourceKind(StrEnum):
     LIVE = "live"
     CACHE = "cache"
@@ -144,6 +156,7 @@ class Destination(DomainModel):
     type_code: str
     scenery_tags: frozenset[SceneryType] = frozenset()
     popularity_rank: int = Field(ge=1)
+    rating: float | None = Field(default=None, ge=0, le=5)
 
 
 class DailyWeather(DomainModel):
@@ -162,6 +175,8 @@ class DailySuitability(DomainModel):
     date: date
     score: float = Field(ge=0, le=100)
     reasons: list[str] = Field(min_length=1)
+    status: TravelAdviceStatus | None = None
+    summary: str | None = None
 
 
 class DistanceEstimate(DomainModel):
