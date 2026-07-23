@@ -112,6 +112,55 @@ def test_search_preserves_type_then_provider_order_and_deduplicates() -> None:
     assert [item.name for item in results] == ["金鸡湖景区", "湖滨公园"]
     assert results[1].provider_id.startswith("amap:synthetic:")
     assert [item.popularity_rank for item in results] == [1, 2]
+    assert [item.rating for item in results] == [4.8, 4.5]
+
+
+def test_search_keeps_provider_rank_local_to_each_scenery_type() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = fixture("poi_around_success.json")
+        if request.url.params["keywords"] == "公园":
+            payload["count"] = "1"
+            payload["pois"] = [
+                {
+                    "id": "PARK-ONLY",
+                    "name": "独立公园",
+                    "location": "120.690000,31.310000",
+                    "type": "公园广场;公园",
+                    "typecode": "110101",
+                    "address": "公园路1号",
+                    "cityname": "苏州",
+                    "business": {"rating": "4.6"},
+                }
+            ]
+        return httpx.Response(200, json=payload)
+
+    results = provider_for(handler).search(
+        Coordinate(longitude=120.617, latitude=31.335),
+        "苏州",
+        (SceneryType.LAKE, SceneryType.PARK),
+        50,
+    )
+
+    assert [item.name for item in results] == ["金鸡湖景区", "湖滨公园", "独立公园"]
+    assert [item.popularity_rank for item in results] == [1, 2, 1]
+    assert [item.rating for item in results] == [4.8, 4.5, 4.6]
+
+
+@pytest.mark.parametrize("raw_rating", [True, [], {}, "not-rating", "6.0", "-1"])
+def test_invalid_business_rating_becomes_missing(raw_rating: object) -> None:
+    payload = fixture("poi_around_success.json")
+    payload["pois"][0]["business"]["rating"] = raw_rating
+
+    results = provider_for(
+        lambda _: httpx.Response(200, json=payload)
+    ).search(
+        Coordinate(longitude=120.617, latitude=31.335),
+        "苏州",
+        (SceneryType.LAKE,),
+        50,
+    )
+
+    assert results[0].rating is None
 
 
 def test_radius_above_50_km_uses_text_and_locally_filters_far_candidates() -> None:

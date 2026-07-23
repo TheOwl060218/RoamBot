@@ -91,7 +91,10 @@ class AMapProvider:
                 path=path,
                 params=params,
             )
-            candidates = self._parse_pois(payload, city)
+            candidates = [
+                candidate.model_copy(update={"popularity_rank": rank})
+                for rank, candidate in enumerate(self._parse_pois(payload, city), start=1)
+            ]
             for candidate in candidates:
                 if not use_around and _haversine_km(center, candidate.coordinate) > radius_km:
                     continue
@@ -104,10 +107,7 @@ class AMapProvider:
             if len(merged) == 25:
                 break
 
-        return [
-            candidate.model_copy(update={"popularity_rank": index})
-            for index, candidate in enumerate(merged, start=1)
-        ]
+        return merged
 
     def resolve(self, name: str, city: str) -> Destination:
         payload = self._http.get_json(
@@ -224,6 +224,8 @@ def _parse_poi(raw: object, fallback_city: str) -> Destination | None:
     address = raw_address if isinstance(raw_address, str) else ""
     raw_city = raw.get("cityname")
     city = raw_city if isinstance(raw_city, str) and raw_city else fallback_city
+    business = raw.get("business")
+    rating = _optional_rating(business.get("rating")) if isinstance(business, dict) else None
     return Destination(
         provider_id=provider_id,
         name=name,
@@ -234,6 +236,7 @@ def _parse_poi(raw: object, fallback_city: str) -> Destination | None:
         type_code=type_code,
         scenery_tags=classify_scenery(name, type_name, type_code, {}),
         popularity_rank=1,
+        rating=rating,
     )
 
 
@@ -274,6 +277,18 @@ def _nonnegative_number(raw: object) -> float:
         raise _bad_response() from None
     if not isfinite(value) or value < 0:
         raise _bad_response()
+    return value
+
+
+def _optional_rating(raw: object) -> float | None:
+    if isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isfinite(value) or not 0 <= value <= 5:
+        return None
     return value
 
 

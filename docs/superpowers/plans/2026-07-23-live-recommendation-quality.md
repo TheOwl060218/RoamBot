@@ -140,7 +140,7 @@ Commit: `git commit -am "feat: add scene-aware advice and rating scoring"`
 - Produces: `_optional_rating(raw: object) -> float | None` for AMap `business.rating` parsing.
 - Preserves: `popularity_rank` as a type-local fallback tie-breaker only.
 
-- [ ] **Step 1: Add failing provider tests**
+- [x] **Step 1: Add failing provider tests**
 
 ```python
 def test_search_parses_business_rating_without_extra_request() -> None:
@@ -153,13 +153,13 @@ def test_invalid_or_missing_business_rating_becomes_none(raw) -> None:
     assert parsed_destination_with_rating(raw).rating is None
 ```
 
-- [ ] **Step 2: Run provider tests and confirm failure**
+- [x] **Step 2: Run provider tests and confirm failure**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_amap_provider.py backend/tests/unit/test_mock_providers.py -q`
 
 Expected: FAIL because parsed destinations do not expose ratings.
 
-- [ ] **Step 3: Parse ratings and remove cross-type rank bias**
+- [x] **Step 3: Parse ratings and remove cross-type rank bias**
 
 ```python
 def _optional_rating(raw: object) -> float | None:
@@ -175,7 +175,7 @@ rating = _optional_rating(business.get("rating")) if isinstance(business, dict) 
 
 Assign `popularity_rank` from each individual type query's result order before merging and deduplicating. Do not enumerate the merged cross-type list. Add deterministic ratings plus one missing-rating sample to the built-in Suzhou destinations.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_amap_provider.py backend/tests/unit/test_mock_providers.py -q`
 

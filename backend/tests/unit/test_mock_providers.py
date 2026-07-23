@@ -89,6 +89,7 @@ def test_mock_bundle_returns_suzhou_vertical_slice() -> None:
 
     assert origin.coordinate == Coordinate(longitude=120.617, latitude=31.335)
     assert found_places[0].name == "金鸡湖景区"
+    assert found_places[0].rating == 4.8
     assert len(weather) == 3
 
 
@@ -113,6 +114,7 @@ def test_mock_providers_return_deterministic_ordered_data() -> None:
     )
 
     assert [place.name for place in places] == ["金鸡湖景区", "同里古镇", "苏州博物馆"]
+    assert [place.rating for place in places] == [4.8, 4.7, None]
     assert [estimate.origin_label for estimate in distances] == ["苏州站", "苏州园区站"]
     assert all(estimate.distance_km >= 0 for estimate in distances)
     assert explanations == [

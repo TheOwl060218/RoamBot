@@ -61,6 +61,7 @@ DESTINATIONS: tuple[Destination, ...] = (
         type_code="lake",
         scenery_tags=frozenset({SceneryType.LAKE}),
         popularity_rank=1,
+        rating=4.8,
     ),
     Destination(
         provider_id="mock:tongli",
@@ -72,6 +73,7 @@ DESTINATIONS: tuple[Destination, ...] = (
         type_code="old_town",
         scenery_tags=frozenset({SceneryType.OLD_TOWN}),
         popularity_rank=2,
+        rating=4.7,
     ),
     Destination(
         provider_id="mock:suzhou-museum",
@@ -83,6 +85,7 @@ DESTINATIONS: tuple[Destination, ...] = (
         type_code="museum",
         scenery_tags=frozenset({SceneryType.MUSEUM}),
         popularity_rank=3,
+        rating=None,
     ),
     Destination(
         provider_id="mock:qionglong-mountain",
@@ -94,6 +97,7 @@ DESTINATIONS: tuple[Destination, ...] = (
         type_code="mountain",
         scenery_tags=frozenset({SceneryType.MOUNTAIN}),
         popularity_rank=4,
+        rating=4.6,
     ),
 )
 
