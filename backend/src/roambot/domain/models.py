@@ -43,6 +43,12 @@ class TravelAdviceStatus(StrEnum):
     NOT_RECOMMENDED = "not_recommended"
 
 
+class OverallAdviceStatus(StrEnum):
+    SUITABLE = "suitable"
+    SOME_DATES_CAUTION = "some_dates_caution"
+    SOME_DATES_NOT_RECOMMENDED = "some_dates_not_recommended"
+
+
 class SourceKind(StrEnum):
     LIVE = "live"
     CACHE = "cache"
@@ -198,7 +204,7 @@ class ScoreBreakdown(DomainModel):
     weather: float = Field(ge=0, le=100)
     distance: float = Field(ge=0, le=100)
     fairness: float = Field(ge=0, le=100)
-    popularity: float = Field(ge=0, le=100)
+    popularity: float | None = Field(ge=0, le=100)
     coverage_penalty: float = Field(ge=0, le=100)
     total: float = Field(ge=0, le=100)
 
@@ -216,12 +222,14 @@ class RecommendationItem(DomainModel):
     daily_suitability: list[DailySuitability]
     score: ScoreBreakdown
     explanation: str
+    overall_advice: OverallAdviceStatus | None = None
 
 
 class RecommendationResponse(DomainModel):
     items: list[RecommendationItem]
     source_state: SourceState
     generated_at: str
+    uncovered_scenery_types: list[SceneryType] = Field(default_factory=list)
 
 
 class PlaceEvaluationResponse(DomainModel):

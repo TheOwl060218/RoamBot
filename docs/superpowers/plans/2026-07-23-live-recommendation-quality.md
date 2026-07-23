@@ -200,7 +200,7 @@ Commit: `git commit -am "feat: ingest AMap place ratings"`
 - Produces: `_preselect_candidates(...) -> list[Destination]`, capped at 7.
 - Produces: response-level `uncovered_scenery_types: list[SceneryType]`.
 
-- [ ] **Step 1: Add failing recommendation-selection tests**
+- [x] **Step 1: Add failing recommendation-selection tests**
 
 ```python
 def test_cover_all_selects_representative_per_requested_type() -> None:
@@ -221,13 +221,13 @@ def test_provider_limits_allow_seven_distance_weather_and_four_llm_calls() -> No
     assert DEFAULT_PROVIDER_LIMITS[ProviderOperation.LLM] == 4
 ```
 
-- [ ] **Step 2: Run focused tests and confirm failure**
+- [x] **Step 2: Run focused tests and confirm failure**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_recommendation_service.py backend/tests/unit/test_provider_budget.py backend/tests/unit/test_degradation_policy.py -q`
 
 Expected: FAIL because recommendation still stops at five merged candidates and uses per-item coverage penalties.
 
-- [ ] **Step 3: Implement deterministic preselection and coverage notices**
+- [x] **Step 3: Implement deterministic preselection and coverage notices**
 
 ```python
 def _target_count(self, request: RecommendationRequest) -> int:
@@ -244,7 +244,7 @@ def _preview_key(self, destination, center):
 
 Filter by tag and rough radius, then in COVER_ALL mode greedily take the best candidate that covers each still-uncovered requested type. Fill remaining slots from the same deterministic preview order. Run exact distance and weather only for the selected maximum of seven candidates. Keep poor-weather candidates; continue the existing provider-unavailable exclusion behavior only when weather data itself is missing.
 
-- [ ] **Step 4: Build daily and overall advice into scored items**
+- [x] **Step 4: Build daily and overall advice into scored items**
 
 ```python
 def _overall_advice(days: list[DailySuitability]) -> OverallAdviceStatus:
@@ -258,7 +258,7 @@ def _overall_advice(days: list[DailySuitability]) -> OverallAdviceStatus:
 
 Set rating score to `score_rating(destination.rating)` or `None`, set `coverage_penalty=0`, and return uncovered types in a structured response field. Update limits to `3/6/7/7/4`.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run: `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_recommendation_service.py backend/tests/unit/test_provider_budget.py backend/tests/unit/test_degradation_policy.py -q`
 

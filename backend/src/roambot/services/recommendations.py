@@ -12,6 +12,7 @@ from roambot.domain.models import (
     DistanceEstimate,
     GroupAccessibilityScore,
     Origin,
+    OverallAdviceStatus,
     PlaceEvaluationRequest,
     PlaceEvaluationResponse,
     RankingWeights,
@@ -22,15 +23,15 @@ from roambot.domain.models import (
     ScoreBreakdown,
     SourceKind,
     SourceState,
+    TravelAdviceStatus,
 )
 from roambot.domain.ranking import final_score
 from roambot.domain.scoring import (
     aggregate_weather,
-    clamp,
     score_daily_weather,
     score_distance,
     score_fairness,
-    score_popularity,
+    score_rating,
 )
 from roambot.providers.budget import (
     ProviderBudget,
@@ -64,9 +65,9 @@ NO_CANDIDATES_NOTICE = "no_candidates"
 DEFAULT_PROVIDER_LIMITS = {
     ProviderOperation.GEOCODE: 3,
     ProviderOperation.POI_SEARCH: 6,
-    ProviderOperation.WEATHER: 5,
-    ProviderOperation.DISTANCE: 5,
-    ProviderOperation.LLM: 1,
+    ProviderOperation.WEATHER: 7,
+    ProviderOperation.DISTANCE: 7,
+    ProviderOperation.LLM: 4,
 }
 
 
@@ -120,23 +121,25 @@ class RecommendationService:
             radius_km=request.max_distance_km,
         )
 
-        eligible_destinations: list[tuple[Destination, float]] = []
-        for destination in destinations:
-            coverage_ratio = self._coverage_ratio(destination, request)
-            if coverage_ratio is None:
-                continue
-            if (
-                self._haversine_km(origins[0].coordinate, destination.coordinate)
-                <= request.max_distance_km
-            ):
-                eligible_destinations.append((destination, coverage_ratio))
-            if len(eligible_destinations) == 5:
-                break
+        matching_destinations = [
+            destination
+            for destination in destinations
+            if destination.scenery_tags & frozenset(request.scenery_types)
+            and self._haversine_km(origins[0].coordinate, destination.coordinate)
+            <= request.max_distance_km
+        ]
+        target_count = self._target_count(request)
+        eligible_destinations = self._preselect_candidates(
+            matching_destinations,
+            request,
+            origins[0].coordinate,
+            target_count,
+        )
 
         notices: list[str] = []
         otherwise_eligible_count = 0
         items: list[RecommendationItem] = []
-        for destination, coverage_ratio in eligible_destinations:
+        for destination in eligible_destinations:
             try:
                 budget.consume(ProviderOperation.DISTANCE)
                 distances = self.distance.measure(origins, destination)
@@ -158,7 +161,7 @@ class RecommendationService:
                 start_date=request.start_date,
                 end_date=request.end_date,
                 weights=weights,
-                coverage_ratio=coverage_ratio,
+                coverage_ratio=1,
                 budget=budget,
             )
             if item is None:
@@ -172,7 +175,7 @@ class RecommendationService:
                 "全部候选天气数据暂时不可用",
             )
 
-        items = sorted(items, key=self._sort_key)[:5]
+        items = sorted(items, key=self._sort_key)[:target_count]
         if not items:
             notices.append(NO_CANDIDATES_NOTICE)
         else:
@@ -180,10 +183,12 @@ class RecommendationService:
             if explanation_notice is not None:
                 notices.append(explanation_notice)
 
+        uncovered_scenery_types = self._uncovered_types(items, request)
         return RecommendationResponse(
             items=items,
             source_state=self._source_state(len(items), notices),
             generated_at=self.clock().isoformat(),
+            uncovered_scenery_types=uncovered_scenery_types,
         )
 
     def evaluate(self, request: PlaceEvaluationRequest) -> PlaceEvaluationResponse:
@@ -281,6 +286,76 @@ class RecommendationService:
             return 1
         return len(matched) / len(requested)
 
+    def _target_count(self, request: RecommendationRequest) -> int:
+        if request.scenery_match_mode == SceneryMatchMode.ANY:
+            return 5
+        return max(5, min(7, len(set(request.scenery_types)) + 1))
+
+    def _preselect_candidates(
+        self,
+        destinations: list[Destination],
+        request: RecommendationRequest,
+        center,
+        target_count: int,
+    ) -> list[Destination]:
+        ordered = sorted(
+            destinations,
+            key=lambda destination: self._preview_key(destination, center),
+        )
+        if request.scenery_match_mode == SceneryMatchMode.ANY:
+            return ordered[:target_count]
+
+        selected: list[Destination] = []
+        selected_ids: set[str] = set()
+        for scenery_type in dict.fromkeys(request.scenery_types):
+            representative = next(
+                (
+                    destination
+                    for destination in ordered
+                    if destination.provider_id not in selected_ids
+                    and scenery_type in destination.scenery_tags
+                ),
+                None,
+            )
+            if representative is not None:
+                selected.append(representative)
+                selected_ids.add(representative.provider_id)
+
+        for destination in ordered:
+            if len(selected) >= target_count:
+                break
+            if destination.provider_id not in selected_ids:
+                selected.append(destination)
+                selected_ids.add(destination.provider_id)
+        return selected[:target_count]
+
+    def _preview_key(self, destination: Destination, center) -> tuple[object, ...]:
+        return (
+            destination.rating is None,
+            -(destination.rating or 0),
+            self._haversine_km(center, destination.coordinate),
+            destination.popularity_rank,
+            destination.provider_id,
+        )
+
+    def _uncovered_types(
+        self,
+        items: list[RecommendationItem],
+        request: RecommendationRequest,
+    ) -> list:
+        if request.scenery_match_mode != SceneryMatchMode.COVER_ALL:
+            return []
+        covered = (
+            set().union(*(item.destination.scenery_tags for item in items))
+            if items
+            else set()
+        )
+        return [
+            scenery_type
+            for scenery_type in dict.fromkeys(request.scenery_types)
+            if scenery_type not in covered
+        ]
+
     def _score_candidate(
         self,
         *,
@@ -309,8 +384,10 @@ class RecommendationService:
         distance_stddev = sqrt(distance_variance)
         fairness_score = score_fairness(distance_values, max_distance_km)
         distance_score = score_distance(average_distance, max_distance_km)
-        popularity_score = score_popularity(destination.popularity_rank)
-        coverage_penalty = clamp(20 * (1 - max(0.0, min(1.0, coverage_ratio))))
+        popularity_score = (
+            score_rating(destination.rating) if destination.rating is not None else None
+        )
+        coverage_penalty = 0.0
         total = final_score(
             weather=weather_score,
             distance=distance_score,
@@ -341,7 +418,16 @@ class RecommendationService:
                 total=total,
             ),
             explanation="",
+            overall_advice=self._overall_advice(daily_suitability),
         )
+
+    def _overall_advice(self, days) -> OverallAdviceStatus:
+        statuses = {day.status for day in days}
+        if TravelAdviceStatus.NOT_RECOMMENDED in statuses:
+            return OverallAdviceStatus.SOME_DATES_NOT_RECOMMENDED
+        if TravelAdviceStatus.CAUTION in statuses:
+            return OverallAdviceStatus.SOME_DATES_CAUTION
+        return OverallAdviceStatus.SUITABLE
 
     def _complete_weather(
         self,

@@ -63,6 +63,7 @@ def destination(
     name: str,
     tags: frozenset[SceneryType],
     rank: int = 1,
+    rating: float | None = 4.5,
 ) -> Destination:
     return Destination(
         provider_id=provider_id,
@@ -74,6 +75,7 @@ def destination(
         type_code="test",
         scenery_tags=tags,
         popularity_rank=rank,
+        rating=rating,
     )
 
 
@@ -278,16 +280,10 @@ def test_multi_origin_uses_default_fairness_weight() -> None:
     assert [item.destination.provider_id for item in result.items] == ["fair", "spread"]
 
 
-def test_cover_all_applies_coverage_penalty() -> None:
+def test_cover_all_reports_uncovered_types_without_item_penalty() -> None:
     lake = destination("lake", "Lake", frozenset({SceneryType.LAKE}), rank=1)
     recommendation_service, *_ = service(destinations=[lake], distances={"lake": [10]})
 
-    any_result = recommendation_service.recommend(
-        request(
-            scenery_types=[SceneryType.LAKE, SceneryType.MOUNTAIN],
-            scenery_match_mode=SceneryMatchMode.ANY,
-        )
-    )
     cover_all_result = recommendation_service.recommend(
         request(
             scenery_types=[SceneryType.LAKE, SceneryType.MOUNTAIN],
@@ -295,9 +291,105 @@ def test_cover_all_applies_coverage_penalty() -> None:
         )
     )
 
-    assert any_result.items[0].score.coverage_penalty == 0
-    assert cover_all_result.items[0].score.coverage_penalty == 10
-    assert any_result.items[0].score.total - cover_all_result.items[0].score.total == 10
+    assert cover_all_result.items[0].score.coverage_penalty == 0
+    assert cover_all_result.uncovered_scenery_types == [SceneryType.MOUNTAIN]
+
+
+def test_cover_all_selects_representatives_instead_of_first_five_places() -> None:
+    museums = [
+        destination(
+            f"museum-{index}",
+            f"Museum {index}",
+            frozenset({SceneryType.MUSEUM}),
+            rank=index,
+            rating=4.9,
+        )
+        for index in range(1, 6)
+    ]
+    lake = destination("lake", "Lake", frozenset({SceneryType.LAKE}), rank=1, rating=4.2)
+    park = destination("park", "Park", frozenset({SceneryType.PARK}), rank=1, rating=4.3)
+    candidates = [*museums, lake, park]
+    recommendation_service, *_ = service(
+        destinations=candidates,
+        distances={candidate.provider_id: [10] for candidate in candidates},
+    )
+
+    result = recommendation_service.recommend(
+        request(
+            scenery_types=[SceneryType.MUSEUM, SceneryType.LAKE, SceneryType.PARK],
+            scenery_match_mode=SceneryMatchMode.COVER_ALL,
+        )
+    )
+
+    covered = set().union(*(item.destination.scenery_tags for item in result.items))
+    assert len(result.items) == 5
+    assert {SceneryType.MUSEUM, SceneryType.LAKE, SceneryType.PARK} <= covered
+    assert result.uncovered_scenery_types == []
+
+
+def test_cover_all_with_six_types_can_return_seven_results() -> None:
+    types = list(SceneryType)
+    candidates = [
+        destination(f"place-{index}", f"Place {index}", frozenset({scenery_type}))
+        for index, scenery_type in enumerate(types, start=1)
+    ]
+    candidates.append(destination("extra", "Extra", frozenset({SceneryType.LAKE}), rank=2))
+    recommendation_service, *_ = service(
+        destinations=candidates,
+        distances={candidate.provider_id: [10] for candidate in candidates},
+    )
+
+    result = recommendation_service.recommend(
+        request(
+            scenery_types=types,
+            scenery_match_mode=SceneryMatchMode.COVER_ALL,
+        )
+    )
+
+    assert len(result.items) == 7
+
+
+def test_bad_weather_keeps_outdoor_representative_with_warning() -> None:
+    museum = destination("museum", "Museum", frozenset({SceneryType.MUSEUM}), rating=4.9)
+    lake = destination("lake", "Lake", frozenset({SceneryType.LAKE}), rating=4.2)
+    storm = [
+        day.model_copy(update={"precipitation_mm": 20}) for day in weather_range()
+    ]
+    recommendation_service, *_ = service(
+        destinations=[museum, lake],
+        distances={"museum": [10], "lake": [10]},
+        weather_by_id={"museum": weather_range(), "lake": storm},
+    )
+
+    result = recommendation_service.recommend(
+        request(
+            scenery_types=[SceneryType.MUSEUM, SceneryType.LAKE],
+            scenery_match_mode=SceneryMatchMode.COVER_ALL,
+        )
+    )
+
+    lake_item = next(item for item in result.items if item.destination.provider_id == "lake")
+    assert lake_item.overall_advice == "some_dates_not_recommended"
+
+
+def test_rating_replaces_provider_rank_in_final_order() -> None:
+    lower_rating = destination(
+        "rank-first", "Rank First", frozenset({SceneryType.LAKE}), rank=1, rating=3.0
+    )
+    higher_rating = destination(
+        "rating-first", "Rating First", frozenset({SceneryType.LAKE}), rank=2, rating=5.0
+    )
+    recommendation_service, *_ = service(
+        destinations=[lower_rating, higher_rating],
+        distances={"rank-first": [10], "rating-first": [10]},
+    )
+
+    result = recommendation_service.recommend(request())
+
+    assert [item.destination.provider_id for item in result.items] == [
+        "rating-first",
+        "rank-first",
+    ]
 
 
 def test_evaluate_returns_only_requested_destination() -> None:
