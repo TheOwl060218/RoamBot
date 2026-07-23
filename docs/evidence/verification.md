@@ -17,6 +17,7 @@
 | Vite 生产构建 | 退出 0；1811 modules transformed |
 | Playwright Mock 验收 | 桌面 4 + 移动端 4，`8 passed in 13.7s` |
 | 高熵凭据值扫描 | `SECRET_VALUE_SCAN_CLEAN` |
+| `docker build -t roambot:local .` | 退出 0；镜像 `sha256:3ad463b2b77e...`，80,906,558 bytes |
 
 Playwright 因现有人工测试容器占用 `8000`，使用测试专用端口 `8010/5183`；受控服务器在 `try/finally` 中启动并关闭，未替换或中断现有容器。验收覆盖访客推荐、账户/收藏/历史主流程、匿名分享和响应式关系。
 
@@ -74,10 +75,10 @@ Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆�
 
 | 镜像 | ID | 大小 |
 | --- | --- | --- |
-| `roambot:local` | `sha256:622c6d52df4a96db1a6191365c3d30eb044c52c956c50cf1ffb1173e37a016ba` | 80,859,721 bytes |
+| `roambot:local` | `sha256:3ad463b2b77eb13fd4206d2b7745aee7716ffb6d4f5122331d6776a3d843f51a` | 80,906,558 bytes |
 | `roambot-ci:local` | `sha256:e15adc1b05dd3dc09944bbe0b6e9377e2de2f8d1241c682d5f0226d413cb5cfb` | 643,130,052 bytes |
 
-本地修复版容器 `roambot-check` 状态为 `running/healthy`，`GET /api/v1/health` 返回 `{"status":"ready"}`，WebUI 位于 `http://127.0.0.1:8000`。命名卷 `roambot-check-data` 在容器替换时保留。
+本地容器 `roambot-check` 状态为 `running/healthy`，WebUI 位于 `http://127.0.0.1:8000`。2026-07-23 本轮镜像构建后，该容器仍运行旧镜像 `e0f48ab3389b`，尚未切换到新的 `roambot:local`；命名卷 `roambot-check-data` 将在后续容器替换时保留。
 
 ## 真实 Provider 人工检查
 
