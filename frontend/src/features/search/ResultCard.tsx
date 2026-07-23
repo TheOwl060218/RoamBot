@@ -5,10 +5,15 @@ import { DailyWeatherList } from './DailyWeatherList'
 import {
   distanceMatchLabel,
   fairnessMatchLabel,
-  popularityMatchLabel,
   tripMatchIndex,
   weatherMatchLabel,
 } from './matchLabels'
+
+const adviceLabels = {
+  suitable: '适合前往',
+  some_dates_caution: '部分日期需谨慎',
+  some_dates_not_recommended: '部分日期不建议前往',
+} as const
 
 const sceneryLabels: Record<string, string> = {
   lake: '湖景',
@@ -44,14 +49,22 @@ export function ResultCard({ item, onFavorite }: ResultCardProps) {
         </div>
       </header>
 
+      <div className={`travel-advice travel-advice-${item.overall_advice}`}>
+        <span>出行建议</span>
+        <strong>{adviceLabels[item.overall_advice]}</strong>
+      </div>
+
       <div className={`match-grid${isGroup ? ' match-grid-group' : ''}`} aria-label="匹配因素">
         <div><span>天气适配</span><strong>{weatherMatchLabel(score.weather)}</strong></div>
         <div><span>路程体验</span><strong>{distanceMatchLabel(score.distance)}</strong></div>
         {isGroup && <div><span>同行均衡</span><strong>{fairnessMatchLabel(score.fairness)}</strong></div>}
-        <div><span>景区人气</span><strong>{popularityMatchLabel(score.popularity)}</strong></div>
+        <div>
+          <span>地点评分</span>
+          <strong>
+            {destination.rating === null ? '暂无数据' : `${destination.rating.toFixed(1)} / 5`}
+          </strong>
+        </div>
       </div>
-
-      <p className="index-note">指数用于比较本次候选地点，不代表官方评价。</p>
 
       <div className="distance-list">
         {item.distances.map((distance) => (

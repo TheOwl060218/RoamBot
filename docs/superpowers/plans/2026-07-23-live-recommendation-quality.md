@@ -439,7 +439,7 @@ Commit: `git commit -am "feat: expose safe rating and advice snapshots"`
 - Preserves: internal TypeScript key `popularity` for request/score compatibility.
 - Displays: `地点评分`, `X.X / 5` or `暂无数据`, Chinese dates, text travel advice, and one source/index notice per result area.
 
-- [ ] **Step 1: Update fixtures and add failing component expectations**
+- [x] **Step 1: Update fixtures and add failing component expectations**
 
 ```tsx
 expect(screen.getByText('地点评分')).toBeInTheDocument()
@@ -451,13 +451,13 @@ expect(screen.queryByText(/极端温度\s*-40|适宜程度/)).not.toBeInTheDocum
 expect(screen.getAllByText(/地点评分数据来源：高德开放平台/)).toHaveLength(1)
 ```
 
-- [ ] **Step 2: Run frontend tests and confirm failure**
+- [x] **Step 2: Run frontend tests and confirm failure**
 
 Run: `npm --prefix frontend test -- WeightSegments.test.tsx ResultCard.test.tsx SearchWorkspace.test.tsx PersonalPages.test.tsx`
 
 Expected: FAIL because current UI uses popularity labels, slash dates, and raw internal weather reasons.
 
-- [ ] **Step 3: Add types and render explicit status text**
+- [x] **Step 3: Add types and render explicit status text**
 
 ```ts
 export type TravelAdviceStatus = 'suitable' | 'caution' | 'not_recommended'
@@ -477,7 +477,7 @@ export type DailySuitability = {
 
 Render `new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', timeZone: 'UTC' })`, the localized status label, and `summary`. Do not render score or raw penalty reasons. Keep “推荐理由” unchanged.
 
-- [ ] **Step 4: Rename visible popularity copy and centralize the source note**
+- [x] **Step 4: Rename visible popularity copy and centralize the source note**
 
 ```tsx
 <div><span>地点评分</span><strong>{
@@ -487,11 +487,11 @@ Render `new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', timeZo
 
 Change the segmented-weight legend to `地点评分` while retaining the `popularity` object key. Put the combined AMap source and candidate-comparison notice once in `ResultList` and once on the standalone public-share page, not in each card.
 
-- [ ] **Step 5: Apply only minimal CSS for hierarchy and wrapping**
+- [x] **Step 5: Apply only minimal CSS for hierarchy and wrapping**
 
 Add stable classes for advice status, rating, and daily summary. Do not redesign the two-column page or solve the saved 2-7-day layout backlog in this task.
 
-- [ ] **Step 6: Run frontend checks and commit**
+- [x] **Step 6: Run frontend checks and commit**
 
 Run: `npm --prefix frontend test -- WeightSegments.test.tsx ResultCard.test.tsx SearchWorkspace.test.tsx PersonalPages.test.tsx`
 

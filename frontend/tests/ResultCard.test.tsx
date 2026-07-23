@@ -16,6 +16,7 @@ function recommendationItem(originCount: 1 | 2 = 1): RecommendationItem {
       type_code: '110000',
       scenery_tags: ['lake'],
       popularity_rank: 1,
+      rating: 4.8,
     },
     distances: Array.from({ length: originCount }, (_, index) => ({
       origin_label: index === 0 ? '主出发地' : '同行人 1',
@@ -31,7 +32,7 @@ function recommendationItem(originCount: 1 | 2 = 1): RecommendationItem {
       fairness_score: originCount === 1 ? 100 : 75,
     },
     weather: [{
-      date: '2026-07-23',
+      date: '2026-07-25',
       condition: '晴',
       temp_min_c: 23,
       temp_max_c: 31,
@@ -41,7 +42,13 @@ function recommendationItem(originCount: 1 | 2 = 1): RecommendationItem {
       visibility_km: 20,
       uv_index: 5,
     }],
-    daily_suitability: [{ date: '2026-07-23', score: 90, reasons: ['天气晴朗'] }],
+    daily_suitability: [{
+      date: '2026-07-25',
+      score: 68,
+      status: 'caution',
+      summary: '7月25日最高温度预计达到36℃，建议避开高温时段。',
+      reasons: ['极端温度 -40'],
+    }],
     score: {
       weather: 90,
       distance: 75.3,
@@ -51,6 +58,7 @@ function recommendationItem(originCount: 1 | 2 = 1): RecommendationItem {
       total: 86.59,
     },
     explanation: '天气和距离都适合短途出游。',
+    overall_advice: 'some_dates_caution',
   }
 }
 
@@ -61,9 +69,15 @@ describe('ResultCard', () => {
     expect(screen.getByLabelText('出游匹配指数 87')).toBeInTheDocument()
     expect(screen.getByText('非常适合')).toBeInTheDocument()
     expect(screen.getByText('较轻松')).toBeInTheDocument()
-    expect(screen.getByText('人气很高')).toBeInTheDocument()
+    expect(screen.getByText('地点评分')).toBeInTheDocument()
+    expect(screen.getByText('4.8 / 5')).toBeInTheDocument()
+    expect(screen.getByText('7月25日')).toBeInTheDocument()
+    expect(screen.getByText('谨慎考虑')).toBeInTheDocument()
+    expect(screen.getByText('部分日期需谨慎')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '推荐理由' })).toBeInTheDocument()
+    expect(screen.queryByText(/极端温度\s*-40|适宜程度/)).not.toBeInTheDocument()
     expect(screen.queryByText('同行均衡')).not.toBeInTheDocument()
-    expect(screen.getByText('指数用于比较本次候选地点，不代表官方评价。')).toBeInTheDocument()
+    expect(screen.queryByText('指数用于比较本次候选地点，不代表官方评价。')).not.toBeInTheDocument()
     expect(screen.queryByText('90.0')).not.toBeInTheDocument()
     expect(screen.queryByText('75.3')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('分项评分')).not.toBeInTheDocument()

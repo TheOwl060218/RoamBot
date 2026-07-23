@@ -22,6 +22,7 @@ const response: RecommendationResponse = {
         type_code: '110000',
         scenery_tags: ['lake', 'park'],
         popularity_rank: 1,
+        rating: 4.8,
       },
       distances: [
         { origin_label: '主出发地', distance_km: 12.34, duration_minutes: 25, estimated: false },
@@ -46,7 +47,13 @@ const response: RecommendationResponse = {
           uv_index: 5,
         },
       ],
-      daily_suitability: [{ date: '2026-07-18', score: 90, reasons: ['天气晴朗'] }],
+      daily_suitability: [{
+        date: '2026-07-18',
+        score: 90,
+        status: 'suitable',
+        summary: '7月18日天气条件适合前往。',
+        reasons: ['天气晴朗'],
+      }],
       score: {
         weather: 90,
         distance: 75.3,
@@ -56,8 +63,10 @@ const response: RecommendationResponse = {
         total: 86.59,
       },
       explanation: '天气和距离都适合短途出游。',
+      overall_advice: 'suitable',
     },
   ],
+  uncovered_scenery_types: [],
 }
 
 describe('SearchWorkspace', () => {
@@ -75,7 +84,8 @@ describe('SearchWorkspace', () => {
     expect(screen.getByLabelText('出游匹配指数 87')).toBeInTheDocument()
     expect(screen.getByText('演示数据')).toBeInTheDocument()
     expect(screen.getByText(/12.34 km/)).toBeInTheDocument()
-    expect(screen.getByText(/天气晴朗/)).toBeInTheDocument()
+    expect(screen.getByText(/天气条件适合前往/)).toBeInTheDocument()
     expect(screen.getByText('天气和距离都适合短途出游。')).toBeInTheDocument()
+    expect(screen.getAllByText('地点评分数据来源：高德开放平台；出游匹配指数仅用于比较本次候选地点，不代表官方评价。')).toHaveLength(1)
   })
 })

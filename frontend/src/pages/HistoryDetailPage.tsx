@@ -23,6 +23,9 @@ export function HistoryDetailPage() {
 
   const result = history.result
   const items: RecommendationItem[] = 'items' in result ? result.items : [result.item]
+  const uncoveredTypes = 'uncovered_scenery_types' in result
+    ? result.uncovered_scenery_types
+    : []
 
   return (
     <section className="personal-page history-detail">
@@ -45,6 +48,7 @@ export function HistoryDetailPage() {
         items={items}
         source={result.source_state}
         generatedAt={result.generated_at}
+        uncoveredTypes={uncoveredTypes}
       />
     </section>
   )

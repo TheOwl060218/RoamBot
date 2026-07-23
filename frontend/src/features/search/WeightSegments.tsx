@@ -100,11 +100,11 @@ export function WeightSegments({ value, onChange, onReset }: WeightSegmentsProps
           className={`weight-handle weight-handle-second${firstBoundary === secondBoundary ? ' weight-handle-overlap' : ''}`}
           type="button"
           role="slider"
-          aria-label="距离与热度分界"
+          aria-label="距离与评分分界"
           aria-valuemin={firstBoundary}
           aria-valuemax={100}
           aria-valuenow={secondBoundary}
-          aria-valuetext={`距离远近 ${value.distance}%，景区热度 ${value.popularity}%`}
+          aria-valuetext={`距离远近 ${value.distance}%，地点评分 ${value.popularity}%`}
           style={{ left: `${secondBoundary}%` }}
           onKeyDown={(event) => moveWithKeyboard(event, 1)}
           onPointerDown={(event) => startPointer(event, 1)}
@@ -114,7 +114,7 @@ export function WeightSegments({ value, onChange, onReset }: WeightSegmentsProps
       <div className="weight-legend" aria-label="权重分配">
         <span><i className="weight-swatch weight-weather" />天气适配 {value.weather}%</span>
         <span><i className="weight-swatch weight-distance" />距离远近 {value.distance}%</span>
-        <span><i className="weight-swatch weight-popularity" />景区热度 {value.popularity}%</span>
+        <span><i className="weight-swatch weight-popularity" />地点评分 {value.popularity}%</span>
       </div>
       <button className="icon-text-button" type="button" onClick={onReset}>
         <RotateCcw aria-hidden="true" size={16} />

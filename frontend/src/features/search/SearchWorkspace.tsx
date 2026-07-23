@@ -49,6 +49,9 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
   }
 
   const items = result ? ('items' in result ? result.items : [result.item]) : []
+  const uncoveredTypes = result && 'uncovered_scenery_types' in result
+    ? result.uncovered_scenery_types
+    : []
 
   async function favorite(item: RecommendationItem) {
     try {
@@ -78,6 +81,7 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
           items={items}
           source={result.source_state}
           generatedAt={result.generated_at}
+          uncoveredTypes={uncoveredTypes}
           onFavorite={user ? favorite : undefined}
         />
       )}

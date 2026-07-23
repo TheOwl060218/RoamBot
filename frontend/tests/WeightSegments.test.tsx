@@ -29,13 +29,13 @@ describe('WeightSegments', () => {
     expect(handles[1]).toHaveAttribute('aria-valuenow', '70')
     expect(screen.getByText('天气适配 40%')).toBeInTheDocument()
     expect(screen.getByText('距离远近 30%')).toBeInTheDocument()
-    expect(screen.getByText('景区热度 30%')).toBeInTheDocument()
+    expect(screen.getByText('地点评分 30%')).toBeInTheDocument()
   })
 
   it('moves adjacent proportions in five-percent keyboard steps', () => {
     render(<Harness />)
     const first = screen.getByRole('slider', { name: '天气与距离分界' })
-    const second = screen.getByRole('slider', { name: '距离与热度分界' })
+    const second = screen.getByRole('slider', { name: '距离与评分分界' })
 
     fireEvent.keyDown(first, { key: 'ArrowRight' })
     expect(screen.getByText('天气适配 45%')).toBeInTheDocument()
@@ -43,13 +43,13 @@ describe('WeightSegments', () => {
 
     fireEvent.keyDown(second, { key: 'ArrowLeft' })
     expect(screen.getByText('距离远近 20%')).toBeInTheDocument()
-    expect(screen.getByText('景区热度 35%')).toBeInTheDocument()
+    expect(screen.getByText('地点评分 35%')).toBeInTheDocument()
   })
 
   it('does not cross boundaries and permits a zero-width middle segment', () => {
     render(<Harness initial={{ weather: 40, distance: 0, popularity: 60 }} />)
     const first = screen.getByRole('slider', { name: '天气与距离分界' })
-    const second = screen.getByRole('slider', { name: '距离与热度分界' })
+    const second = screen.getByRole('slider', { name: '距离与评分分界' })
 
     expect(first).toHaveAttribute('aria-valuenow', '40')
     expect(second).toHaveAttribute('aria-valuenow', '40')
@@ -70,6 +70,6 @@ describe('WeightSegments', () => {
 
     expect(screen.getByText('天气适配 40%')).toBeInTheDocument()
     expect(screen.getByText('距离远近 30%')).toBeInTheDocument()
-    expect(screen.getByText('景区热度 30%')).toBeInTheDocument()
+    expect(screen.getByText('地点评分 30%')).toBeInTheDocument()
   })
 })

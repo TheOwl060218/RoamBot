@@ -79,13 +79,15 @@ describe('personal and shared pages', () => {
           generated_at: '2026-07-17T09:00:00Z',
           items: [
             {
-              destination: { name: '金鸡湖景区', address: '苏州工业园区', city: '苏州', scenery_tags: ['lake'] },
+              destination: { name: '金鸡湖景区', address: '苏州工业园区', city: '苏州', scenery_tags: ['lake'], rating: 4.8 },
               weather: [],
               daily_suitability: [],
               score: { weather: 90, distance: 80, fairness: 100, popularity: 100, coverage_penalty: 0, total: 88 },
               explanation: '适合短途出游。',
+              overall_advice: 'suitable',
             },
           ],
+          uncovered_scenery_types: [],
         },
       })
 
@@ -101,7 +103,7 @@ describe('personal and shared pages', () => {
     )
     expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
     expect(screen.getByText('出游匹配指数')).toBeInTheDocument()
-    expect(screen.getByText('指数用于比较本次候选地点，不代表官方评价。')).toBeInTheDocument()
+    expect(screen.getAllByText('地点评分数据来源：高德开放平台；出游匹配指数仅用于比较本次候选地点，不代表官方评价。')).toHaveLength(1)
     expect(screen.queryByText('88.0')).not.toBeInTheDocument()
     expect(screen.queryByText(/主出发地|同行人出发地/)).not.toBeInTheDocument()
   })

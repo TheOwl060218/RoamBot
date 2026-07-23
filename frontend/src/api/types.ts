@@ -1,6 +1,11 @@
 export type SceneryType = 'lake' | 'sea' | 'old_town' | 'museum' | 'park' | 'mountain'
 export type SearchMode = 'recommendation' | 'place_evaluation'
 export type SourceKind = 'live' | 'cache' | 'demo' | 'degraded'
+export type TravelAdviceStatus = 'suitable' | 'caution' | 'not_recommended'
+export type OverallAdviceStatus =
+  | 'suitable'
+  | 'some_dates_caution'
+  | 'some_dates_not_recommended'
 
 export type RankingWeights = {
   weather: number
@@ -44,6 +49,7 @@ export type Destination = {
   type_code: string
   scenery_tags: SceneryType[]
   popularity_rank: number
+  rating: number | null
 }
 
 export type DailyWeather = {
@@ -61,6 +67,8 @@ export type DailyWeather = {
 export type DailySuitability = {
   date: string
   score: number
+  status: TravelAdviceStatus
+  summary: string
   reasons: string[]
 }
 
@@ -75,7 +83,7 @@ export type ScoreBreakdown = {
   weather: number
   distance: number
   fairness: number
-  popularity: number
+  popularity: number | null
   coverage_penalty: number
   total: number
 }
@@ -94,6 +102,7 @@ export type RecommendationItem = {
   daily_suitability: DailySuitability[]
   score: ScoreBreakdown
   explanation: string
+  overall_advice: OverallAdviceStatus
 }
 
 export type SourceState = { kind: SourceKind; notices: string[] }
@@ -102,6 +111,7 @@ export type RecommendationResponse = {
   items: RecommendationItem[]
   source_state: SourceState
   generated_at: string
+  uncovered_scenery_types: SceneryType[]
 }
 
 export type PlaceEvaluationResponse = {
@@ -164,11 +174,12 @@ export type Share = {
 }
 
 export type PublicItem = {
-  destination: Pick<Destination, 'name' | 'address' | 'city' | 'scenery_tags'>
+  destination: Pick<Destination, 'name' | 'address' | 'city' | 'scenery_tags' | 'rating'>
   weather: DailyWeather[]
   daily_suitability: DailySuitability[]
   score: ScoreBreakdown
   explanation: string
+  overall_advice: OverallAdviceStatus
 }
 
 export type PublicSnapshot = {
@@ -179,4 +190,5 @@ export type PublicSnapshot = {
   end_date: string
   items: PublicItem[]
   generated_at: string
+  uncovered_scenery_types: SceneryType[]
 }
