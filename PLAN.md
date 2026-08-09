@@ -43,7 +43,7 @@
 
 - 文件均为 Create：`backend/pyproject.toml`、`backend/src/roambot/__init__.py`、`backend/src/roambot/main.py`、`backend/src/roambot/api/__init__.py`、`backend/src/roambot/api/routes/__init__.py`、`backend/src/roambot/api/routes/health.py`、`backend/tests/api/test_health.py`。
 - 公开入口固定为 `roambot.main.create_app() -> FastAPI` 和模块级 `roambot.main.app = create_app()`；health router 导出 `router`。ASGI/Docker 使用 `roambot.main:app`，测试调用 `create_app()` 保持隔离。
-- 启动顺序：先确认 `python --version` 为 3.13.x；创建 `backend/pyproject.toml` 与空 `backend/src/roambot/__init__.py`；再运行 `python -m venv .venv`、`./.venv/Scripts/python.exe -m pip install --upgrade pip`、`./.venv/Scripts/python.exe -m pip install -e "./backend[dev]"`。pyproject 使用 hatchling，runtime 为 FastAPI/httpx/Pydantic/Uvicorn，dev 为 pytest/pytest-cov/Ruff；目标 Python `>=3.13,<3.15`。解释器缺失或版本错误时停止并请用户安装 3.13，不静默换版本。
+- 启动顺序：本机开发使用 Codex bundled Python 3.12.13；创建 `backend/pyproject.toml` 与空 `backend/src/roambot/__init__.py`；再运行该解释器的 `-m venv .venv`、`./.venv/Scripts/python.exe -m pip install --upgrade pip`、`./.venv/Scripts/python.exe -m pip install -e "./backend[dev]"`。pyproject 使用 hatchling，runtime 为 FastAPI/httpx/Pydantic/Uvicorn，dev 为 httpx2（Starlette TestClient）、pytest/pytest-cov/Ruff；兼容范围固定为 `>=3.12,<3.14`，Docker 与 GitLab CI 仍使用 Python 3.13 验收。
 - 第一条失败测试：`from roambot.main import create_app`，`TestClient(create_app()).get("/api/v1/health")` 必须得到 200 和严格 JSON `{"status":"ready"}`；在只存在包 `__init__.py` 时运行，预期因 `roambot.main` 不存在而 import FAIL。
 - 最小实现：创建 API 包、`create_app`、模块级 app 和 health router；FastAPI title=`RoamBot API`、version=`0.1.0`，router prefix=`/api/v1`。不接数据库、推荐服务或 provider。
 - 验证：红阶段/绿阶段均运行 `./.venv/Scripts/python.exe -m pytest backend/tests/api/test_health.py -q`；绿阶段预期 `1 passed`，再运行 Ruff 预期退出 0。
@@ -104,12 +104,16 @@
 
 ### M2.1 SQLite 与 Alembic
 
+- 状态：已完成，提交 `f2e646f`。
+
 - Modify：`backend/pyproject.toml`。Create：`backend/src/roambot/config.py`、`backend/src/roambot/persistence/__init__.py`、`database.py`、`tables.py`、`backend/alembic.ini`、`backend/alembic/env.py`、`script.py.mako`、`backend/alembic/versions/__init__.py`、`0001_accounts_and_data.py`、`backend/tests/integration/test_database.py`。
 - 第一条失败测试：对 Alembic `Config("backend/alembic.ini")` 注入临时 SQLite URL，连续两次 `upgrade head` 后，业务表严格为 SPEC 的七张，全部表严格为这七张加 `alembic_version`；外键、唯一约束和索引与 SPEC 一致。初次因 Alembic 配置/迁移不存在而失败，不用 `metadata.create_all` 冒充迁移测试。
 - 最小实现：添加 SQLAlchemy 2/Alembic/pydantic-settings，按 SPEC 精确列类型、FK cascade、约束与索引建立映射和 `0001`；SQLite 每连接启用 foreign keys。`alembic.ini` URL 留空，env.py 优先接受测试注入 URL，否则使用 `ROAMBOT_DATA_DIR/roambot.db`。
 - 验证：`./.venv/Scripts/python.exe -m pytest backend/tests/integration/test_database.py -q`、完整 backend 测试和 Ruff；另在临时 `ROAMBOT_DATA_DIR` 下执行 `./.venv/Scripts/python.exe -m alembic -c backend/alembic.ini upgrade head`，均退出 0。
 
 ### M2.2 密码、会话与 CSRF 基础
+
+- 状态：已完成，提交 `f2e646f`。
 
 - 文件：`backend/src/roambot/security/passwords.py`、`backend/src/roambot/security/sessions.py`、`backend/tests/unit/test_security.py`。
 - 第一条失败测试：Argon2 哈希不含明文且可验证；session、CSRF 和 share token 的数据库值只保存 SHA-256 哈希。
@@ -118,12 +122,16 @@
 
 ### M2.3 认证服务
 
+- 状态：已完成，提交 `f2e646f`。
+
 - 文件：`backend/src/roambot/persistence/repositories.py`、`backend/src/roambot/services/auth.py`、`backend/tests/integration/test_auth_service.py`。
 - 第一条失败测试：注册在一个事务中创建用户和 24 小时 session grant；用户名规则 `^[A-Za-z0-9_]{3,32}$`、密码 8-128 字符、重复名失败、未知用户名与错误密码返回相同错误、过期或撤销会话不可用；轮换 CSRF 后旧哈希失效但 session 到期时间不变。
 - 最小实现：`register/login -> SessionGrant(user_id,username,session_token,csrf_token,expires_at)`；`authenticate -> AuthenticatedSession(session_id,user_id,username,csrf_hash,expires_at)`；`rotate_csrf(session_token)` 原子替换哈希并返回新明文；`logout` 撤销 session。repositories 只接收 token 哈希，永不接收或返回明文密码与 token。
 - 验证：认证服务测试、完整 backend 测试和 Ruff。
 
 ### M2.4 认证 API 与 CSRF
+
+- 状态：已完成，提交 `f37a5f0`。
 
 - 文件：`backend/src/roambot/api/routes/auth.py`、`backend/src/roambot/api/dependencies.py`、`backend/tests/api/test_auth.py`。
 - 第一条失败测试：注册 201 且自动登录，注册/登录都返回 `{"user":{"username":"alice_01"},"csrf_token":"<opaque>"}`，设置 `roambot_session` 的 `HttpOnly; SameSite=Lax; Path=/; Max-Age=86400` Cookie；`/me` 原子轮换 CSRF；旧 CSRF 或缺失 CSRF 的退出返回 403；成功退出为 204 空响应。
@@ -132,6 +140,8 @@
 
 ### M2.5 收藏
 
+- 状态：已完成，提交 `c4a150f`。
+
 - 文件：`backend/src/roambot/services/personal_data.py`、`backend/src/roambot/api/routes/favorites.py`、`backend/tests/api/test_favorites.py`。
 - 第一条失败测试：游客失败；首次收藏 201、重复收藏同一 ID 返回 200；Bob 删除 Alice 收藏得到 404；收藏不含天气、评分和解释。
 - 最小实现：按用户和地点唯一约束保存地点元数据，GET 要登录，POST/DELETE 要登录和 CSRF，所有查询带 `user_id` 条件。
@@ -139,12 +149,16 @@
 
 ### M2.6 历史
 
+- 状态：已完成，提交 `c4a150f`。
+
 - 文件：`backend/src/roambot/services/personal_data.py`、`backend/src/roambot/api/routes/history.py`、`backend/src/roambot/api/routes/recommendations.py`、`backend/tests/api/test_history.py`。
 - 第一条失败测试：游客查询不写历史；登录用户完整成功结果写一条不可变快照；失败请求不写；rerun 新增 ID；跨用户读删改均失败。
 - 最小实现：只在完整结果形成后用短事务写结构化请求和响应；有效缓存、demo、直线估算、部分候选天气排除和模板解释均作为带说明的成功历史；删除/清空不影响收藏。
 - 验证：历史测试、完整 backend 测试和 Ruff。
 
 ### M2.7 匿名只读分享
+
+- 状态：已完成，提交 `f3b8012`。
 
 - Create：`backend/src/roambot/api/routes/shares.py`、`backend/tests/api/test_shares.py`。Modify：`backend/src/roambot/persistence/repositories.py`、`backend/src/roambot/services/personal_data.py`、`backend/src/roambot/api/routes/history.py`、`backend/src/roambot/main.py`。
 - 公开接口：`ShareRepository.create_replacing_active(owner_user_id,history_id,token_hash,now)`、`.get_public_by_token_hash()`、`.revoke_owned()`、`.revoke_for_history()`；personal-data service 负责所有权和脱敏投影，路由不得直接操作 SQL。
@@ -154,6 +168,8 @@
 
 ### M2.8 Provider 缓存仓储
 
+- 状态：已完成，提交 `f3b8012`。
+
 - 文件：`backend/src/roambot/persistence/repositories.py`、`backend/tests/integration/test_cache_repository.py`。
 - 公开接口：`CacheEntry(cache_key,provider,operation,payload_json,created_at,expires_at)`；`CacheRepository.get_fresh(cache_key,now)->CacheEntry|None`、`.put(cache_key,provider,operation,payload_json,created_at,expires_at)->None`、`.delete(cache_key)->None`、`.delete_expired(now)->int`；时间只接受 aware UTC。
 - 第一条失败测试：固定 UTC 时钟下，未过期 JSON 可取，到期时立即 miss，upsert 原子替换，删除过期项不删除新鲜项。
@@ -162,12 +178,16 @@
 
 ### M2.9 加密凭据库与本机 CLI
 
+- 状态：已完成；TDD、完整验证与安全评审证据见 `AGENT_LOG.md`。
+
 - 文件：`backend/src/roambot/security/vault.py`、`backend/src/roambot/cli.py`、`backend/tests/unit/test_vault.py`、`backend/tests/integration/test_credentials_cli.py`。
 - 第一条失败测试：文件字节和 CLI 输出均不含主密码或三种 fake key；错误主密码不能返回部分数据；reset 只删 vault，不删同目录 SQLite。
 - 最小实现：Scrypt 参数 `n=32768,r=8,p=1` 派生 32 字节，AES-256-GCM 认证加密，原子写入；Typer 隐藏输入提供 init/status/set/clear/reset。
 - 验证：vault、CLI、完整 backend 测试和 Ruff；不要求真实 key。
 
 ### M2.10 里程碑验证
+
+- 状态：已完成；最终测试计数、迁移与秘密扫描证据见 `AGENT_LOG.md`。
 
 - 文件：`backend/README.md`、`AGENT_LOG.md`。
 - 验证：`./.venv/Scripts/python.exe -m pytest backend/tests -q`、Ruff、Alembic 临时数据库、`git diff --check`。

@@ -6,7 +6,7 @@
 
 **Architecture:** React + TypeScript + Vite consumes `/api/v1` JSON endpoints from FastAPI. The backend owns deterministic recommendation logic, authentication, SQLite persistence, encrypted provider credentials, external API adapters, and authorization. Development runs frontend and backend separately; production packages both in one Docker image.
 
-**Tech Stack:** Python 3.13, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, pytest, React, TypeScript, Vite, Vitest, Playwright, SQLite, Docker, GitLab CI.
+**Tech Stack:** Python >=3.12,<3.14 (local 3.12.13; Docker/CI 3.13), FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, pytest, React, TypeScript, Vite, Vitest, Playwright, SQLite, Docker, GitLab CI.
 
 ## Global Constraints
 

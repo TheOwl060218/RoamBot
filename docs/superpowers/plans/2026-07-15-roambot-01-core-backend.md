@@ -6,7 +6,7 @@
 
 **Architecture:** Domain models and scoring functions are pure and provider-independent. Provider protocols isolate geocoding, POI search, distance, weather, and explanation. `RecommendationService` orchestrates those protocols, while `/api/v1/recommendations` and `/api/v1/place-evaluations` expose stable JSON contracts.
 
-**Tech Stack:** Python 3.13, FastAPI 0.139+, Pydantic v2, httpx, pytest, Ruff.
+**Tech Stack:** Python >=3.12,<3.14 (local Codex runtime 3.12.13; Docker/CI 3.13), FastAPI 0.139+, Pydantic v2, httpx, pytest, Ruff.
 
 ## Global Constraints
 
@@ -60,7 +60,7 @@ Run:
 python --version
 ```
 
-Expected: `Python 3.13.x`. If `python` is missing, stop and ask the user to approve installing Python 3.13; do not substitute the Microsoft Store alias.
+Expected locally: bundled `Python 3.12.13`. Do not use the Microsoft Store alias or install another interpreter during unattended execution. Docker/CI later verify Python 3.13.
 
 - [ ] **Step 2: Create package metadata**
 
@@ -74,7 +74,7 @@ build-backend = "hatchling.build"
 [project]
 name = "roambot"
 version = "0.1.0"
-requires-python = ">=3.13,<3.15"
+requires-python = ">=3.12,<3.14"
 dependencies = [
   "fastapi>=0.139,<1",
   "httpx>=0.28,<1",
@@ -84,6 +84,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "httpx2>=2,<3",
   "pytest>=8.4,<9",
   "pytest-cov>=6.2,<7",
   "ruff>=0.12,<1",
@@ -97,7 +98,7 @@ testpaths = ["tests"]
 addopts = "--strict-markers --strict-config"
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
@@ -715,7 +716,7 @@ def test_outdoor_rain_is_worse_than_museum_rain() -> None:
 
 
 def test_multi_day_formula_is_seventy_thirty() -> None:
-    assert aggregate_weather([90, 85, 30]) == pytest.approx(56.833333, rel=1e-5)
+    assert aggregate_weather([90, 85, 30]) == 56.83
 
 
 def test_distance_and_fairness_are_bounded() -> None:

@@ -168,3 +168,205 @@
 - 定点复测结论：`通过，可进入实现`。
 - 规划自检：占位扫描无匹配；旧接口/旧文件名一致性扫描无匹配；`git diff --check` 退出 0，仅报告 Windows LF/CRLF 转换警告。
 - 当前状态：规约与计划阶段完成，尚未开始产品代码；下一步按 roadmap 从核心后端 M1.1 使用 TDD 执行。
+
+## 2026-07-16 M1 执行环境决策
+
+- 用户批准开始 Subagent-Driven Development，并允许随时暂停/恢复。
+- 规划基线已提交并推送到 GitHub `origin/main`；实现使用隔离分支 `feat/roambot-v1`。
+- 本机未安装 Python 3.13，用户批准本地使用 Codex bundled Python 3.12.13；项目兼容 `>=3.12,<3.14`，Docker/CI 保持 Python 3.13。
+- 用户离开期间跳过所有需要额外权限的提交、推送、联网安装和 Docker 操作，仅执行无需授权的编辑与本地验证，并记录待办。
+
+## 2026-07-16 M1.1 Python 包与健康检查
+
+- Subagent-Driven 状态：实现 Agent 按先测试后实现的顺序创建七个规定文件；未创建提交。
+- 实现：`create_app()`、模块级 `app`、`GET /api/v1/health` 严格返回 `{"status":"ready"}`；pyproject 兼容 `>=3.12,<3.14`，Ruff target 修正为最低兼容版本 `py312`。
+- 无网络验证：Python 文件语法/compile 检查与 TOML 解析通过；生成的 `__pycache__` 已清理。
+- 独立审查：最终 spec compliance 与 task quality 均 Approved，无 Critical/Important/Minor 问题。
+- 恢复验证：用户返回后已创建 `.venv` 并安装 `-e "./backend[dev]"`；新版 Starlette 测试客户端要求 `httpx2`，已将其补入开发依赖，同时保留运行时 provider 使用的 `httpx`。
+- 验证结果：严格警告模式下完整后端测试 `1 passed`；`pip check` 报告无损坏依赖；`ruff check backend` 全部通过。M1.1 验证门槛通过，进入提交收尾。
+- 提交与复审：M1.1 已作为独立提交 `ed0c315` 保存；新审查 Agent 复核后判定 spec compliant、task quality Approved，Critical/Important/Minor 均为零。
+
+## 2026-07-16 M1.7/M1 核心后端验收准备
+
+- M1.7 公共推荐 API 已保存为提交 `92600bb`（`feat: expose public recommendation API`）。
+- 主控已运行严格完整后端测试：
+
+  ```powershell
+  .\.venv\Scripts\python.exe -W error -m pytest backend/tests -q
+  ```
+
+  结果为 `88 passed`。
+- 主控已运行 Ruff：
+
+  ```powershell
+  .\.venv\Scripts\python.exe -m ruff check backend
+  ```
+
+  结果为 `All checks passed!`（Ruff clean）。
+- 本地 Uvicorn/OpenAPI 后台检查曾在输出留存前被中断，因此不声称该次检查成功。
+  主控随后以进程内 `TestClient` 完成检查：健康接口返回
+  `200 {"status":"ready"}`，OpenAPI 包含 `/api/v1/health`、
+  `/api/v1/place-evaluations`、`/api/v1/recommendations` 三个路径。
+- 当前 M1 依赖 `MockProviderBundle.default()` 提供确定性 Mock providers；不需要高德、
+  QWeather 或 LLM 真实凭据，也不证明真实 provider 连通。
+- 独立审查首次发现两项 Important：`not_found` 未按 provider 调用来源映射，且同行
+  地址失败字段总是误指向 `main_origin`。修复提交 `b7c2efb` 在服务调用边界保留
+  错误来源和实际字段路径，并移除评价接口的重复 geocode；定点复审结论为
+  `APPROVED`。
+- 两项非阻断 Minor 留待最终 API 契约审查统一处理：框架生成的 404/405 尚未使用
+  稳定错误 envelope，OpenAPI 尚未声明实际错误响应 schema。
+- M1.8 最终 focused 验证命令：
+
+  ```powershell
+  .\.venv\Scripts\python.exe -m pytest backend/tests/unit backend/tests/api/test_recommendations.py -q
+  ```
+
+  最终 focused 测试数：`92 passed`。同一里程碑质量门中 Ruff 返回
+  `All checks passed!`，`git diff --check` 退出 0（仅有 Windows LF/CRLF
+  工作区提示）。M1 核心后端退出条件通过；未调用网络或真实 provider。
+
+## 2026-07-17 M2 账户、数据与加密凭据里程碑
+
+- 持久化与安全基础提交 `f2e646f`：SQLAlchemy/Alembic、七张业务表、SQLite 外键、
+  Argon2、不可预测 session/CSRF/share token 及哈希存储。
+- 认证提交 `f37a5f0`：用户名/密码注册、登录、退出和 `/auth/me`；固定 24 小时
+  HttpOnly 会话、CSRF 轮换与写操作校验；游客核心查询保持可用。
+- 个人数据提交 `c4a150f`：收藏、成功查询历史、rerun、单删和清空；修复了用户拥有
+  多个收藏时重复收藏会触发 `MultipleResultsFound` 的回归缺陷。
+- 分享与缓存提交 `f3b8012`：32-byte 匿名分享 token 只存 SHA-256 哈希，公开快照
+  使用深层白名单且不调用 provider；删除历史使链接失效。限时安全评审发现规范化
+  起点标签可能残留在解释文字中，已通过先失败后通过的回归测试收集并按长度降序脱敏。
+- 加密凭据库使用 Scrypt `n=32768,r=8,p=1` 派生 32-byte key，以 AES-256-GCM、
+  固定 AAD 和原子替换保存三种凭据。Typer CLI 的 init/status/set/clear/reset 只接受
+  隐藏输入；错误密码和畸形库统一失败；reset 精确确认且不删除 `roambot.db`。
+- 新增依赖仅为 `cryptography 46.0.7` 与 `Typer 0.27.0`；`pip check` 返回
+  `No broken requirements found.`。Windows 上 `chmod(0o600)` 仅为 best effort，
+  不能替代本机账户权限和 ACL 管理。
+- M2.9 TDD 证据：首轮因 `roambot.security.vault` 不存在而 collection RED；实现后
+  凭据库与 CLI 聚焦测试 `8 passed`，Ruff 通过。任务级评审的安全/代码质量结论为
+  `APPROVED`；其唯一范围意见来自主控预先完成的计划内 `pyproject.toml` 依赖修改，
+  经核对不是产品缺陷，因此保留。
+- 主控最终验证：
+
+  ```powershell
+  .\.venv\Scripts\python.exe -m pytest backend/tests -q -W error
+  .\.venv\Scripts\python.exe -m ruff check backend
+  .\.venv\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head
+  ```
+
+  结果为 `156 passed`、`All checks passed!`；Alembic 在全新临时目录连续执行两次
+  `upgrade head` 均退出 0。秘密扫描只命中根规约文档中的字段名，经人工确认无凭据值；
+  排除 Markdown 后源码扫描返回 `SOURCE_SECRET_SCAN_CLEAN`。
+- 全部自动验证使用 Mock providers、临时 SQLite、临时凭据库和假 key；没有真实网络
+  调用、没有产生高德/QWeather/LLM 费用，也没有向 GitHub 推送。
+
+## 2026-07-18 M3 响应式 WebUI 里程碑
+
+- 完成游客推荐、单人/多人输入、默认/自定义权重、结果排序与解释；登录后支持收藏、
+  历史快照、重新运行、删除和公开分享。范围保持为地点评估，不加入地图、导航或行程安排。
+- 一次集中里程碑审查未发现 Critical 问题；指出的受保护路由认证、失效会话清理、
+  收藏再评估预填、历史详情与删除确认、端到端验收覆盖五项 Important 缺口，已在一次
+  TDD 修复波次中全部完成，同时补齐 Escape/焦点管理和密码显示切换。
+- Playwright 覆盖桌面与移动端共 8 条关键旅程。人工检查 `1440x900`、`1024x768`、
+  `390x844`、`360x800`，均无横向溢出、控件重叠或结果卡越界。
+- Windows 一键验证命令：
+
+  ```powershell
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
+  ```
+
+  最终结果为后端 `156 passed`、Ruff 通过；前端 Vitest `18 passed`、ESLint 和
+  TypeScript 通过；Vite 生产构建成功；Playwright `8 passed`。`ExecutionPolicy
+  Bypass` 仅作用于当前测试进程，没有修改系统策略。
+- 本里程碑沿用现有前端依赖并下载 Playwright Chromium。测试使用 Mock provider、
+  临时数据库和假 key，没有调用高德、QWeather 或 LLM，也没有产生 API 费用或推送 GitHub。
+
+## 2026-07-19 M4.1-M4.7 Provider 接入与人工 Smoke 入口
+
+- 已完成 mock/live 配置边界、请求预算与脱敏 HTTP 边界、高德地理编码/POI/距离、QWeather 七日天气、cache-first 与降级策略，以及单次有界 LLM 推荐理由。
+- 新增 `roambot providers smoke`，固定使用苏州公共演示地点；完整运行上限为高德 3 次、QWeather 1 次、LLM 1 次，支持 `--only amap|qweather|llm` 和 `--skip-llm`，不自动重试。
+- Windows 环境缺少 IANA `tzdata` 时 `ZoneInfo("Asia/Shanghai")` 会在请求前失败，已改为标准库固定 UTC+8；该用途只计算中国自然日，不需要新增依赖。
+- M4.7 TDD：命令不存在时新增测试为 RED；实现后 6 条零网络 CLI 测试通过，覆盖固定调用顺序、provider 单独检查、跳过 LLM、隐藏主密码输入和失败输出脱敏。
+- Provider/安全里程碑原计划的一次集中只读审查在有限等待窗口内未返回结果，已终止以避免继续消耗时间；未伪造审查结论。主控随后完成全量 Mock 验证与秘密扫描。
+- 最终本地验证：`226 passed`、Ruff `All checks passed!`、`git diff --check` 退出 0、源码扫描 `SOURCE_SECRET_SCAN_CLEAN`。
+- 尚未申请或录入真实 provider 凭据，未执行人工 smoke，未产生高德/QWeather/LLM 调用或费用；真实连通性与苏州坐标/天气合理性仍待用户明确批准后验证。
+
+## 2026-07-19 M4.8 单镜像 Docker 分发
+
+- `create_app` 支持注入 `frontend_dist`，API 路由优先；`/assets` 精确静态挂载，仅无文件后缀且非 `/api` 的 GET 路径回退到 React `index.html`。
+- 新增生产 entrypoint：固定监听 `0.0.0.0:8000`，Mock 模式不读取 vault；Live 模式只从权限受限的 secret 文件或 TTY 隐藏提示读取主密码，非交互缺失时固定退出 78。
+- 主密码文件只移除末尾 CR/LF，读取 byte buffer 后尽力清零；vault 只解锁一次，`create_app` 复制凭据后 entrypoint 清空本地字典。配置 repr 不展示主密码文件字段。
+- Live provider 缓存使用 `SessionCacheStore`，每次缓存读写打开短生命周期 SQLAlchemy session/事务，避免并发请求共享非线程安全 Session。
+- 三阶段镜像使用 Node 24 Alpine 构建前端、Python 3.13 slim 构建 wheel、Python 3.13 slim 非 root 用户运行；单镜像同时提供 `/api/v1` 和 SPA，持久数据目录为 `/data`。
+- TDD 证据：静态服务、entrypoint、跨 session 缓存共 14 条定向测试通过；完整门槛为后端 `236 passed`、Ruff 通过、前端 Vitest `18 passed`、ESLint/TypeScript/生产构建通过、Playwright `8 passed`。
+- 首次 Docker 构建因工具 10 分钟上限超时且未生成镜像；启动 Docker Desktop 后用 plain progress 重试成功。最终源码新鲜构建成功，临时 Mock 容器健康 `ready`，`/` 和 `/history` 为 200，Mock 推荐为 200 且 `source=demo`。
+- 镜像历史与容器日志只含固定构建/启动命令和 HTTP 状态，未发现 key、主密码或请求 payload。容器 `roambot-check` 保持运行供用户测试，命名卷 `roambot-check-data` 保留。
+
+## 2026-07-19 M4.9 零真实调用 GitLab CI
+
+- 新增 GitLab `unit-test` 与 `docker-build` 两阶段流水线：测试镜像固定使用 Python 3.13、Node 24 和 Playwright Chromium；生产镜像只在单元测试成功后构建、Mock 健康检查并推送提交 SHA，默认分支额外推送 `latest`。
+- 后端测试会在 DNS 前拒绝所有非回环 socket 连接，并检查 HTTP provider 测试使用 `MockTransport`；前端测试扫描生产源码中的 provider host、Bearer、主密码与 API key 模式。统一测试脚本拒绝非 Mock/demo 配置。
+- CI 镜像首次构建遇到 Debian `502 Bad Gateway`，随后又遇到 PyPI SSL 断连；为下载步骤增加有限重试后构建成功。该处理只提高依赖下载稳定性，不会重试真实 provider 请求。
+- Linux 严格警告模式发现并修复认证 SQLite 引擎未在应用关闭时释放的问题；成功读取主密码的跨平台测试显式使用 POSIX `0600` 临时文件，生产权限检查未放宽。
+- 用户手工测试发现最大距离清空时立即回填 `0`，且继续输入会显示 `0200`；表单改为保留字符串编辑态、提交时转数值，并增加回归测试。修复版单镜像已重新部署到本地演示容器，原命名卷保留。
+- 最终本地 CI 验收使用 `docker run --network none`：后端 `238 passed`、Ruff 通过、前端 Vitest `20 passed`、ESLint/TypeScript/Vite 构建通过、Playwright 桌面与移动端 `8 passed`。全程无法访问真实高德、QWeather 或 LLM。
+- 当前仓库远程仅为 GitHub，未配置 GitLab 项目，因此没有执行或声称远程 GitLab CI Lint/流水线成功；只完成了本地容器化等价验证，该限制留待最终证据记录。
+
+## 2026-07-19 M4.10 远程 CI 与交付文档草稿
+
+- 新增最小 GitHub Actions 工作流，复用 `ci/Dockerfile`：`unit-test` 在 `--network none` 下运行完整门禁，`docker-build` 仅在其通过后构建生产镜像、执行 Mock 健康检查并按提交 SHA 推送 GHCR。
+- 提交 `219437a` 推送至 `origin/feat/roambot-v1`；远程运行 `29687387752` 的 `unit-test` 与 `docker-build` 均为 `success`。这是真实 GitHub runner 证据，不替代尚未运行的 GitLab 远程流水线。
+- README 与后端说明补齐 Mock/Docker 快速启动、开发环境、迁移备份、加密凭据、Live 参数、调用预算、缓存降级、测试 CI、安全边界和已知限制。
+- `REFLECTION.md` 只提供事实提纲。课程反思正文必须由学生本人完成，不能把 AI 生成正文作为个人反思提交。
+- 仍未配置真实 provider 凭据，也未执行真实 smoke；公网 WebUI 需要外部部署平台账号与授权，均保持为明确待办而非伪造完成状态。
+- 最终集中审查未发现 Critical；其有效 Important 指出 Windows 测试入口未像 Linux 入口一样拒绝 Live 配置。先用脚本文本断言复现缺少保护，再为 `scripts/test.ps1` 增加 Mock/demo 默认值与显式拒绝，避免继承本机 Live 环境后误运行自动测试。
+- 文档与安全护栏提交 `1ad45cb` 的 GitHub Actions 运行 `29689474384` 最终为 `success`；`unit-test` 和 `docker-build` 均通过。另一次宿主机一键测试运行到浏览器旅程前均通过，但因保留给用户测试的容器占用 `8000` 而停止；随后使用不占宿主端口的 `roambot-ci:local --network none` 完整复验通过。
+
+## 2026-07-22 权重交互与出游匹配指数
+
+- 用户实测指出三根权重滑杆的相邻联动不符合直觉；设计改为一根三段比例条和两个分界按钮，天气/距离/热度显示比例始终合计 100%。
+- 多人公平性不再作为可调第四段，固定占最终计算的 20%；默认显示 `40/30/30` 对应多人有效权重 `32/24/20/24`。前端负责显示比例换算，后端同时拒绝非 100 总和及非 20 公平性的多人显式权重。
+- 推荐卡不再把内部计算称为分数：总值显示为整数“出游匹配指数”，天气、路程、同行均衡和人气使用定性等级，每日适宜程度也不显示数值；API 与历史快照继续保留数值以支持稳定排序。
+- TDD 先复现旧多人默认、任意公平性、三滑杆结构和数值评分文案，再分别实现。测试日期从固定 2026-07-20 改为相对 Asia/Shanghai 当天，避免测试随日历自然过期。
+- 本轮仍仅使用 Mock provider 和本地测试数据，没有配置或调用真实高德、QWeather 或 LLM。
+
+## 2026-07-23 集中验收与本地演示重建
+
+- 按用户要求只做一次集中审查。审查发现权重分界按钮的实际命中宽度为 24px；Playwright 回归先得到 `Received: 24`，随后将命中区域扩为 44px、视觉握柄保持 24px，桌面与移动端定向复验 `2 passed`。
+- 并行浏览器首请求暴露 Mock 模式下 SQLite 懒初始化竞争，日志出现 `table users already exists`。新增并发单测先复现 `create_count == 2`，再为会话工厂加入双重检查锁；单测通过，双浏览器并发复验不再出现重复建表。
+- 最终 Windows 一键门禁完整通过：后端 `242 passed`，Ruff `All checks passed!`；前端 Vitest `28 passed`，ESLint、TypeScript、Vite 生产构建通过；Playwright 桌面/移动端 `8 passed`。`git diff --check` 通过，源码秘密扫描返回 `SOURCE_SECRET_SCAN_CLEAN`。
+- 从当前源码重建 `roambot:local`，仅替换 `roambot-check`，原 `roambot-check-data` 数据卷保留。容器状态 `healthy`，首页返回 200，`/api/v1/health` 返回 `ready`。
+- 全程使用 Mock provider，未调用真实高德、QWeather 或 LLM，未产生 API 费用；本地提交暂不推送 GitHub，等待用户批准。
+
+## 2026-07-23 真实 Provider 人工 Smoke
+
+- 用户在本机隐藏终端完成高德、QWeather 与学校 OpenAI-compatible LLM 凭据录入；聊天、源码、日志和提交中均未出现真实 key 或主密码。
+- 三项真实请求均在用户逐项明确批准后执行，且使用 `--only` 隔离其他 provider，不自动重试。高德 smoke 由用户报告成功，但原始脱敏调用计数未留存，因此不补写推测值。
+- QWeather 脱敏结果为 `qweather: ok calls=1`，同时 `amap: skipped calls=0`、`llm: skipped calls=0`；生成时间为 `2026-07-23T08:14:33.052855+00:00`。
+- LLM 使用 Base URL `https://njusehub.info/v1` 与模型 `deepseek-v4-flash`。配置兼容修复提交 `00bd503` 后，脱敏结果为 `llm: ok calls=1`，同时 `amap: skipped calls=0`、`qweather: skipped calls=0`；生成时间为 `2026-07-23T08:37:20.589913+00:00`。
+- 真实 smoke 只证明固定苏州小样本在当时连通，不替代日常 Mock 自动测试，也不保证供应商后续可用性、配额或数据质量。
+
+## 2026-07-26 功能问题集中修复与地址提示
+
+- 按用户要求把分散检查改为一个大批次：修复跨城地理编码回退、海景与普通沙滩误分类、室内高温文案、多人路程差异比例、单人推荐理由中的“平均路程”、LLM 分组失败重试与调用预算。
+- 前端集中实现稳定错误槽、加载进度、同步重复提交锁、当前标签页表单/结果恢复、认证字段清理和统一反馈、历史重新查询锁、自定义删除确认、星标收藏切换、天气图标与信息层级；整体视觉重排继续保留在待修改清单中。
+- 新增高德输入提示适配器与 `/api/v1/places/suggestions`：约 450 毫秒延迟、最多五条、城市优先但不严格锁城、过时响应忽略和当前页面缓存。选中候选后把高德坐标随请求传给后端，跳过一次重复地理编码；自由文本和跨城地理编码回退继续可用。未引入高德或 QWeather 专用 SDK。
+- 自动验证全部使用 Mock provider 和隔离端口，不调用真实高德、QWeather 或 LLM：后端 `281 passed`、Ruff 通过；前端 Vitest `34 passed`、ESLint/TypeScript/Vite 生产构建通过；Playwright 桌面与移动端 `8 passed`；`git diff --check` 仅报告 Windows LF/CRLF 提示。
+- 本轮没有重建用户当前的 Live Docker 镜像、没有启动常驻网站、没有提交或推送 GitHub。真实 API 复测应在用户确认后由新源码镜像手工触发。
+
+## 2026-07-27 P19-P27 手工回归后的集中修复
+
+- 根据用户逐项手工测试集中修复六项：海景分类改为“结构化 POI 类型为主、名称只作兼容类别内补充”，阻止餐饮和洗浴等商业名称因包含“滨海”被误判；地址候选只在对应输入框聚焦且用户主动编辑时显示，修改城市不再触发旧候选。
+- 多人“出行差异”改为相对驾车时间比例 70% 与相对距离比例 30% 合成，前端使用“差异很小/较小/较大/很大”四档；结果区明确驾车路程与时间按查询时路况估算，仅供参考。
+- 推荐与指定地点评估切换、添加或移除同行人时保留当前可见权重，权重同时进入当前标签页草稿；历史单条删除和清空成功使用不推动页面布局的顶部短暂提示。
+- TDD 聚焦验证：前端 `17 passed`，后端 `8 passed`。集中门禁：后端 `283 passed`、Ruff `All checks passed!`；前端 Vitest `36 passed`、ESLint、TypeScript 与 Vite 生产构建通过；Playwright 桌面/移动端关键旅程 `8 passed`；`git diff --check` 无空白错误，仅有 Windows LF/CRLF 提示。
+- 自动验证全部在 Mock/本地隔离环境中进行，没有调用高德、QWeather 或 LLM。已从当前源码重建 `roambot:local-latest`，但未重启正在运行的 Live 容器；没有提交或推送 GitHub。下一阶段进入已记录的统一前端视觉与排版调整。
+
+## 2026-08-09 前端收尾与完整 Mock 门禁
+
+- 在用户逐项人工验收基础上完成统一前端体验收尾：查询前后单栏流程、紧凑查询摘要、桌面候选列表与详情、移动端循环候选切换、平滑滚动、天气图标与单日/多日布局、胶囊按钮与按下反馈，以及收藏、历史、分享和确认对话框的响应式交互。
+- 人工干预重点来自用户连续测试：纠正查询完成后的滚动目标、候选循环方向、历史浮层遮挡、分享状态引发布局跳动、移动端分享单字竖排、结果区内部滚轮截获和桌面天气布局被移动端规则误伤等问题。地点图片按用户最终决定继续延期，不纳入本次交付范围。
+- 最终浏览器测试发现既有用例仍依赖旧页面结构，并存在平滑滚动期间过早测量布局的竞态。按 TDD 修正定位与等待条件；响应式定点测试桌面/移动端各重复 3 次，共 `6 passed`。
+- Windows 一键脚本原先只运行测试，不能可靠地自行管理浏览器测试服务。新增隔离端口 `8010/5183` 的 Mock 服务启动、健康等待和进程树清理，并兼容 Windows 同时存在 `Path`/`PATH` 的环境。修改仅作用于测试入口，没有改动系统环境或产品业务逻辑。
+- 当前工作树完整门禁通过：后端 `283 passed`，Ruff `All checks passed!`；前端 Vitest 14 个文件、`52 passed`；ESLint、TypeScript、Vite 生产构建通过；Playwright 桌面/移动端 `8 passed`。测试结束后 `8010` 与 `5183` 均已释放。
+- 全部自动验证使用 Mock/demo，真实 provider 调用为 0。随后从当前未提交工作树新鲜构建 `roambot:closeout-20260809`，并以独立临时容器在 `8020` 完成冷启动：健康接口为 `ready`，首页与历史页返回 200，推荐接口返回 demo 结果；临时容器已停止并自动删除，原 `8000` 实例及数据卷未改动。`git diff --check` 通过，秘密值与敏感文件扫描未发现真实 key、token、凭据库或数据库进入改动。提交/push 后远程 CI、公网部署与学生本人反思仍属于后续收尾项。

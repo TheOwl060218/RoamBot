@@ -1,0 +1,61 @@
+:root {
+  color: #162126;
+  background: #f3f6f7;
+  font-family: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  color-scheme: light;
+  --canvas: #f3f6f7;
+  --surface: #ffffff;
+  --surface-subtle: #f8fafb;
+  --surface-muted: #eaf0f2;
+  --ink: #162126;
+  --ink-soft: #35464d;
+  --muted: #68777d;
+  --border: #d4dfe3;
+  --border-strong: #aebfc6;
+  --primary: #176f8a;
+  --primary-hover: #125b72;
+  --primary-pressed: #0e4c60;
+  --primary-soft: #e5f2f5;
+  --accent: #176f8a;
+  --positive: #2f7259;
+  --positive-soft: #e7f2ed;
+  --info: #3e6f84;
+  --info-soft: #e9f1f4;
+  --warning: #9b6217;
+  --warning-soft: #fff4df;
+  --danger: #9f3d37;
+  --danger-soft: #fdf0ed;
+  --focus: #5b9eb3;
+  --radius: 6px;
+  --radius-lg: 8px;
+  --shadow-sm: 0 1px 2px rgb(22 33 38 / 6%);
+  --shadow-popover: 0 14px 36px rgb(22 33 38 / 14%);
+}
+
+* { box-sizing: border-box; }
+html { scrollbar-gutter: stable; }
+body { margin: 0; min-width: 320px; min-height: 100vh; line-height: 1.5; }
+button, input, select, textarea { font: inherit; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--focus) 58%, transparent); outline-offset: 2px; }
+
+body {
+  color: var(--ink);
+  background: var(--canvas);
+  letter-spacing: 0;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+::selection {
+  color: var(--ink);
+  background: #cfe7ed;
+}

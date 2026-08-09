@@ -6,7 +6,7 @@
 
 **Architecture:** SQLAlchemy repositories isolate persistence from domain services. Server-side sessions use random opaque tokens stored as SHA-256 hashes; a separate CSRF token hash protects authenticated mutations. Personal-data services enforce ownership in the backend. Provider credentials live in a Scrypt-derived AES-GCM file controlled only by a local Typer CLI.
 
-**Tech Stack:** Python 3.13, SQLAlchemy 2, Alembic, SQLite, Argon2, cryptography AES-GCM/Scrypt, Typer, FastAPI, pytest.
+**Tech Stack:** Python >=3.12,<3.14 (local 3.12.13; Docker/CI 3.13), SQLAlchemy 2, Alembic, SQLite, Argon2, cryptography AES-GCM/Scrypt, Typer, FastAPI, pytest.
 
 ## Global Constraints
 

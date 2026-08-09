@@ -1,0 +1,24 @@
+.dialog-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgb(23 32 29 / 54%); backdrop-filter: blur(3px); }
+.auth-dialog { display: grid; gap: 18px; width: min(100%, 420px); max-height: calc(100vh - 40px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-popover); }
+.auth-dialog > header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.auth-dialog h2 { margin: 4px 0 0; font-size: 1.25rem; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-muted); }
+.auth-tabs button { min-height: 38px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; transition: background-color 140ms ease, color 140ms ease, transform 100ms ease; }
+.auth-tabs button[aria-selected="true"] { color: var(--primary); background: var(--surface); box-shadow: var(--shadow-sm); font-weight: 700; }
+.auth-form, .account-panel { display: grid; gap: 15px; }
+.auth-message-slot { min-height: 1.5rem; font-size: 0.86rem; }
+.password-field { position: relative; display: block; }
+.password-label { display: inline-flex; align-items: center; gap: 5px; }
+.password-help { display: inline-grid; width: 22px; height: 22px; padding: 0; place-items: center; border: 0; border-radius: 50%; color: var(--muted); background: transparent; cursor: help; }
+.password-help:hover, .password-help:focus-visible { color: var(--primary); background: var(--surface-muted); }
+.password-field input { padding-right: 44px; }
+.password-toggle { position: absolute; top: 1px; right: 1px; display: inline-grid; width: 40px; height: 40px; padding: 0; place-items: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.account-panel p { margin: 0; color: var(--muted); line-height: 1.6; }
+.account-initial { font-size: 0.9rem; font-weight: 800; }
+.confirm-dialog { display: grid; gap: 14px; width: min(100%, 420px); padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-popover); }
+.confirm-dialog h2, .confirm-dialog p { margin: 0; }
+.confirm-dialog h2 { font-size: 1.12rem; }
+.confirm-dialog p { color: var(--muted); line-height: 1.6; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 9px; }
+.danger-button { min-height: 40px; padding: 8px 13px; border: 1px solid var(--danger); border-radius: 999px; color: #fff; background: var(--danger); cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease; }
+.danger-button:hover { background: #842f2b; }

@@ -8,7 +8,7 @@
 - [x] 确认可用运行时：Codex bundled Node.js 与 Python 可用
 - [x] 在 Codex App 插件侧边栏搜索并安装 `Superpowers`
 - [x] 使用多个不继承当前上下文的陌生 agent 完成冷启动验证
-- [ ] 在真实 provider 人工 smoke 前申请 API key：高德、QWeather、学校 LLM
+- [x] 在真实 provider 人工 smoke 前申请 API key：高德、QWeather、学校 LLM
 
 ## 1. 规约阶段：先写清楚，不写实现代码
 
@@ -42,31 +42,33 @@
 
 ## 3. 实现阶段：TDD
 
-- [ ] Task 1：项目骨架、配置与测试入口
-- [ ] Task 2：输入模型与校验
-- [ ] Task 3：地址解析接口抽象与 mock
-- [ ] Task 4：候选地点数据与筛选
-- [ ] Task 5：天气接口抽象与 mock
-- [ ] Task 6：天气适宜度评分
-- [ ] Task 7：多人汇合距离与公平性评分
-- [ ] Task 8：综合推荐排序
-- [ ] Task 9：LLM 解释接口与 mock
-- [ ] Task 10：WebUI
-- [ ] Task 11：Docker 分发
+- [x] Task 1：项目骨架、配置与测试入口
+- [x] Task 2：输入模型与校验
+- [x] Task 3：地址解析接口抽象与 mock
+- [x] Task 4：候选地点数据与筛选
+- [x] Task 5：天气接口抽象与 mock
+- [x] Task 6：天气适宜度评分
+- [x] Task 7：多人汇合距离与公平性评分
+- [x] Task 8：综合推荐排序
+- [x] Task 9：LLM 解释接口与 mock
+- [x] M2：SQLite/Alembic、账户、会话、收藏、历史、分享、缓存与加密凭据 CLI
+- [x] Task 10：WebUI
+- [x] M4.1-M4.7：真实 Provider 适配、缓存降级与零网络人工 Smoke 命令
+- [x] Task 11：Docker 分发
 - [ ] Task 12：CI 与最终文档
 
 ## 4. 最终交付检查
 
-- [ ] `SPEC.md`
-- [ ] `PLAN.md`
-- [ ] `SPEC_PROCESS.md`
-- [ ] `AGENT_LOG.md`
-- [ ] `README.md`
+- [x] `SPEC.md`
+- [x] `PLAN.md`
+- [x] `SPEC_PROCESS.md`
+- [x] `AGENT_LOG.md`
+- [x] `README.md`
 - [ ] `REFLECTION.md`
-- [ ] 源代码
-- [ ] 一键测试命令
-- [ ] `.gitlab-ci.yml`，包含名为 `unit-test` 的 job
-- [ ] `Dockerfile`
-- [ ] `.env.example`
+- [x] 源代码
+- [x] 一键测试命令
+- [x] `.gitlab-ci.yml`，包含名为 `unit-test` 的 job
+- [x] `Dockerfile`
+- [x] `.env.example`
 - [ ] WebUI 可访问地址
-- [ ] 最后一次 CI/CD pass 记录
+- [ ] 最终提交版本的最后一次 CI/CD pass 记录（已有旧版本成功证据：GitHub Actions `29689474384`，提交 `1ad45cb`）

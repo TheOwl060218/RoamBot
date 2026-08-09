@@ -6,7 +6,7 @@
 
 **Architecture:** Provider adapters remain behind the synchronous protocols introduced in milestone 1. A provider factory selects `mock` or `live` mode, unlocks the encrypted vault only in live mode, wraps external reads with the milestone 2 persistent cache, and applies explicit degradation rules. FastAPI serves the built React files in production, while tests and CI force mock mode and deny real network access.
 
-**Tech Stack:** Python 3.13, FastAPI, Pydantic Settings, httpx, pytest, React/Vite, Playwright, SQLite, Docker multi-stage builds, GitLab CI.
+**Tech Stack:** Python >=3.12,<3.14 (local 3.12.13; Docker/CI 3.13), FastAPI, Pydantic Settings, httpx, pytest, React/Vite, Playwright, SQLite, Docker multi-stage builds, GitLab CI.
 
 ## Global Constraints
 
@@ -45,6 +45,8 @@
 
 ### Task 1: Validated Runtime Configuration and Provider Factory
 
+**Completed:** `3af8297`
+
 **Files:**
 - Create: `backend/src/roambot/config.py`
 - Create: `backend/src/roambot/providers/factory.py`
@@ -57,11 +59,11 @@
 - Produces: `Settings`, `ProviderMode`, `ProviderBundle`, `ProviderRuntime`, and `build_provider_runtime(settings,vault_values,cache_repository)`; `ProviderRuntime.new_request_bundle()` is request scoped.
 - Consumes: `MockProviderBundle.default()` and all milestone 1 provider protocols.
 
-- [ ] **Step 1: Verify the settings dependency from milestone 2**
+- [x] **Step 1: Verify the settings dependency from milestone 2**
 
 Confirm `pydantic-settings>=2.10,<3` remains in backend runtime dependencies, reinstall the editable package, and do not add `python-dotenv` or automatic `.env` loading.
 
-- [ ] **Step 2: Write failing settings tests**
+- [x] **Step 2: Write failing settings tests**
 
 Assert these exact behaviors:
 
@@ -74,7 +76,7 @@ Assert these exact behaviors:
 
 Run the tests and observe the import failure for `roambot.config`.
 
-- [ ] **Step 3: Implement settings with exact fields**
+- [x] **Step 3: Implement settings with exact fields**
 
 Use a string enum with `MOCK="mock"` and `LIVE="live"`. Define:
 
@@ -97,7 +99,7 @@ class Settings(BaseSettings):
 
 Use `env_prefix="ROAMBOT_"`, `extra="forbid"`, and a model validator for the live-mode rules. Normalize hosts by stripping only a final slash. Do not include secrets in this model.
 
-- [ ] **Step 4: Write failing provider-factory tests**
+- [x] **Step 4: Write failing provider-factory tests**
 
 Assert:
 
@@ -106,17 +108,19 @@ Assert:
 - Live mode request bundles return objects satisfying all five provider protocols and never share a `ProviderTrace`.
 - `create_app(Settings(provider_mode="mock"))` remains testable without filesystem credentials.
 
-- [ ] **Step 5: Implement the factory boundary**
+- [x] **Step 5: Implement the factory boundary**
 
 Create one immutable `ProviderBundle` dataclass with fields `geocoder`, `places`, `distance`, `weather`, `explanations`, and request-scoped `trace`. `ProviderRuntime` owns the shared client, raw adapters, settings, and cache repository; `new_request_bundle()` creates a fresh trace and cheap wrappers. In mock/demo mode it adapts `MockProviderBundle.default()` and marks demo on that trace. In live mode, accept already-unlocked `Mapping[str, str]`; validate the three expected nonblank entries, create one sanitized shared `httpx.Client`, and construct real adapters once.
 
 Update application lifespan to build/close only the runtime. The request dependency calls `new_request_bundle()` once per API request; tests may override that bundle directly. Never keep trace/events on the runtime or raw adapter, and do not unlock the vault inside route handlers.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run config/factory tests, all backend tests, and Ruff. Expected: all pass with no network access. Commit `feat: configure mock and live provider modes`.
 
 ### Task 2: Sanitized HTTP Boundary and Provider Budgets
+
+**Completed:** `5fb822b`
 
 **Files:**
 - Create: `backend/src/roambot/providers/http.py`
@@ -128,29 +132,31 @@ Run config/factory tests, all backend tests, and Ruff. Expected: all pass with n
 - Produces: `ProviderHttpClient.get_json()`, `ProviderBudget.consume()`, and `ProviderBudgetExceeded`.
 - Consumed by: all real adapters and `RecommendationService`.
 
-- [ ] **Step 1: Write failing redaction tests**
+- [x] **Step 1: Write failing redaction tests**
 
 Use `httpx.MockTransport` and fake values `amap-secret-123`, `weather-secret-456`, and `llm-secret-789`. Cover successful JSON, HTTP 429, HTTP 500, timeout, invalid JSON, and a provider error body. Capture logs and exception strings; assert none contains any fake value, `key=`, `X-QW-Api-Key`, or `Authorization` header content.
 
-- [ ] **Step 2: Implement the sanitized client**
+- [x] **Step 2: Implement the sanitized client**
 
 `ProviderHttpClient` accepts a prebuilt `httpx.Client`, provider name, base URL, timeout, and a tuple of secret values to redact. It builds paths and `params` separately, calls `client.request`, parses JSON, and raises stable `ProviderError` codes: `rate_limited`, `timeout`, `bad_response`, `unavailable`, or provider-specific codes supplied by an adapter.
 
 The only request log fields are provider name, operation name, HTTP status, elapsed milliseconds, and a generated request ID. Set `httpx` and `httpcore` loggers to warning in the application logging configuration. Never log `request.url`, headers, params, body, or raw provider response.
 
-- [ ] **Step 3: Write failing budget tests**
+- [x] **Step 3: Write failing budget tests**
 
 Assert each operation can consume exactly its configured maximum, the next call raises `ProviderBudgetExceeded`, counters are independent, and a new budget starts at zero. Assert exception text names only operation and limit.
 
-- [ ] **Step 4: Implement request-local budgets**
+- [x] **Step 4: Implement request-local budgets**
 
 Use an enum for `GEOCODE`, `POI_SEARCH`, `WEATHER`, `DISTANCE`, and `LLM`. `ProviderBudget` owns integer limits and counters and is created inside each recommend/evaluate service call. Consume immediately before an adapter call. Convert overflow into an explicit degraded notice; never silently issue an extra call.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run both focused test files, full backend tests, and Ruff. Commit `feat: bound and sanitize provider calls`.
 
 ### Task 3: AMap Geocoding, POI, and Distance Adapter
+
+**Completed:** `1c9106b`
 
 **Files:**
 - Create: `backend/src/roambot/providers/amap.py`
@@ -164,11 +170,11 @@ Run both focused test files, full backend tests, and Ruff. Commit `feat: bound a
 - Implements: `Geocoder`, `PlaceProvider`, and `DistanceProvider`.
 - Calls only `https://restapi.amap.com/v3/geocode/geo`, `/v5/place/around`, `/v5/place/text`, and `/v3/distance` with GCJ-02 coordinates.
 
-- [ ] **Step 1: Create minimal provider fixtures**
+- [x] **Step 1: Create minimal provider fixtures**
 
 Store only synthetic values shaped like official AMap responses. Include `status`, `info`, `infocode`, `count`, coordinates, POI `id/name/type/typecode/address/business.rating`, and distance `distance/duration`. Do not copy real API keys, full production payloads, or personal addresses.
 
-- [ ] **Step 2: Write failing geocode and resolve tests**
+- [x] **Step 2: Write failing geocode and resolve tests**
 
 Using `httpx.MockTransport`, assert:
 
@@ -179,13 +185,13 @@ Using `httpx.MockTransport`, assert:
 
 Run and observe the import failure for `roambot.providers.amap`.
 
-- [ ] **Step 3: Implement response validation and geocode/resolve**
+- [x] **Step 3: Implement response validation and geocode/resolve**
 
 Use small Pydantic response models with `extra="ignore"`. Split AMap coordinates on one comma and validate longitude/latitude ranges. Keep the coordinate-system assumption documented as GCJ-02 in code and README. `name`, `location`, `type`, and `typecode` are required for a usable POI; `address` may be empty and missing `cityname` falls back to the requested city. Optional `business.rating` is parsed only when numeric and is never used as a cross-category popularity score.
 
 Never stringify a response model containing a key. The adapter maps `status`, `info`, and `infocode` into a stable code while exposing only a short provider-safe message.
 
-- [ ] **Step 4: Write failing POI search tests**
+- [x] **Step 4: Write failing POI search tests**
 
 Define exact keyword sets:
 
@@ -210,23 +216,25 @@ Keep these Chinese API search terms and enum keys stable. Tests assert:
 - Returned `Destination` values retain AMap `type` and `typecode`, run through the deterministic scenery classifier, and receive `popularity_rank` from the merged provider order. Optional AMap ratings are not treated as a stable cross-category score.
 - No selected type returns an empty list without an HTTP call.
 
-- [ ] **Step 5: Implement bounded POI search**
+- [x] **Step 5: Implement bounded POI search**
 
 Use the approved scenery classifier from milestone 1 for final tags; search keywords only gather candidates. Fetch page 1 only. Preserve merged order as a one-based `provider_rank`. Cap the merged candidate pool at 25 before distance and weather calls. Do not hardcode AMap numeric classification codes as the sole classifier because their table can change.
 
-- [ ] **Step 6: Write failing distance tests**
+- [x] **Step 6: Write failing distance tests**
 
 Assert one `/v3/distance` request contains exactly `key,origins,destination,type=1,output=json`, up to 100 pipe-separated origins, and one destination. Verify meters become kilometers, seconds become minutes, output order matches origin order, partial result count or a result-level error raises `bad_response`, and more than 100 origins is rejected locally. RoamBot accepts at most three origins, but the adapter still enforces the provider boundary.
 
-- [ ] **Step 7: Implement distance measurement**
+- [x] **Step 7: Implement distance measurement**
 
 Format coordinates with at most six decimal places and no locale-dependent commas. Return `estimated=False`. The application uses this route for distance display and scoring only; it does not request route geometry or navigation steps.
 
-- [ ] **Step 8: Verify and commit**
+- [x] **Step 8: Verify and commit**
 
 Run `backend/tests/unit/test_amap_provider.py`, full backend tests, and Ruff. Assert mock transport recorded only the expected endpoints and secrets did not appear in captured output. Commit `feat: integrate bounded AMap data adapters`.
 
 ### Task 4: QWeather Seven-Day Forecast Adapter
+
+**Completed:** `2db94c7`
 
 **Files:**
 - Create: `backend/src/roambot/providers/qweather.py`
@@ -238,7 +246,7 @@ Run `backend/tests/unit/test_amap_provider.py`, full backend tests, and Ruff. As
 - Implements: `WeatherProvider.daily(coordinate: Coordinate, start: date, end: date) -> list[DailyWeather]`.
 - Calls: `{account_api_host}/v7/weather/7d`.
 
-- [ ] **Step 1: Write failing request-shape tests**
+- [x] **Step 1: Write failing request-shape tests**
 
 Use a fake account host and `httpx.MockTransport`. Assert the request:
 
@@ -249,23 +257,25 @@ Use a fake account host and `httpx.MockTransport`. Assert the request:
 - Requests only dates within the returned seven-day range.
 - Uses the supplied GCJ-02 coordinate without conversion; the live smoke later verifies Suzhou plausibility.
 
-- [ ] **Step 2: Write failing response tests**
+- [x] **Step 2: Write failing response tests**
 
 The synthetic fixture must cover `fxDate`, `tempMin`, `tempMax`, `textDay`, `textNight`, `windScaleDay`, `windSpeedDay`, `windScaleNight`, `windSpeedNight`, `humidity`, `precip`, `uvIndex`, and `vis`. Assert inclusive date filtering, finite numeric conversion, max(day/night) wind speed, identical text retained once, differing text joined with `转`, and stable ordering by date.
 
 Also assert `forecast_unavailable` for a missing requested date or a date range outside `today..today+6`; `unavailable` for provider `code != "200"`; and `bad_response` for duplicate dates, missing required requested-day fields, malformed/nonfinite/range-invalid values, or `tempMin>tempMax`. Invalid JSON and timeout remain sanitized HTTP-boundary errors. Entries outside the requested interval need only a parseable `fxDate`; their other fields are ignored. No error or log may contain the fake key, full URL, or raw response.
 
-- [ ] **Step 3: Implement the adapter**
+- [x] **Step 3: Implement the adapter**
 
 Validate the configured base URL as HTTPS, no credentials/port/path/query/fragment, and host suffix `.qweatherapi.com`; reject legacy public hosts. Use the account-specific API Host from settings and API KEY header authentication. Fetch once per destination, index valid `fxDate` values, then strictly parse and select the requested inclusive range. Do not make one call per day.
 
 Reject unsupported date ranges before HTTP with `ProviderError("forecast_unavailable", "所选日期超出七日天气预报范围")`. Preserve enough daily fields for the milestone 1 deterministic weather scorer; unknown optional fields are `None`, not zero.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run the focused test, full backend tests, and Ruff. Commit `feat: integrate QWeather daily forecasts`.
 
 ### Task 5: Cached Providers and Explicit Degradation
+
+**Completed:** `5623eff`
 
 **Files:**
 - Create: `backend/src/roambot/providers/cached.py`
@@ -283,7 +293,7 @@ Run the focused test, full backend tests, and Ruff. Commit `feat: integrate QWea
 - All cached constructors are `(inner,cache:CacheRepository,provider:str,clock:Callable[[],datetime],trace:ProviderTrace)`. Methods exactly preserve M1 protocols: `geocode(address,city)->Origin`; `search(center,city,scenery_types:tuple[SceneryType,...],radius_km)->list[Destination]`; `resolve(name,city)->Destination`; `measure(origins,destination)->list[DistanceEstimate]`; `daily(coordinate,start,end)->list[DailyWeather]`.
 - `ProviderEvent(StrEnum)` has `CACHE,DEMO,WEATHER_EXCLUDED,STRAIGHT_LINE,TEMPLATE_EXPLANATION,INSUFFICIENT_CANDIDATES`; `ProviderTrace.mark(event)->None` and `.to_source_state(final_item_count:int)->SourceState`; `ProviderRuntime.new_request_bundle()->ProviderBundle`, whose fields are five providers plus `trace`.
 
-- [ ] **Step 1: Write failing cache policy tests**
+- [x] **Step 1: Write failing cache policy tests**
 
 Use a fixed UTC clock and assert exact fresh TTLs from the approved design:
 
@@ -297,11 +307,11 @@ Use a fixed UTC clock and assert exact fresh TTLs from the approved design:
 
 Assert the five exact params scenarios and versioned payload envelopes from SPEC: geocode, POI search/DestinationList, POI resolve/Destination, distance, and weather. Include ordered scenery tuple/list, NFC/folded whitespace, ISO dates, six-place map coordinates and two-place weather coordinates. The digest includes schema version, provider and operation but never a credential or header. For every operation, `expires_at-1 microsecond` is fresh and skips the inner adapter; exactly at expiry it is a miss and calls the adapter. Provider errors never create cache rows, and expired rows are never stale fallbacks.
 
-- [ ] **Step 2: Implement typed cache wrappers**
+- [x] **Step 2: Implement typed cache wrappers**
 
 Implement the exact constructors/methods above. Use an injected `Callable[[],datetime]` that must return aware UTC, exact key/payload rules from SPEC, and TTLs `geocode=30d`, `poi_search=7d`, `distance=1d`, `weather=1h`. A fresh hit marks `ProviderEvent.CACHE`; a cache parse/model/version failure calls `cache.delete(key)`, then acts as a miss without logging raw payload. Cache only successful complete responses; do not use pickle.
 
-- [ ] **Step 3: Write failing degradation matrix tests**
+- [x] **Step 3: Write failing degradation matrix tests**
 
 Cover these outcomes:
 
@@ -316,7 +326,7 @@ Cover these outcomes:
 - LLM failure: keep all scores and use deterministic templates.
 - Geocode `not_found`: return a correctable address field error; provider outage without a fresh cache returns `503`. Never guess a coordinate.
 
-- [ ] **Step 4: Implement bounded candidate selection and degradation in one orchestration boundary**
+- [x] **Step 4: Implement bounded candidate selection and degradation in one orchestration boundary**
 
 Before exact provider calls, coarse-filter merged POIs by primary-origin haversine distance while preserving the existing merge order (selected scenery-type order, then provider order), then take the first five. Do not resort or backfill after the exact-distance hard filter; returning fewer than five results is valid. This guarantees at most five distance and weather calls.
 
@@ -328,11 +338,13 @@ Add exactly the fixed Chinese notices and order from SPEC without changing numer
 
 Do not catch validation bugs or programming exceptions as provider degradation. Only stable provider/cache errors enter this matrix.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_cached_providers.py backend/tests/unit/test_degradation_policy.py backend/tests/unit/test_provider_factory.py backend/tests/unit/test_recommendation_service.py -q`, all backend tests, Ruff, `npm --prefix frontend test -- SearchWorkspace.test.tsx ResultCard.test.tsx`, and the mock Playwright guest journey. Commit `feat: apply provider cache and degradation policy`.
 
 ### Task 6: OpenAI-Compatible Explanation Adapter
+
+**Completed:** `a81f588`
 
 **Files:**
 - Create: `backend/src/roambot/providers/openai_compatible.py`
@@ -342,13 +354,13 @@ Run `./.venv/Scripts/python.exe -m pytest backend/tests/unit/test_cached_provide
 - Implements: `ExplanationProvider.explain(items)`.
 - Calls: `{llm_base_url}/chat/completions` once for zero to five final items.
 
-- [ ] **Step 1: Write failing request tests**
+- [x] **Step 1: Write failing request tests**
 
 Use `httpx.MockTransport`. Assert an empty list returns empty explanations with no call. For one to five items, assert one POST uses `Authorization: Bearer <fake>`, configured model, `temperature=0.2`, and a JSON response-format request when supported by the configured OpenAI-compatible endpoint.
 
 The prompt contains only destination name, scenery labels, score breakdown, distance summaries, weather summary, and source limitations. It must not contain username, session, exact origin addresses, history ID, favorite state, share token, provider keys, or master password.
 
-- [ ] **Step 2: Write failing response and privacy tests**
+- [x] **Step 2: Write failing response and privacy tests**
 
 Require this parsed shape:
 
@@ -362,17 +374,19 @@ Require this parsed shape:
 
 Assert output is reordered to the input item order, every item appears exactly once, each reason is 20 to 180 Unicode characters after trimming, unknown IDs are rejected, markdown/code fences are rejected, and malformed/partial responses raise `ProviderError("bad_response", "AI 解释格式无效")`. Assert captured logs contain neither bearer token nor prompt content.
 
-- [ ] **Step 3: Implement one-call structured explanation**
+- [x] **Step 3: Implement one-call structured explanation**
 
 Build a short Chinese system instruction that forbids invented facts and asks only for recommendation reasons derived from supplied fields. Post to `/chat/completions`; parse `choices[0].message.content` as JSON with a strict Pydantic model. Do not let LLM output alter rank, score, scenery tags, weather, distance, or popularity.
 
 If the endpoint rejects JSON response format, do not automatically make a second request because the one-call budget is locked. Raise a provider error and let the existing deterministic template fallback run.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run explanation tests, all backend tests, and Ruff. Commit `feat: add bounded AI recommendation explanations`.
 
 ### Task 7: Manual Live Smoke Command and Credential Handoff
+
+**Implementation committed:** `764226a`; real credential handoff and smoke remain pending.
 
 **Files:**
 - Modify: `backend/src/roambot/cli.py`
@@ -383,11 +397,11 @@ Run explanation tests, all backend tests, and Ruff. Commit `feat: add bounded AI
 - Produces: `roambot providers smoke`.
 - This is the first and only task that asks the user to obtain and enter real credentials.
 
-- [ ] **Step 1: Write a zero-network CLI test**
+- [x] **Step 1: Write a zero-network CLI test**
 
 Inject mock adapters and a fixed clock. Assert the command executes one bounded Suzhou request, prints provider names, redacted success/failure status, call counts, cache state, candidate count, and generated timestamp. It must never print keys, master password, raw headers, full request URLs, exact account origin addresses, or LLM prompt.
 
-- [ ] **Step 2: Implement the smoke command**
+- [x] **Step 2: Implement the smoke command**
 
 The command requires `ROAMBOT_PROVIDER_MODE=live`, unlocks the vault using a hidden prompt, and runs this fixed low-cost sequence:
 
@@ -399,21 +413,23 @@ The command requires `ROAMBOT_PROVIDER_MODE=live`, unlocks the vault using a hid
 
 Add `--skip-llm` and provider-specific `--only amap|qweather|llm` options so credentials can be verified independently. A failure exits nonzero after a sanitized message. Do not retry automatically.
 
-- [ ] **Step 3: Pause for credential handoff**
+- [x] **Step 3: Pause for credential handoff**
 
 Only now ask the user to create the AMap Web Service key, QWeather API key plus account-specific API Host, and school OpenAI-compatible key/base URL/model. Instruct the user to run local hidden CLI prompts; never ask them to paste values into chat.
 
 Run `roambot credentials status` and report only configured booleans. If a provider is not configured, run the smoke test for configured providers and record the skipped one; do not block mock-mode delivery.
 
-- [ ] **Step 4: Run the manual smoke with explicit approval**
+- [x] **Step 4: Run the manual smoke with explicit approval**
 
 Before a real call, state the exact five-call maximum and ask for approval because it may consume provider quota. Then run the local command once. Record only sanitized status and call counts in `AGENT_LOG.md`; do not record returned personal/location payloads or credentials.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run CLI tests and full backend tests in mock mode. Commit `feat: add explicit live-provider smoke checks`.
 
 ### Task 8: Production Static Serving and Single Docker Image
+
+**Completed:** `cd04abe`
 
 **Files:**
 - Modify: `backend/src/roambot/main.py`
@@ -427,23 +443,23 @@ Run CLI tests and full backend tests in mock mode. Commit `feat: add explicit li
 **Interfaces:**
 - Produces: `create_app(frontend_dist: Path | None = None)`, `resolve_master_password(...)`, `entrypoint.main() -> int`, and one image serving `/api/v1` plus the React SPA on port 8000 with persistent `/data`.
 
-- [ ] **Step 1: Write failing static-serving tests**
+- [x] **Step 1: Write failing static-serving tests**
 
 With a temporary frontend directory containing only `index.html` and `assets/app.js`, assert `/` and `/history` return `index.html`, the real asset returns its content type, `/api/v1/health` is never captured, `/api/v1/missing` is JSON 404, and missing asset or other suffixed paths return 404 rather than HTML. `create_app(None)` keeps API routes working without static routes, matching Vite development.
 
-- [ ] **Step 2: Implement production SPA serving**
+- [x] **Step 2: Implement production SPA serving**
 
 Mount `/assets` with `StaticFiles` and add a final GET fallback only for paths without a file suffix and outside `/api`. Inject `frontend_dist` into `create_app`; production entrypoint uses `/app/frontend/dist` and exits 78 if index is absent. Keep API exception envelopes JSON.
 
-- [ ] **Step 3: Write failing entrypoint tests**
+- [x] **Step 3: Write failing entrypoint tests**
 
 Assert mock mode starts without a vault; live mode reads the master password from `/run/secrets/roambot_master_password` or non-secret path override `ROAMBOT_MASTER_PASSWORD_FILE`, rejects group/world-readable secret-file permissions where POSIX modes are exposed, removes trailing CR/LF only, and can prompt with `getpass` only when stdin is a TTY. Non-interactive live mode without the file returns exit code 78 with `RoamBot live mode requires a readable master-password file` and no attempted Uvicorn start.
 
-- [ ] **Step 4: Implement startup credential boundary**
+- [x] **Step 4: Implement startup credential boundary**
 
 `entrypoint.py` unlocks the vault once, validates `/app/frontend/dist/index.html`, passes plaintext values only in memory to `create_app`, zeroes mutable byte buffers where practical, and never places the master password in environment variables or process arguments. It starts Uvicorn on fixed `0.0.0.0:8000`.
 
-- [ ] **Step 5: Create the production Dockerfile**
+- [x] **Step 5: Create the production Dockerfile**
 
 Use three pinned-major stages:
 
@@ -453,11 +469,11 @@ Use three pinned-major stages:
 
 Set `PYTHONDONTWRITEBYTECODE=1`, `PYTHONUNBUFFERED=1`, and non-secret `ROAMBOT_DATA_DIR=/data`. Do not copy `.git`, `.env`, `data`, vault files, test artifacts, screenshots, `node_modules`, or real credentials. Add an HTTP health check against `/api/v1/health`.
 
-- [ ] **Step 6: Add local Compose without embedding secrets**
+- [x] **Step 6: Add local Compose without embedding secrets**
 
 Compose service name is `roambot`; it builds the image, publishes `8000:8000`, mounts named volume `roambot-data:/data`, defaults to mock/demo mode, and uses the fixed secret-file mechanism only under an explicit live profile. It must not contain a key or master password literal.
 
-- [ ] **Step 7: Build and inspect**
+- [x] **Step 7: Build and inspect**
 
 Run:
 
@@ -473,11 +489,13 @@ docker stop roambot-check
 
 Verify health, `/`, one SPA route, and one mock recommendation. Inspect history/output for known fake-secret patterns. Stop and remove only `roambot-check`; keep the named volume unless the user explicitly approves deleting it.
 
-- [ ] **Step 8: Verify and commit**
+- [x] **Step 8: Verify and commit**
 
 Run static/entrypoint tests, full test script, and a fresh Docker build. Commit `build: package RoamBot as one Docker image`.
 
 ### Task 9: GitLab CI with Zero Real Provider Calls
+
+**Completed:** `6f0d240`
 
 **Files:**
 - Create: `ci/Dockerfile`
@@ -488,15 +506,15 @@ Run static/entrypoint tests, full test script, and a fresh Docker build. Commit 
 **Interfaces:**
 - Produces: required `unit-test` job plus production image build/push jobs.
 
-- [ ] **Step 1: Write a network-denial test**
+- [x] **Step 1: Write a network-denial test**
 
 Patch socket connection creation in the backend test session and fail any outbound connection except loopback ports used by Playwright. Assert every provider test uses `MockTransport` or mock providers. Add a frontend test that fails if production code contains hardcoded AMap, QWeather, bearer-token, or master-password patterns.
 
-- [ ] **Step 2: Build one reproducible CI test image**
+- [x] **Step 2: Build one reproducible CI test image**
 
 Create `ci/Dockerfile` from `python:3.13-slim-bookworm`, copy Node runtime from `node:24-bookworm-slim`, install only Playwright Chromium system dependencies through `npx playwright install --with-deps chromium`, install backend dev dependencies with the lock/metadata files, run `npm ci`, and copy the repository last. The default command is `./scripts/test.sh`.
 
-- [ ] **Step 3: Add exact GitLab jobs**
+- [x] **Step 3: Add exact GitLab jobs**
 
 Use `docker:29-cli` plus `docker:29-dind` and these stages:
 
@@ -516,7 +534,7 @@ NO_PROXY=127.0.0.1,localhost
 
 Do not define provider credentials in CI. The `docker-build` job runs only after `unit-test`, builds the production Dockerfile, starts the image in mock mode, waits for the health check, performs one API smoke request, then pushes `$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA`. Push `latest` only from the default branch. Use GitLab predefined registry credentials, not project source files.
 
-- [ ] **Step 4: Validate locally**
+- [x] **Step 4: Validate locally**
 
 Run:
 
@@ -529,11 +547,15 @@ Expected: backend tests, Ruff, Vitest, frontend lint/build, and Playwright all p
 
 Validate `.gitlab-ci.yml` with GitLab CI Lint when repository access is configured. If it is unavailable, record that limitation rather than claiming remote CI success.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run `git diff --check`, scan tracked files for secret patterns, and commit `ci: test and package RoamBot without live credentials`.
 
 ### Task 10: Documentation, Assignment Evidence, and Final Verification
+
+**Progress (2026-07-19):** README、后端运行说明、反思写作提纲和验证证据已形成草稿；交付文档提交 `1ad45cb` 的 GitHub Actions 运行 `29689474384` 中，`unit-test` 与 `docker-build` 均通过。真实 provider smoke、公网 WebUI 和学生本人反思正文仍待完成。
+
+**Status:** in progress; external deployment and remote CI evidence remain pending.
 
 **Files:**
 - Modify: `README.md`

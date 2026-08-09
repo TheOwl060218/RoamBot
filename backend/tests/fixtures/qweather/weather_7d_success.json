@@ -1,0 +1,13 @@
+{
+  "code": "200",
+  "updateTime": "2026-07-20T06:00+08:00",
+  "daily": [
+    {"fxDate":"2026-07-20","tempMin":"25","tempMax":"32","textDay":"晴","textNight":"晴","windSpeedDay":"12","windSpeedNight":"8","humidity":"65","precip":"0.0","uvIndex":"8","vis":"20"},
+    {"fxDate":"2026-07-21","tempMin":"26","tempMax":"33","textDay":"多云","textNight":"小雨","windSpeedDay":"10","windSpeedNight":"18","humidity":"72","precip":"1.5","uvIndex":"6","vis":"15"},
+    {"fxDate":"2026-07-22","tempMin":"24","tempMax":"30","textDay":"小雨","textNight":"阴","windSpeedDay":"16","windSpeedNight":"12","humidity":"80","precip":"3.0","uvIndex":"3","vis":"10"},
+    {"fxDate":"2026-07-23","tempMin":"24","tempMax":"31","textDay":"多云","textNight":"多云","windSpeedDay":"11","windSpeedNight":"9","humidity":"70","precip":"0.0","uvIndex":"7","vis":"18"},
+    {"fxDate":"2026-07-24","tempMin":"25","tempMax":"34","textDay":"晴","textNight":"多云","windSpeedDay":"14","windSpeedNight":"10","humidity":"62","precip":"0.0","uvIndex":"9","vis":"22"},
+    {"fxDate":"2026-07-25","tempMin":"27","tempMax":"35","textDay":"晴","textNight":"晴","windSpeedDay":"13","windSpeedNight":"8","humidity":"60","precip":"0.0","uvIndex":"10","vis":"20"},
+    {"fxDate":"2026-07-26","tempMin":"26","tempMax":"33","textDay":"雷阵雨","textNight":"小雨","windSpeedDay":"20","windSpeedNight":"17","humidity":"82","precip":"8.0","uvIndex":"5","vis":"8"}
+  ]
+}

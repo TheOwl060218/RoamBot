@@ -1,0 +1,37 @@
+{
+  "status": "1",
+  "info": "OK",
+  "infocode": "10000",
+  "count": "3",
+  "pois": [
+    {
+      "id": "B001",
+      "name": "金鸡湖景区",
+      "location": "120.700000,31.320000",
+      "type": "风景名胜;公园广场;公园",
+      "typecode": "110101",
+      "address": "测试路1号",
+      "cityname": "苏州",
+      "business": {"rating": "4.8"}
+    },
+    {
+      "id": "",
+      "name": "湖滨公园",
+      "location": "120.710000,31.310000",
+      "type": "公园广场;公园",
+      "typecode": "110101",
+      "address": "测试路2号",
+      "cityname": "苏州",
+      "business": {"rating": "4.5"}
+    },
+    {
+      "id": "B001",
+      "name": "金鸡湖景区",
+      "location": "120.700000,31.320000",
+      "type": "风景名胜;公园广场;公园",
+      "typecode": "110101",
+      "address": "重复项",
+      "cityname": "苏州"
+    }
+  ]
+}
