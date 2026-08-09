@@ -46,4 +46,33 @@ describe('AuthDialog', () => {
     await user.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledOnce()
   })
+
+  it('clears credentials when closed and reopened', async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <AuthProvider><AuthDialog open onClose={vi.fn()} /></AuthProvider>,
+    )
+    await user.type(screen.getByLabelText('用户名'), 'alice')
+    await user.type(screen.getByLabelText('密码'), 'password123')
+    await user.click(screen.getByRole('button', { name: '关闭' }))
+
+    rerender(<AuthProvider><AuthDialog open onClose={vi.fn()} /></AuthProvider>)
+    expect(screen.getByLabelText('用户名')).toHaveValue('')
+    expect(screen.getByLabelText('密码')).toHaveValue('')
+  })
+
+  it('uses a generic login error and exposes the actual password rule as help', async () => {
+    const user = userEvent.setup()
+    render(<AuthProvider><AuthDialog open onClose={vi.fn()} /></AuthProvider>)
+
+    await user.type(screen.getByLabelText('用户名'), 'alice')
+    await user.type(screen.getByLabelText('密码'), 'short')
+    await user.click(screen.getByRole('button', { name: '登录' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('用户名或密码不正确。')
+    expect(screen.getByRole('button', { name: '查看密码要求' })).toHaveAttribute(
+      'title',
+      '注册密码需为 8–128 位字符。',
+    )
+  })
 })

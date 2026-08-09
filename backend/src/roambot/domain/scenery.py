@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 
 from roambot.domain.models import SceneryType
-from roambot.domain.scenery_rules import NAME_TERMS, TYPE_TERMS
+from roambot.domain.scenery_rules import NAME_TERMS, NAME_TYPE_PREFIXES, TYPE_TERMS
 
 
 def classify_scenery(
@@ -18,6 +18,6 @@ def classify_scenery(
         if any(term in type_name for term in terms):
             tags.add(tag)
     for tag, terms in NAME_TERMS.items():
-        if any(term in name for term in terms):
+        if type_code.startswith(NAME_TYPE_PREFIXES[tag]) and any(term in name for term in terms):
             tags.add(tag)
     return frozenset(tags)

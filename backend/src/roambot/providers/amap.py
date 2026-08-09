@@ -9,6 +9,7 @@ from roambot.domain.models import (
     Destination,
     DistanceEstimate,
     Origin,
+    PlaceSuggestion,
     SceneryType,
 )
 from roambot.domain.scenery import classify_scenery
@@ -17,7 +18,7 @@ from roambot.providers.protocols import ProviderError
 
 SEARCH_TERMS = {
     SceneryType.LAKE: "湖泊景区",
-    SceneryType.SEA: "海滩",
+    SceneryType.SEA: "滨海景区",
     SceneryType.OLD_TOWN: "古镇",
     SceneryType.MUSEUM: "博物馆",
     SceneryType.PARK: "公园",
@@ -31,20 +32,28 @@ class AMapProvider:
         self._api_key = api_key
 
     def geocode(self, address: str, city: str) -> Origin:
+        params = {
+            "key": self._api_key,
+            "address": address,
+            "city": city,
+            "output": "json",
+        }
         payload = self._http.get_json(
-            operation="geocode",
-            path="/v3/geocode/geo",
-            params={
-                "key": self._api_key,
-                "address": address,
-                "city": city,
-                "output": "json",
-            },
+            operation="geocode", path="/v3/geocode/geo", params=params
         )
         self._require_success(payload)
         geocodes = payload.get("geocodes")
         if not isinstance(geocodes, list):
             raise _bad_response()
+        if not geocodes and city:
+            params.pop("city")
+            payload = self._http.get_json(
+                operation="geocode", path="/v3/geocode/geo", params=params
+            )
+            self._require_success(payload)
+            geocodes = payload.get("geocodes")
+            if not isinstance(geocodes, list):
+                raise _bad_response()
         if not geocodes:
             raise ProviderError("not_found", "未找到出发地")
         first = geocodes[0]
@@ -57,6 +66,43 @@ class AMapProvider:
             address=formatted if isinstance(formatted, str) and formatted else address,
             coordinate=coordinate,
         )
+
+    def suggest(self, keywords: str, city: str) -> list[PlaceSuggestion]:
+        payload = self._http.get_json(
+            operation="input_tips",
+            path="/v3/assistant/inputtips",
+            params={
+                "key": self._api_key,
+                "keywords": keywords.strip(),
+                "city": city.strip(),
+                "citylimit": "false",
+                "datatype": "poi",
+                "output": "json",
+            },
+        )
+        self._require_success(payload)
+        tips = payload.get("tips")
+        if not isinstance(tips, list):
+            raise _bad_response()
+        results: list[PlaceSuggestion] = []
+        for raw in tips:
+            if not isinstance(raw, dict) or not isinstance(raw.get("name"), str):
+                continue
+            name = raw["name"].strip()
+            if not name:
+                continue
+            results.append(
+                PlaceSuggestion(
+                    provider_id=raw.get("id") if isinstance(raw.get("id"), str) else "",
+                    name=name,
+                    district=raw.get("district") if isinstance(raw.get("district"), str) else "",
+                    address=raw.get("address") if isinstance(raw.get("address"), str) else "",
+                    coordinate=_optional_coordinate(raw.get("location")),
+                )
+            )
+            if len(results) == 5:
+                break
+        return results
 
     def search(
         self,
@@ -252,6 +298,13 @@ def _parse_poi(raw: object, fallback_city: str) -> Destination | None:
         popularity_rank=1,
         rating=rating,
     )
+
+
+def _optional_coordinate(raw: object) -> Coordinate | None:
+    try:
+        return _parse_coordinate(raw)
+    except ProviderError:
+        return None
 
 
 def _parse_coordinate(raw: object) -> Coordinate:

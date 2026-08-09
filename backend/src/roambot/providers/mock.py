@@ -11,6 +11,7 @@ from roambot.domain.models import (
     DistanceEstimate,
     ExplanationContext,
     Origin,
+    PlaceSuggestion,
     RecommendationItem,
     SceneryType,
 )
@@ -163,6 +164,27 @@ class MockGeocoder:
 
 
 class MockPlaceProvider:
+    def suggest(self, keywords: str, city: str) -> list[PlaceSuggestion]:
+        normalized_keywords = _normalize_text(keywords).lower()
+        normalized_city = _normalize_text(city)
+        suggestions = [
+            PlaceSuggestion(
+                provider_id=destination.provider_id,
+                name=destination.name,
+                district=destination.city,
+                address=destination.address,
+            )
+            for destination in DESTINATIONS
+            if destination.city == normalized_city
+            and normalized_keywords in destination.name.lower()
+        ]
+        for (name, origin_city), origin in ORIGINS.items():
+            if origin_city == normalized_city and normalized_keywords in name.lower():
+                suggestions.append(
+                    PlaceSuggestion(name=name, district=origin_city, address=origin.address)
+                )
+        return suggestions[:6]
+
     def search(
         self,
         center: Coordinate,

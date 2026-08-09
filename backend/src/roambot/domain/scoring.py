@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from math import sqrt
-from statistics import fmean, pvariance
+from statistics import fmean
 
 from roambot.domain.models import (
     DailySuitability,
@@ -121,10 +120,15 @@ def score_daily_weather(
     elif hottest > 32 or coldest < 10:
         penalty = _penalty(exposure, outdoor=25, mixed=18, indoor=10)
         score -= penalty
-        reasons.append(
-            f"预计温度范围为{_number(coldest)}–{_number(hottest)}℃，"
-            f"{exposure_label}体感可能不舒适，请合理安排时段"
-        )
+        if exposure is SceneryExposure.INDOOR and hottest > 32:
+            reasons.append(
+                "往返途中避开高温并注意防暑防晒"
+            )
+        else:
+            reasons.append(
+                f"预计温度范围为{_number(coldest)}–{_number(hottest)}℃，"
+                f"{exposure_label}体感可能不舒适，请合理安排时段"
+            )
     elif hottest > 28 or coldest < 18:
         penalty = _penalty(exposure, outdoor=10, mixed=8, indoor=5)
         score -= penalty
@@ -200,13 +204,30 @@ def score_distance(distance_km: float, max_distance_km: float) -> float:
     return clamp(100 * (1 - distance_km / max_distance_km))
 
 
-def score_fairness(distances_km: list[float], max_distance_km: float) -> float:
+def score_fairness(
+    distances_km: list[float],
+    max_distance_km: float,
+    *,
+    durations_minutes: list[float] | None = None,
+) -> float:
     if not distances_km:
         raise ValueError("distances must not be empty")
     if len(distances_km) == 1:
         return clamp(100.0)
-    stddev = sqrt(pvariance(distances_km))
-    return clamp(100 * (1 - stddev / max_distance_km))
+    del max_distance_km
+    def relative_score(values: list[float]) -> float:
+        longest = max(values)
+        if longest <= 0:
+            return 100.0
+        return 100 * min(values) / longest
+
+    distance_score = relative_score(distances_km)
+    if durations_minutes is None:
+        return clamp(distance_score)
+    if len(durations_minutes) != len(distances_km):
+        raise ValueError("durations and distances must contain the same number of origins")
+    duration_score = relative_score(durations_minutes)
+    return clamp(duration_score * 0.70 + distance_score * 0.30)
 
 
 def score_popularity(rank: int, local_bonus: float = 0) -> float:

@@ -31,9 +31,9 @@ class Settings(BaseSettings):
     provider_timeout_seconds: float = Field(default=5.0, gt=0)
     max_geocode_calls: int = Field(default=3, gt=0)
     max_poi_search_calls: int = Field(default=6, gt=0)
-    max_weather_calls: int = Field(default=5, gt=0)
-    max_distance_calls: int = Field(default=5, gt=0)
-    max_llm_calls: int = Field(default=1, gt=0)
+    max_weather_calls: int = Field(default=7, gt=0)
+    max_distance_calls: int = Field(default=7, gt=0)
+    max_llm_calls: int = Field(default=8, gt=0)
 
     @field_validator("amap_base_url", "qweather_api_host", "llm_base_url", mode="before")
     @classmethod

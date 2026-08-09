@@ -29,7 +29,7 @@ export function HistoryDetailPage() {
 
   return (
     <section className="personal-page history-detail">
-      <header className="page-heading">
+      <header className="page-heading history-detail-heading">
         <div>
           <p className="eyebrow">不可变结果记录</p>
           <h1>历史快照</h1>
@@ -37,11 +37,13 @@ export function HistoryDetailPage() {
             保存于 {new Date(history.created_at).toLocaleString('zh-CN')}
           </time>
         </div>
-        <div className="item-actions">
+        <div className="item-actions history-detail-actions">
           <Link className="icon-text-button link-button" to="/history">
             <ArrowLeft aria-hidden="true" size={16} />返回历史
           </Link>
-          <ShareActions historyId={history.id} />
+          <div className="history-detail-share-slot">
+            <ShareActions historyId={history.id} />
+          </div>
         </div>
       </header>
       <ResultList

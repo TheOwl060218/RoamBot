@@ -179,6 +179,9 @@ class CachedPlaceProvider(_CachedProvider):
         super().__init__(cache, provider, clock, trace)
         self._inner = inner
 
+    def suggest(self, keywords: str, city: str):
+        return self._inner.suggest(keywords, city)
+
     def search(
         self,
         center,

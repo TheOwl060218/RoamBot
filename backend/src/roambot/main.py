@@ -17,6 +17,7 @@ from roambot.api.routes.auth import router as auth_router
 from roambot.api.routes.favorites import router as favorites_router
 from roambot.api.routes.health import router as health_router
 from roambot.api.routes.history import router as history_router
+from roambot.api.routes.places import router as places_router
 from roambot.api.routes.recommendations import router as recommendations_router
 from roambot.api.routes.shares import router as shares_router
 from roambot.config import ProviderMode, Settings
@@ -77,6 +78,7 @@ def create_app(
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(favorites_router, prefix="/api/v1")
     app.include_router(history_router, prefix="/api/v1")
+    app.include_router(places_router, prefix="/api/v1")
     app.include_router(shares_router, prefix="/api/v1")
     if frontend_dist is not None:
         assets_dir = frontend_dist / "assets"

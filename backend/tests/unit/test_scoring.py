@@ -115,6 +115,18 @@ def test_daily_weather_summary_uses_facts_and_hides_internal_penalties() -> None
     assert all("-40" not in reason for reason in result.reasons)
 
 
+def test_indoor_heat_summary_distinguishes_visit_from_travel_to_venue() -> None:
+    result = score_daily_weather(
+        weather(temp_min_c=28, temp_max_c=35),
+        frozenset({SceneryType.MUSEUM}),
+    )
+
+    assert "室内参观受高温影响较小" not in result.summary
+    assert "往返途中" in result.summary
+    assert "防暑" in result.summary or "防晒" in result.summary
+    assert "室内场景体感可能不舒适" not in result.summary
+
+
 def test_multi_day_formula_is_seventy_thirty() -> None:
     assert aggregate_weather([90, 85, 30]) == 56.83
 
@@ -123,6 +135,19 @@ def test_distance_and_fairness_are_bounded() -> None:
     assert score_distance(20, 100) == 80
     assert score_distance(100, 100) == 0
     assert score_fairness([30, 32, 29], 100) > score_fairness([10, 30, 90], 100)
+
+
+def test_fairness_uses_relative_burden_instead_of_absolute_trip_limit() -> None:
+    assert score_fairness([20, 50], 100) == 40
+    assert score_fairness([2, 5], 10) == 40
+
+
+def test_fairness_combines_relative_time_and_distance_burden() -> None:
+    assert score_fairness(
+        [38.94, 15.06],
+        50,
+        durations_minutes=[71, 52],
+    ) == 62.87
 
 
 def test_popularity_converts_rank() -> None:
@@ -273,7 +298,7 @@ def test_score_function_exits_clamp_and_round_to_two_decimals() -> None:
     assert score_daily_weather(severe, frozenset({SceneryType.PARK})).score == 0.0
     assert aggregate_weather([90, 85, 30]) == 56.83
     assert score_distance(33.333333, 100) == 66.67
-    assert score_fairness([0, 2], 3) == 66.67
+    assert score_fairness([0, 2], 3) == 0
     assert score_popularity(rank=2, local_bonus=0.125) == clamp(96.125)
 
 

@@ -8,13 +8,13 @@ from roambot.providers.budget import (
 from roambot.services.recommendations import DEFAULT_PROVIDER_LIMITS
 
 
-def test_recommendation_limits_cover_seven_candidates_and_four_llm_groups() -> None:
+def test_recommendation_limits_cover_seven_candidates_and_group_retries() -> None:
     assert DEFAULT_PROVIDER_LIMITS == {
         ProviderOperation.GEOCODE: 3,
         ProviderOperation.POI_SEARCH: 6,
         ProviderOperation.WEATHER: 7,
         ProviderOperation.DISTANCE: 7,
-        ProviderOperation.LLM: 4,
+        ProviderOperation.LLM: 8,
     }
 
 

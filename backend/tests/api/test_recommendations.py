@@ -75,6 +75,17 @@ def test_guest_place_evaluation_returns_requested_item() -> None:
     assert body["source_state"]["kind"] == "demo"
 
 
+def test_place_suggestions_return_limited_current_city_matches() -> None:
+    with TestClient(create_app()) as client:
+        response = client.get(
+            "/api/v1/places/suggestions",
+            params={"keywords": "苏州", "city": "苏州"},
+        )
+
+    assert response.status_code == 200
+    assert len(response.json()["suggestions"]) <= 5
+
+
 def test_invalid_request_returns_stable_error() -> None:
     invalid = payload()
     invalid["max_distance_km"] = 0

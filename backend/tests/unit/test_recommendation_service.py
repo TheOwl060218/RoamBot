@@ -284,6 +284,20 @@ def test_multi_origin_uses_default_fairness_weight() -> None:
     assert [item.destination.provider_id for item in result.items] == ["fair", "spread"]
 
 
+def test_selected_origin_coordinate_skips_redundant_geocoding() -> None:
+    lake = destination("lake", "Lake", frozenset({SceneryType.LAKE}), rank=1)
+    recommendation_service, geocoder, places, *_ = service(
+        destinations=[lake],
+        distances={"lake": [10]},
+    )
+    selected = Coordinate(longitude=120.02, latitude=31.01)
+
+    recommendation_service.recommend(request(main_origin_coordinate=selected))
+
+    assert geocoder.calls == []
+    assert places.search_calls[0][0] == selected
+
+
 def test_cover_all_reports_uncovered_types_without_item_penalty() -> None:
     lake = destination("lake", "Lake", frozenset({SceneryType.LAKE}), rank=1)
     recommendation_service, *_ = service(destinations=[lake], distances={"lake": [10]})
@@ -445,7 +459,7 @@ def test_explanation_failure_uses_template_without_changing_score() -> None:
     assert "scored" not in degraded.items[0].explanation
     assert "-40" not in degraded.items[0].explanation
     assert degraded.source_state.notices == ["explanation_degraded"]
-    assert len(degraded_explanations.calls) == 1
+    assert len(degraded_explanations.calls) == 2
 
 
 class GroupedExplanationProvider(CountingExplanationProvider):
@@ -464,7 +478,7 @@ class GroupedExplanationProvider(CountingExplanationProvider):
         ]
 
 
-def test_seven_results_are_polished_in_groups_of_two_without_retry() -> None:
+def test_failed_explanation_group_retries_once_without_discarding_other_groups() -> None:
     types = list(SceneryType)
     candidates = [
         destination(
@@ -489,10 +503,39 @@ def test_seven_results_are_polished_in_groups_of_two_without_retry() -> None:
         request(scenery_types=types, scenery_match_mode=SceneryMatchMode.COVER_ALL)
     )
 
-    assert [len(call) for call in explanations.calls] == [2, 2, 2, 1]
-    assert result.items[0].explanation.startswith("润色结果：")
-    assert result.items[2].explanation.startswith("该地点符合")
-    assert result.source_state.notices == ["explanation_degraded"]
+    assert [len(call) for call in explanations.calls] == [2, 2, 2, 2, 1]
+    assert all(item.explanation.startswith("润色结果：") for item in result.items)
+    assert result.source_state.notices == []
+
+
+def test_multi_origin_fairness_combines_route_duration_and_distance_ratios() -> None:
+    lake = destination("lake", "Lake", frozenset({SceneryType.LAKE}))
+    recommendation_service, *_ = service(
+        destinations=[lake],
+        distances={"lake": [10, 10]},
+    )
+
+    class TimedDistanceProvider:
+        def measure(
+            self, origins: list[Origin], destination: Destination
+        ) -> list[DistanceEstimate]:
+            del destination
+            return [
+                DistanceEstimate(
+                    origin_label=origin_item.label,
+                    distance_km=10,
+                    duration_minutes=duration,
+                    estimated=False,
+                )
+                for origin_item, duration in zip(origins, [20, 50], strict=True)
+            ]
+
+    recommendation_service.distance = TimedDistanceProvider()
+    result = recommendation_service.recommend(
+        request(companion_origins=["friend"])
+    )
+
+    assert result.items[0].score.fairness == 58
 
 
 def test_no_candidates_returns_empty_items_with_notice() -> None:

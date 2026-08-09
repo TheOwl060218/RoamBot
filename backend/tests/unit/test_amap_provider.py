@@ -57,6 +57,84 @@ def test_geocode_empty_and_provider_errors_are_stable_and_sanitized() -> None:
     assert FAKE_KEY not in str(unavailable.value)
 
 
+def test_geocode_retries_without_city_when_city_hint_has_no_result() -> None:
+    calls: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(dict(request.url.params))
+        if len(calls) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "status": "1",
+                    "info": "OK",
+                    "infocode": "10000",
+                    "count": "0",
+                    "geocodes": [],
+                },
+            )
+        return httpx.Response(200, json=fixture("geocode_success.json"))
+
+    result = provider_for(handler).geocode("上海外滩", "苏州")
+
+    assert result.coordinate == Coordinate(longitude=120.617, latitude=31.335)
+    assert calls[0]["city"] == "苏州"
+    assert "city" not in calls[1]
+
+
+def test_input_tips_use_city_as_a_hint_and_parse_coordinates() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v3/assistant/inputtips"
+        assert dict(request.url.params) == {
+            "key": FAKE_KEY,
+            "keywords": "南京大学",
+            "city": "苏州",
+            "citylimit": "false",
+            "datatype": "poi",
+            "output": "json",
+        }
+        return httpx.Response(
+            200,
+            json={
+                "status": "1",
+                "info": "OK",
+                "infocode": "10000",
+                "count": "1",
+                "tips": [{
+                    "id": "poi-1",
+                    "name": "南京大学苏州校区东区",
+                    "district": "江苏省苏州市虎丘区",
+                    "address": "太湖大道1520号",
+                    "location": "120.1,31.1",
+                }],
+            },
+        )
+
+    values = provider_for(handler).suggest(" 南京大学 ", "苏州")
+
+    assert values[0].name == "南京大学苏州校区东区"
+    assert values[0].district == "江苏省苏州市虎丘区"
+    assert values[0].coordinate == Coordinate(longitude=120.1, latitude=31.1)
+
+
+def test_input_tips_return_at_most_five_places() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "status": "1",
+                "info": "OK",
+                "infocode": "10000",
+                "tips": [
+                    {"id": str(index), "name": f"地点{index}", "location": "120.1,31.1"}
+                    for index in range(8)
+                ],
+            },
+        )
+
+    assert len(provider_for(handler).suggest("地点", "苏州")) == 5
+
+
 def test_resolve_uses_text_search_and_prefers_exact_normalized_name() -> None:
     payload = fixture("poi_text_success.json")
     payload["pois"] = [payload["pois"][1], payload["pois"][0]]

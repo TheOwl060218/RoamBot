@@ -1,9 +1,10 @@
-import { useState, type PropsWithChildren } from 'react'
+import { useEffect, useState, type PropsWithChildren } from 'react'
 import { UserRound } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 import { AuthDialog } from '../features/auth/AuthDialog'
 import { useAuth } from '../features/auth/authContext'
+import { ACCOUNT_DIALOG_REQUEST_EVENT } from './accountDialog'
 
 const navigation = [
   { label: '推荐', to: '/' },
@@ -13,7 +14,21 @@ const navigation = [
 
 export function AppShell({ children }: PropsWithChildren) {
   const [accountOpen, setAccountOpen] = useState(false)
+  const [status, setStatus] = useState('')
   const { user } = useAuth()
+
+  useEffect(() => {
+    if (!status) return
+    const timer = window.setTimeout(() => setStatus(''), 2400)
+    return () => window.clearTimeout(timer)
+  }, [status])
+
+  useEffect(() => {
+    const openAccount = () => setAccountOpen(true)
+    window.addEventListener(ACCOUNT_DIALOG_REQUEST_EVENT, openAccount)
+    return () => window.removeEventListener(ACCOUNT_DIALOG_REQUEST_EVENT, openAccount)
+  }, [])
+
   return (
     <div className="app-shell">
       <header className="shell-header">
@@ -49,7 +64,8 @@ export function AppShell({ children }: PropsWithChildren) {
       </header>
 
       <main className="shell-main">{children}</main>
-      <AuthDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
+      {status && <div className="app-toast" role="status">{status}</div>}
+      <AuthDialog open={accountOpen} onClose={() => setAccountOpen(false)} onStatus={setStatus} />
     </div>
   )
 }

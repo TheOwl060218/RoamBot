@@ -143,7 +143,7 @@ Windows 一键测试：
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
 ```
 
-浏览器旅程会临时监听本机 `8000` 和 `5173`，运行前需保证这两个端口空闲；Docker 版完整门禁不占用宿主机端口。
+浏览器旅程会自动启动隔离的 Mock 服务，默认临时监听本机 `8010` 和 `5183`，测试结束后自动关闭；可通过 `ROAMBOT_E2E_BACKEND_PORT` 与 `ROAMBOT_E2E_FRONTEND_PORT` 改用其他空闲端口。Docker 版完整门禁不占用宿主机端口。
 
 Linux/CI：
 

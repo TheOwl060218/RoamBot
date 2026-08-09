@@ -1,6 +1,9 @@
-import type { RankingWeights, SearchMode } from '../../api/types'
+import type { Coordinate, RankingWeights, SceneryType, SearchMode } from '../../api/types'
 
 const STORAGE_KEY = 'roambot.ui.display-weights.v2'
+const DRAFT_KEY = 'roambot.session.search-draft.v1'
+const RESULT_KEY = 'roambot.session.search-result.v1'
+const SELECTED_PLACE_KEY = 'roambot.session.selected-place.v1'
 
 export type DisplayWeights = Pick<RankingWeights, 'weather' | 'distance' | 'popularity'>
 
@@ -11,6 +14,78 @@ export const defaultDisplayWeights: DisplayWeights = {
 }
 
 type StoredPreferences = Record<string, DisplayWeights>
+
+export type TravelFormDraft = {
+  mode: SearchMode
+  city: string
+  mainOrigin: string
+  companions: string[]
+  mainOriginCoordinate: Coordinate | null
+  companionOriginCoordinates: (Coordinate | null)[]
+  maxDistance: string
+  startDate: string
+  endDate: string
+  sceneryTypes: SceneryType[]
+  matchMode: 'any' | 'cover_all'
+  targetPlace: string
+  weights?: DisplayWeights
+}
+
+export function loadTravelDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    return raw ? JSON.parse(raw) as TravelFormDraft : null
+  } catch {
+    return null
+  }
+}
+
+export function saveTravelDraft(value: TravelFormDraft) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(value))
+  } catch {
+    // Current-tab continuity is optional when storage is unavailable.
+  }
+}
+
+export function loadSearchResult<T>() {
+  try {
+    const raw = sessionStorage.getItem(RESULT_KEY)
+    return raw ? JSON.parse(raw) as T : null
+  } catch {
+    return null
+  }
+}
+
+export function saveSearchResult(value: unknown) {
+  try {
+    sessionStorage.setItem(RESULT_KEY, JSON.stringify(value))
+  } catch {
+    // Results can still be used in-memory when storage is unavailable.
+  }
+}
+
+export function loadSelectedPlaceId() {
+  try {
+    return sessionStorage.getItem(SELECTED_PLACE_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function saveSelectedPlaceId(value: string) {
+  try {
+    sessionStorage.setItem(SELECTED_PLACE_KEY, value)
+  } catch {
+    // Selection persistence is optional when storage is unavailable.
+  }
+}
+
+export function clearSearchSession() {
+  sessionStorage.removeItem(DRAFT_KEY)
+  sessionStorage.removeItem(RESULT_KEY)
+  sessionStorage.removeItem(SELECTED_PLACE_KEY)
+}
 
 export function loadWeightPreference(mode: SearchMode, originCount: 1 | 2 | 3) {
   try {

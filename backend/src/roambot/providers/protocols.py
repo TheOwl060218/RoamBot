@@ -10,6 +10,7 @@ from roambot.domain.models import (
     DistanceEstimate,
     ExplanationContext,
     Origin,
+    PlaceSuggestion,
     RecommendationItem,
     SceneryType,
 )
@@ -29,6 +30,9 @@ class Geocoder(Protocol):
 
 @runtime_checkable
 class PlaceProvider(Protocol):
+    def suggest(self, keywords: str, city: str) -> list[PlaceSuggestion]:
+        raise NotImplementedError
+
     def search(
         self,
         center: Coordinate,

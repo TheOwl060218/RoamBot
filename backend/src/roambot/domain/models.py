@@ -62,6 +62,14 @@ class Coordinate(DomainModel):
     system: str = "gcj02"
 
 
+class PlaceSuggestion(DomainModel):
+    provider_id: str = ""
+    name: str
+    district: str = ""
+    address: str = ""
+    coordinate: Coordinate | None = None
+
+
 class RankingWeights(DomainModel):
     weather: float = Field(ge=0, le=100)
     distance: float = Field(ge=0, le=100)
@@ -79,6 +87,11 @@ class TravelRequestBase(DomainModel):
     city: str = "苏州"
     main_origin: str = Field(min_length=1, max_length=200)
     companion_origins: list[str] = Field(default_factory=list, max_length=2)
+    main_origin_coordinate: Coordinate | None = None
+    companion_origin_coordinates: list[Coordinate | None] = Field(
+        default_factory=list,
+        max_length=2,
+    )
     max_distance_km: float = Field(gt=0, le=500)
     start_date: date
     end_date: date
@@ -113,6 +126,10 @@ class TravelRequestBase(DomainModel):
             raise ValueError("date range must start today or later")
         if (self.end_date - today).days > 6:
             raise ValueError("date range must stay within the next 7 days")
+        if self.companion_origin_coordinates and (
+            len(self.companion_origin_coordinates) != len(self.companion_origins)
+        ):
+            raise ValueError("companion origin coordinates must align with origins")
         if self.weights is not None:
             total = sum(self.weights.model_dump().values())
             if abs(total - 100) > 1e-6:

@@ -14,7 +14,7 @@ export function distanceMatchLabel(value: number) {
 }
 
 export function fairnessMatchLabel(value: number) {
-  return labelFor(value, ['很均衡', '比较均衡', '存在差异', '差异较大'])
+  return labelFor(value, ['差异很小', '差异较小', '差异较大', '差异很大'])
 }
 
 export function popularityMatchLabel(value: number) {

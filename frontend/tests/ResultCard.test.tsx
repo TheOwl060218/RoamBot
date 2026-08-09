@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import type { RecommendationItem } from '../src/api/types'
-import { ResultCard } from '../src/features/search/ResultCard'
+import { PlaceDetail } from '../src/features/search/PlaceDetail'
 
 function recommendationItem(originCount: 1 | 2 = 1): RecommendationItem {
   return {
@@ -62,9 +62,9 @@ function recommendationItem(originCount: 1 | 2 = 1): RecommendationItem {
   }
 }
 
-describe('ResultCard', () => {
+describe('PlaceDetail', () => {
   it('presents an integer trip match index and qualitative dimensions', () => {
-    render(<ResultCard item={recommendationItem()} />)
+    render(<PlaceDetail item={recommendationItem()} />)
 
     expect(screen.getByLabelText('出游匹配指数 87')).toBeInTheDocument()
     expect(screen.getByText('非常适合')).toBeInTheDocument()
@@ -76,7 +76,7 @@ describe('ResultCard', () => {
     expect(screen.getByText('部分日期需谨慎')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '推荐理由' })).toBeInTheDocument()
     expect(screen.queryByText(/极端温度\s*-40|适宜程度/)).not.toBeInTheDocument()
-    expect(screen.queryByText('同行均衡')).not.toBeInTheDocument()
+    expect(screen.queryByText('路程差异')).not.toBeInTheDocument()
     expect(screen.queryByText('指数用于比较本次候选地点，不代表官方评价。')).not.toBeInTheDocument()
     expect(screen.queryByText('90.0')).not.toBeInTheDocument()
     expect(screen.queryByText('75.3')).not.toBeInTheDocument()
@@ -84,10 +84,35 @@ describe('ResultCard', () => {
   })
 
   it('adds a qualitative balance description for group travel', () => {
-    render(<ResultCard item={recommendationItem(2)} />)
+    render(<PlaceDetail item={recommendationItem(2)} />)
 
-    expect(screen.getByText('同行均衡')).toBeInTheDocument()
-    expect(screen.getByText('比较均衡')).toBeInTheDocument()
+    expect(screen.getByText('出行差异')).toBeInTheDocument()
+    expect(screen.getByText('差异较小')).toBeInTheDocument()
     expect(screen.queryByText('75.0')).not.toBeInTheDocument()
+  })
+
+  it('exposes a stable weather column count for multi-day layouts', () => {
+    const item = recommendationItem()
+    item.weather = Array.from({ length: 5 }, (_, index) => ({
+      ...item.weather[0],
+      date: `2026-07-${25 + index}`,
+    }))
+    item.daily_suitability = item.weather.map((day) => ({
+      ...item.daily_suitability[0],
+      date: day.date,
+    }))
+
+    const { container } = render(<PlaceDetail item={item} />)
+
+    expect(container.querySelector('.weather-list')).toHaveClass('weather-list-multi')
+    expect(container.querySelectorAll('.weather-day')).toHaveLength(5)
+  })
+
+  it('uses the focused single-day weather layout for one date', () => {
+    const { container } = render(<PlaceDetail item={recommendationItem()} />)
+
+    expect(container.querySelector('.weather-list')).toHaveClass('weather-list-single')
+    expect(screen.getByText('温度')).toBeInTheDocument()
+    expect(container.querySelector('.weather-condition svg')).toBeInTheDocument()
   })
 })

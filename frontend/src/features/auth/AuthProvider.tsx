@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 
 import { apiClient } from '../../api/client'
 import type { AuthResponse } from '../../api/types'
+import { clearSearchSession } from '../search/formState'
 import { AuthContext, type AuthContextValue } from './authContext'
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       },
       logout: async () => {
         await apiClient.logout()
+        clearSearchSession()
       },
     }),
     [initializing, session],

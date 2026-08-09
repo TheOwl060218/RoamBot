@@ -1,5 +1,31 @@
 # RoamBot 验证证据
 
+## 2026-08-09 当前工作树完整 Mock 门禁
+
+- 分支：`feat/roambot-v1`。
+- 模式：`ROAMBOT_PROVIDER_MODE=mock`、`ROAMBOT_DEMO_MODE=true`。
+- 真实调用：0；没有读取真实高德、QWeather 或 LLM 凭据，也没有产生 provider 费用。
+- 一键入口：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1`。
+- 浏览器测试由脚本在隔离端口 `8010/5183` 自动启动并关闭服务；完成后两端口均已释放。
+
+| 检查 | 当前工作树结果 |
+| --- | --- |
+| 后端 pytest | `283 passed in 23.29s` |
+| Ruff | `All checks passed!` |
+| 前端 Vitest | 14 个文件，`52 passed` |
+| ESLint | 退出 0 |
+| TypeScript | 退出 0 |
+| Vite 生产构建 | 退出 0；1822 modules transformed；JS 349.68 kB，CSS 32.36 kB |
+| Playwright | 桌面/移动端共 `8 passed in 36.6s` |
+| 测试服务清理 | `8010`、`5183` 均为 `FREE` |
+| Docker 新鲜构建 | `roambot:closeout-20260809`，退出 0 |
+| Docker Mock 冷启动 | 健康接口为 `ready`；首页与历史页均返回 200；推荐接口返回 demo 结果 |
+| 临时容器清理 | `roambot-final-smoke` 已停止并由 `--rm` 删除；原 `roambot-closeout` 未改动 |
+| `git diff --check` | 退出 0；仅有 Windows LF/CRLF 提示 |
+| 秘密值与敏感文件扫描 | 未发现真实 key、token、凭据库或数据库进入工作树改动 |
+
+本次结果覆盖当前未提交工作树，但还不是远程 CI 证据。Docker 构建与冷启动全程使用 Mock/demo，未读取真实 provider 凭据。提交与 push 后 CI 仍须完成并记录。
+
 ## 2026-07-23 推荐质量改进验证
 
 - 分支：`feat/roambot-v1`
@@ -93,4 +119,4 @@ Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆�
 - GitLab CI Lint/远程流水线：仓库只配置 GitHub remote，未运行 GitLab 远程 CI。
 - 公网 WebUI：尚未选择并授权部署平台；本地 URL 不是公网交付地址。
 
-本文件记录的远程 CI 已覆盖交付文档草稿与最新源码。公网部署和真实 provider 结果仍必须在实际完成后补充；不得把本地验证写成远程成功。
+本文件记录的既有远程 CI 只覆盖对应的旧提交，不覆盖 2026-08-09 当前未提交工作树。公网部署、最终 push 后的新一轮远程 CI 和后续真实 provider 结果仍必须在实际完成后补充；不得把本地验证写成远程成功。

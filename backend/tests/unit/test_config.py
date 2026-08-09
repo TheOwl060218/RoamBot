@@ -19,7 +19,7 @@ def test_provider_settings_have_safe_mock_defaults() -> None:
         settings.max_weather_calls,
         settings.max_distance_calls,
         settings.max_llm_calls,
-    ) == (3, 6, 5, 5, 1)
+    ) == (3, 6, 7, 7, 8)
     assert "api_key" not in repr(settings)
     assert "master_password" not in repr(settings)
 

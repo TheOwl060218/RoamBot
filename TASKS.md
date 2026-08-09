@@ -8,7 +8,7 @@
 - [x] 确认可用运行时：Codex bundled Node.js 与 Python 可用
 - [x] 在 Codex App 插件侧边栏搜索并安装 `Superpowers`
 - [x] 使用多个不继承当前上下文的陌生 agent 完成冷启动验证
-- [ ] 在真实 provider 人工 smoke 前申请 API key：高德、QWeather、学校 LLM
+- [x] 在真实 provider 人工 smoke 前申请 API key：高德、QWeather、学校 LLM
 
 ## 1. 规约阶段：先写清楚，不写实现代码
 
@@ -59,16 +59,16 @@
 
 ## 4. 最终交付检查
 
-- [ ] `SPEC.md`
-- [ ] `PLAN.md`
-- [ ] `SPEC_PROCESS.md`
-- [ ] `AGENT_LOG.md`
-- [ ] `README.md`
+- [x] `SPEC.md`
+- [x] `PLAN.md`
+- [x] `SPEC_PROCESS.md`
+- [x] `AGENT_LOG.md`
+- [x] `README.md`
 - [ ] `REFLECTION.md`
-- [ ] 源代码
-- [ ] 一键测试命令
-- [ ] `.gitlab-ci.yml`，包含名为 `unit-test` 的 job
-- [ ] `Dockerfile`
-- [ ] `.env.example`
+- [x] 源代码
+- [x] 一键测试命令
+- [x] `.gitlab-ci.yml`，包含名为 `unit-test` 的 job
+- [x] `Dockerfile`
+- [x] `.env.example`
 - [ ] WebUI 可访问地址
-- [x] 最后一次 CI/CD pass 记录（GitHub Actions `29689474384`，提交 `1ad45cb`）
+- [ ] 最终提交版本的最后一次 CI/CD pass 记录（已有旧版本成功证据：GitHub Actions `29689474384`，提交 `1ad45cb`）

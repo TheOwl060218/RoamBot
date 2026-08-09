@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
 import type {
   PlaceEvaluationRequest,
+  PlaceSuggestion,
   RecommendationRequest,
   SceneryType,
   SearchMode,
@@ -9,12 +10,15 @@ import type {
 import {
   chinaDate,
   defaultDisplayWeights,
+  loadTravelDraft,
   loadWeightPreference,
+  saveTravelDraft,
   saveWeightPreference,
   toRankingWeights,
   type DisplayWeights,
 } from './formState'
 import { OriginFields } from './OriginFields'
+import { PlaceInput } from './PlaceInput'
 import { ScenerySelector } from './ScenerySelector'
 import { WeightSegments } from './WeightSegments'
 
@@ -33,36 +37,94 @@ export function TravelForm({
   fieldErrors = {},
   onSubmit,
 }: TravelFormProps) {
-  const [mode, setMode] = useState<SearchMode>(initialMode)
-  const [city, setCity] = useState('苏州')
-  const [mainOrigin, setMainOrigin] = useState('')
-  const [companions, setCompanions] = useState<string[]>([])
-  const [maxDistance, setMaxDistance] = useState('50')
-  const [startDate, setStartDate] = useState(chinaDate(1))
-  const [endDate, setEndDate] = useState(chinaDate(1))
-  const [sceneryTypes, setSceneryTypes] = useState<SceneryType[]>([])
-  const [matchMode, setMatchMode] = useState<'any' | 'cover_all'>('any')
-  const [targetPlace, setTargetPlace] = useState(initialTarget)
+  const [restored] = useState(loadTravelDraft)
+  const restoredMode = initialTarget ? 'place_evaluation' : restored?.mode ?? initialMode
+  const [mode, setMode] = useState<SearchMode>(restoredMode)
+  const [city, setCity] = useState(restored?.city ?? '苏州')
+  const [mainOrigin, setMainOrigin] = useState(restored?.mainOrigin ?? '')
+  const [companions, setCompanions] = useState<string[]>(restored?.companions ?? [])
+  const [mainOriginCoordinate, setMainOriginCoordinate] = useState(
+    restored?.mainOriginCoordinate ?? null,
+  )
+  const [companionOriginCoordinates, setCompanionOriginCoordinates] = useState(
+    restored?.companionOriginCoordinates ?? restored?.companions.map(() => null) ?? [],
+  )
+  const [maxDistance, setMaxDistance] = useState(restored?.maxDistance ?? '50')
+  const [startDate, setStartDate] = useState(restored?.startDate ?? chinaDate(1))
+  const [endDate, setEndDate] = useState(restored?.endDate ?? chinaDate(1))
+  const [sceneryTypes, setSceneryTypes] = useState<SceneryType[]>(restored?.sceneryTypes ?? [])
+  const [matchMode, setMatchMode] = useState<'any' | 'cover_all'>(restored?.matchMode ?? 'any')
+  const [targetPlace, setTargetPlace] = useState(initialTarget || restored?.targetPlace || '')
   const [weights, setWeights] = useState<DisplayWeights>(
-    () => loadWeightPreference(initialMode, 1) ?? defaultDisplayWeights,
+    () => restored?.weights
+      ?? loadWeightPreference(restoredMode, (restored?.companions.length ?? 0) + 1 as 1 | 2 | 3)
+      ?? defaultDisplayWeights,
   )
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
   const errors = { ...localErrors, ...fieldErrors }
   const originCount = (companions.length + 1) as 1 | 2 | 3
   const maxDistanceKm = Number(maxDistance)
 
+  useEffect(() => {
+    saveTravelDraft({
+      mode,
+      city,
+      mainOrigin,
+      companions,
+      mainOriginCoordinate,
+      companionOriginCoordinates,
+      maxDistance,
+      startDate,
+      endDate,
+      sceneryTypes,
+      matchMode,
+      targetPlace,
+      weights,
+    })
+  }, [city, companionOriginCoordinates, companions, endDate, mainOrigin, mainOriginCoordinate, matchMode, maxDistance, mode, sceneryTypes, startDate, targetPlace, weights])
+
   function changeCompanions(next: string[]) {
-    const switchesGroupMode = (companions.length === 0) !== (next.length === 0)
     setCompanions(next)
-    if (switchesGroupMode) {
-      const nextCount = (next.length + 1) as 1 | 2 | 3
-      setWeights(loadWeightPreference(mode, nextCount) ?? defaultDisplayWeights)
-    }
+  }
+
+  function changeMainOrigin(value: string) {
+    setMainOrigin(value)
+    setMainOriginCoordinate(null)
+  }
+
+  function selectMainOrigin(suggestion: PlaceSuggestion) {
+    setMainOriginCoordinate(suggestion.coordinate)
+  }
+
+  function changeCompanion(index: number, value: string) {
+    setCompanions((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? value : item
+    )))
+    setCompanionOriginCoordinates((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? null : item
+    )))
+  }
+
+  function selectCompanion(index: number, suggestion: PlaceSuggestion) {
+    setCompanionOriginCoordinates((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? suggestion.coordinate : item
+    )))
+  }
+
+  function addCompanion() {
+    changeCompanions([...companions, ''])
+    setCompanionOriginCoordinates((current) => [...current, null])
+  }
+
+  function removeCompanion(index: number) {
+    changeCompanions(companions.filter((_, itemIndex) => itemIndex !== index))
+    setCompanionOriginCoordinates((current) => (
+      current.filter((_, itemIndex) => itemIndex !== index)
+    ))
   }
 
   function changeMode(nextMode: SearchMode) {
     setMode(nextMode)
-    setWeights(loadWeightPreference(nextMode, originCount) ?? defaultDisplayWeights)
   }
 
   function changeWeights(next: DisplayWeights) {
@@ -106,6 +168,8 @@ export function TravelForm({
       city: city.trim() || '苏州',
       main_origin: mainOrigin.trim(),
       companion_origins: companions.map((origin) => origin.trim()),
+      main_origin_coordinate: mainOriginCoordinate,
+      companion_origin_coordinates: companionOriginCoordinates,
       max_distance_km: maxDistanceKm,
       start_date: startDate,
       end_date: endDate,
@@ -151,6 +215,7 @@ export function TravelForm({
         <label className="field">
           <span>城市</span>
           <input value={city} onChange={(event) => setCity(event.target.value)} />
+          <span className="field-message" />
         </label>
         <label className="field">
           <span>最大距离（km）</span>
@@ -161,7 +226,7 @@ export function TravelForm({
             value={maxDistance}
             onChange={(event) => setMaxDistance(event.target.value.replace(/^0+(?=\d)/, ''))}
           />
-          {errors.max_distance_km && <small className="field-error">{errors.max_distance_km}</small>}
+          <span className="field-message">{errors.max_distance_km && <small className="field-error">{errors.max_distance_km}</small>}</span>
         </label>
         <label className="field">
           <span>开始日期</span>
@@ -172,7 +237,7 @@ export function TravelForm({
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
           />
-          {errors.start_date && <small className="field-error">{errors.start_date}</small>}
+          <span className="field-message">{errors.start_date && <small className="field-error">{errors.start_date}</small>}</span>
         </label>
         <label className="field">
           <span>结束日期</span>
@@ -183,16 +248,21 @@ export function TravelForm({
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
           />
-          {errors.end_date && <small className="field-error">{errors.end_date}</small>}
+          <span className="field-message">{errors.end_date && <small className="field-error">{errors.end_date}</small>}</span>
         </label>
       </div>
 
       <OriginFields
+        city={city}
         mainOrigin={mainOrigin}
         companions={companions}
         errors={errors}
-        onMainChange={setMainOrigin}
-        onCompanionsChange={changeCompanions}
+        onMainChange={changeMainOrigin}
+        onMainSelect={selectMainOrigin}
+        onCompanionChange={changeCompanion}
+        onCompanionSelect={selectCompanion}
+        onAddCompanion={addCompanion}
+        onRemoveCompanion={removeCompanion}
       />
 
       {mode === 'recommendation' ? (
@@ -221,15 +291,16 @@ export function TravelForm({
           </fieldset>
         </>
       ) : (
-        <label className="field target-field">
-          <span>目标地点</span>
-          <input
+        <div className="target-field">
+          <PlaceInput
+            label="目标地点"
             value={targetPlace}
-            onChange={(event) => setTargetPlace(event.target.value)}
+            city={city}
+            error={errors.target_place}
             placeholder="例如：金鸡湖"
+            onChange={setTargetPlace}
           />
-          {errors.target_place && <small className="field-error">{errors.target_place}</small>}
-        </label>
+        </div>
       )}
 
       <WeightSegments

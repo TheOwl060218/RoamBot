@@ -17,6 +17,7 @@ test('account keeps favorites and history through the main workflow', async ({ p
 
   await page.goto('/history')
   await expect(page.getByRole('heading', { name: '地点推荐 · 苏州', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '更多历史操作', exact: true }).click()
 
   const shareResponsePromise = page.waitForResponse((response) => (
     response.request().method() === 'POST' && response.url().endsWith('/share')
@@ -27,6 +28,7 @@ test('account keeps favorites and history through the main workflow', async ({ p
     share: { history_id: string; url: string }
   }
 
+  await page.getByRole('button', { name: '更多历史操作', exact: true }).click()
   await page.getByRole('button', { name: '重新查询', exact: true }).click()
   await expect(page).toHaveURL(/\/history\/[^/]+$/)
   await expect(page.getByRole('heading', { name: '历史快照', exact: true })).toBeVisible()
@@ -34,8 +36,11 @@ test('account keeps favorites and history through the main workflow', async ({ p
   await page.goto('/history')
   const sourceHistory = page.locator(`[data-history-id="${share.history_id}"]`)
   await expect(sourceHistory).toHaveCount(1)
-  page.once('dialog', (dialog) => dialog.accept())
-  await sourceHistory.getByRole('button', { name: '删除历史', exact: true }).click()
+  await sourceHistory.getByRole('button', { name: '更多历史操作', exact: true }).click()
+  await page.getByRole('button', { name: '删除历史', exact: true }).click()
+  const confirmDialog = page.getByRole('alertdialog', { name: '删除这条历史？', exact: true })
+  await expect(confirmDialog).toBeVisible()
+  await confirmDialog.getByRole('button', { name: '删除历史', exact: true }).click()
   await expect(sourceHistory).toHaveCount(0)
 
   await page.goto(new URL(share.url, page.url()).href)

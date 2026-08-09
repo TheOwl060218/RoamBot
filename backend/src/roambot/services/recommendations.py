@@ -7,6 +7,7 @@ from statistics import fmean, pvariance
 from unicodedata import normalize
 
 from roambot.domain.models import (
+    Coordinate,
     DailyWeather,
     Destination,
     DistanceEstimate,
@@ -68,7 +69,7 @@ DEFAULT_PROVIDER_LIMITS = {
     ProviderOperation.POI_SEARCH: 6,
     ProviderOperation.WEATHER: 7,
     ProviderOperation.DISTANCE: 7,
-    ProviderOperation.LLM: 4,
+    ProviderOperation.LLM: 8,
 }
 
 
@@ -112,6 +113,8 @@ class RecommendationService:
             request.companion_origins,
             request.city,
             budget,
+            request.main_origin_coordinate,
+            request.companion_origin_coordinates,
         )
         weights = self._weights(request.weights, len(origins))
         budget.consume(ProviderOperation.POI_SEARCH)
@@ -208,6 +211,8 @@ class RecommendationService:
             request.companion_origins,
             request.city,
             budget,
+            request.main_origin_coordinate,
+            request.companion_origin_coordinates,
         )
         weights = self._weights(request.weights, len(origins))
         try:
@@ -266,16 +271,28 @@ class RecommendationService:
         companion_origins: list[str],
         city: str,
         budget: ProviderBudget,
+        main_origin_coordinate: Coordinate | None = None,
+        companion_origin_coordinates: list[Coordinate | None] | None = None,
     ) -> list[Origin]:
         origins: list[Origin] = []
+        companion_coordinates = companion_origin_coordinates or []
         addresses = [
-            ("main_origin", main_origin),
+            ("main_origin", main_origin, main_origin_coordinate),
             *(
-                (f"companion_origins[{index}]", address)
+                (
+                    f"companion_origins[{index}]",
+                    address,
+                    companion_coordinates[index]
+                    if index < len(companion_coordinates)
+                    else None,
+                )
                 for index, address in enumerate(companion_origins)
             ),
         ]
-        for field_path, address in addresses:
+        for field_path, address, coordinate in addresses:
+            if coordinate is not None:
+                origins.append(Origin(label=address, address=address, coordinate=coordinate))
+                continue
             try:
                 budget.consume(ProviderOperation.GEOCODE)
                 origins.append(self.geocoder.geocode(address, city))
@@ -401,7 +418,17 @@ class RecommendationService:
         max_distance = max(distance_values)
         distance_variance = pvariance(distance_values)
         distance_stddev = sqrt(distance_variance)
-        fairness_score = score_fairness(distance_values, max_distance_km)
+        duration_values = [estimate.duration_minutes for estimate in distances]
+        complete_durations = (
+            [float(duration) for duration in duration_values if duration is not None]
+            if all(duration is not None for duration in duration_values)
+            else None
+        )
+        fairness_score = score_fairness(
+            distance_values,
+            max_distance_km,
+            durations_minutes=complete_durations,
+        )
         distance_score = score_distance(average_distance, max_distance_km)
         popularity_score = (
             score_rating(destination.rating) if destination.rating is not None else None
@@ -492,10 +519,15 @@ class RecommendationService:
         degraded = False
         for start in range(0, len(explained), 2):
             group = explained[start : start + 2]
-            try:
-                budget.consume(ProviderOperation.LLM)
-                polished = self.explanations.explain(group, context)
-            except (ProviderError, ProviderBudgetExceeded):
+            polished: list[str] | None = None
+            for _attempt in range(2):
+                try:
+                    budget.consume(ProviderOperation.LLM)
+                    polished = self.explanations.explain(group, context)
+                    break
+                except (ProviderError, ProviderBudgetExceeded):
+                    continue
+            if polished is None:
                 degraded = True
                 continue
             explained[start : start + 2] = [
@@ -544,9 +576,10 @@ class RecommendationService:
         )
         coverage = "，并补足了本次类型覆盖" if coverage_kept else ""
         distance = item.group_accessibility.average_distance_km
+        distance_label = "路程约" if len(item.distances) == 1 else "平均路程约"
         return (
             f"该地点符合你选择的{matched_text}{coverage}，"
-            f"平均路程约 {distance:.2f} 公里；{advice}；{rating}。"
+            f"{distance_label} {distance:.2f} 公里；{advice}；{rating}。"
         )
 
     def _coverage_representative_ids(

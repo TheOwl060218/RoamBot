@@ -24,6 +24,8 @@ export type TravelRequestBase = {
   city: string
   main_origin: string
   companion_origins: string[]
+  main_origin_coordinate: Coordinate | null
+  companion_origin_coordinates: (Coordinate | null)[]
   max_distance_km: number
   start_date: string
   end_date: string
@@ -144,6 +146,14 @@ export type Favorite = {
     scenery_tags: SceneryType[]
   }
   created_at: string
+}
+
+export type PlaceSuggestion = {
+  provider_id: string
+  name: string
+  district: string
+  address: string
+  coordinate: Coordinate | null
 }
 
 export type HistorySummary = {

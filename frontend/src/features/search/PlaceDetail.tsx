@@ -1,4 +1,4 @@
-import { Clock3, Heart, MapPin } from 'lucide-react'
+import { Clock3, MapPin, Star } from 'lucide-react'
 
 import type { RecommendationItem } from '../../api/types'
 import { DailyWeatherList } from './DailyWeatherList'
@@ -24,17 +24,19 @@ const sceneryLabels: Record<string, string> = {
   mountain: '山地',
 }
 
-type ResultCardProps = {
+type PlaceDetailProps = {
   item: RecommendationItem
   onFavorite?: (item: RecommendationItem) => void
+  isFavorite?: boolean
+  favoritePending?: boolean
 }
 
-export function ResultCard({ item, onFavorite }: ResultCardProps) {
+export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePending = false }: PlaceDetailProps) {
   const { destination, score } = item
   const index = tripMatchIndex(score.total)
   const isGroup = item.distances.length > 1
   return (
-    <article className="result-card">
+    <article className={`place-detail result-card result-card-${item.overall_advice}`}>
       <header className="result-header">
         <div>
           <div className="tag-row">
@@ -57,12 +59,10 @@ export function ResultCard({ item, onFavorite }: ResultCardProps) {
       <div className={`match-grid${isGroup ? ' match-grid-group' : ''}`} aria-label="匹配因素">
         <div><span>天气适配</span><strong>{weatherMatchLabel(score.weather)}</strong></div>
         <div><span>路程体验</span><strong>{distanceMatchLabel(score.distance)}</strong></div>
-        {isGroup && <div><span>同行均衡</span><strong>{fairnessMatchLabel(score.fairness)}</strong></div>}
+        {isGroup && <div><span>出行差异</span><strong>{fairnessMatchLabel(score.fairness)}</strong></div>}
         <div>
           <span>地点评分</span>
-          <strong>
-            {destination.rating === null ? '暂无数据' : `${destination.rating.toFixed(1)} / 5`}
-          </strong>
+          <strong>{destination.rating === null ? '暂无数据' : `${destination.rating.toFixed(1)} / 5`}</strong>
         </div>
       </div>
 
@@ -87,8 +87,15 @@ export function ResultCard({ item, onFavorite }: ResultCardProps) {
       </div>
 
       {onFavorite && (
-        <button className="icon-text-button" type="button" onClick={() => onFavorite(item)}>
-          <Heart aria-hidden="true" size={17} />收藏地点
+        <button
+          className={`icon-text-button favorite-button${isFavorite ? ' favorite-button-active' : ''}`}
+          type="button"
+          disabled={favoritePending}
+          aria-pressed={isFavorite}
+          onClick={() => onFavorite(item)}
+        >
+          <Star aria-hidden="true" fill={isFavorite ? 'currentColor' : 'none'} size={18} />
+          {isFavorite ? '取消收藏' : '收藏地点'}
         </button>
       )}
     </article>
