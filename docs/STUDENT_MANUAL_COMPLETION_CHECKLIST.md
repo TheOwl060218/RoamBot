@@ -23,8 +23,8 @@
 ## 三、必须由本人执行的账户与凭据操作
 
 - [ ] 保管高德、QWeather、学校 LLM 的真实 key、QWeather API Host 和 RoamBot 主密码；不要粘贴给任何 AI，也不要写入仓库、聊天、截图或普通配置文件。
-- [ ] 在部署平台上创建账户、设置账单/额度、配置 secret 和持久化存储。这些涉及本人身份、支付和授权，必须由本人操作。
-- [ ] 若最终公开部署使用 Live 模式，亲自用隐藏终端或部署平台 secret 录入凭据，并确认日志、错误页和浏览器端都不会回显 key。
+- [x] 在 Railway 上创建账户、确认试用额度、配置 secret 和持久化存储；这些本人操作已经完成。
+- [x] 公网部署使用 Live 模式，真实凭据已通过 Railway secret 录入；现有脱敏日志与页面检查未发现 key 回显。
 - [ ] 若遗忘凭据库主密码，只能 reset 后重新录入并撤销旧 key；不要尝试把真实 key 交给 AI 排错。
 
 ## 四、最终人工验收
@@ -37,11 +37,11 @@
 
 ## 五、线上部署与公开访问
 
-- [ ] 选择并开通能运行 Docker、支持 HTTPS、secret 和持久化数据卷的平台。
-- [ ] 为 SQLite 数据库和 `credentials.vault` 配置持久化目录；纯临时文件系统会在重启后丢失账户、历史和凭据。
-- [ ] 生产环境启用安全 Cookie，并确认同域 HTTPS 下登录、CSRF、分享链接工作正常。
-- [ ] 获得截止日期前可访问的公网 WebUI URL，并写入 README 和最终提交说明。
-- [ ] 从另一台设备或手机网络访问该 URL，确认不是只能在本机打开的 `127.0.0.1` 地址。
+- [x] 已选择并开通 Railway：支持 Docker、HTTPS、secret 和持久化数据卷。
+- [x] SQLite 数据库和 `credentials.vault` 使用 `/data` 持久化目录；Railway 数据卷容量 500 MB。
+- [x] 生产环境启用安全 Cookie，并已在同域 HTTPS 下验证登录、CSRF 与分享流程。
+- [x] 公网 WebUI 为 `https://roambot-production.up.railway.app`，已写入 README。
+- [ ] 从另一台设备或手机网络访问公网 URL；当前只确认本机浏览器通过公网域名访问，不把响应式模拟等同于跨设备验证。
 
 ## 六、仓库与课程提交
 

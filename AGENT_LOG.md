@@ -370,3 +370,11 @@
 - Windows 一键脚本原先只运行测试，不能可靠地自行管理浏览器测试服务。新增隔离端口 `8010/5183` 的 Mock 服务启动、健康等待和进程树清理，并兼容 Windows 同时存在 `Path`/`PATH` 的环境。修改仅作用于测试入口，没有改动系统环境或产品业务逻辑。
 - 当前工作树完整门禁通过：后端 `283 passed`，Ruff `All checks passed!`；前端 Vitest 14 个文件、`52 passed`；ESLint、TypeScript、Vite 生产构建通过；Playwright 桌面/移动端 `8 passed`。测试结束后 `8010` 与 `5183` 均已释放。
 - 全部自动验证使用 Mock/demo，真实 provider 调用为 0。随后从当前未提交工作树新鲜构建 `roambot:closeout-20260809`，并以独立临时容器在 `8020` 完成冷启动：健康接口为 `ready`，首页与历史页返回 200，推荐接口返回 demo 结果；临时容器已停止并自动删除，原 `8000` 实例及数据卷未改动。`git diff --check` 通过，秘密值与敏感文件扫描未发现真实 key、token、凭据库或数据库进入改动。提交/push 后远程 CI、公网部署与学生本人反思仍属于后续收尾项。
+
+## 2026-08-10 Railway 部署与公网回归
+
+- 将 `feat/roambot-v1` 连接 Railway production。Railway 构建器不支持 Dockerfile 中的 `VOLUME /data`，因此删除镜像内卷声明，改由平台挂载 500 MB 托管卷到 `/data`；服务最终成功启动并通过 HTTPS 公网域名访问。
+- 用户本人在 Railway 配置 Live provider、QWeather Host、主密码和安全 Cookie等 secret；真实值没有进入聊天、源码、提交或测试日志。公网地址为 `https://roambot-production.up.railway.app`。
+- 公网回归暴露两项行为偏差并完成修复：风景类型“尽量覆盖全部”恢复类型覆盖约束（`80449ec`），跨城市指定地点不再错误沿用表单城市限制出发地解析（`1bd0649`）。`1bd0649` 对应 GitHub Actions 运行 `31368741662` 已通过。
+- Railway Network Logs 记录一次推荐请求为 200，耗时约 29 秒；公网延迟高于本地属于跨区网络和外部 provider 串行调用的实际成本。一次 LLM 请求曾回退到缓存与本地模板，因此仅确认降级可用，不宣称 LLM 始终稳定。
+- 早期 v1 功能通过本地合并提交进入 `main`，未先创建 GitHub PR；代码历史和功能分支均保留。剩余文档收尾将从保留分支创建正式 PR，并在反思中如实说明流程调整。
