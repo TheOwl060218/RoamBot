@@ -115,7 +115,7 @@ class AMapProvider:
         if not selected_types:
             return []
 
-        merged: list[Destination] = []
+        candidate_groups: list[list[Destination]] = []
         seen: set[str] = set()
         use_around = radius_km <= 50
         for scenery_type in selected_types:
@@ -155,17 +155,34 @@ class AMapProvider:
                     )
                 ]
                 filter_locally = True
+            group: list[Destination] = []
             for candidate in candidates:
                 if filter_locally and _haversine_km(center, candidate.coordinate) > radius_km:
                     continue
                 if candidate.provider_id in seen:
                     continue
                 seen.add(candidate.provider_id)
-                merged.append(candidate)
-                if len(merged) == 25:
+                group.append(candidate)
+            candidate_groups.append(group)
+
+        quotas = [0] * len(candidate_groups)
+        remaining = 25
+        while remaining:
+            progressed = False
+            for index, group in enumerate(candidate_groups):
+                if quotas[index] >= len(group):
+                    continue
+                quotas[index] += 1
+                remaining -= 1
+                progressed = True
+                if remaining == 0:
                     break
-            if len(merged) == 25:
+            if not progressed:
                 break
+
+        merged: list[Destination] = []
+        for group, quota in zip(candidate_groups, quotas, strict=True):
+            merged.extend(group[:quota])
 
         return merged
 

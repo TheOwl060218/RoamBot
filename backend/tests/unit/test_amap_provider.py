@@ -224,6 +224,49 @@ def test_search_keeps_provider_rank_local_to_each_scenery_type() -> None:
     assert [item.rating for item in results] == [4.8, 4.5, 4.6]
 
 
+def test_search_does_not_let_first_scenery_type_starve_later_types() -> None:
+    calls: list[str] = []
+
+    def payload(prefix: str, count: int) -> dict[str, object]:
+        return {
+            "status": "1",
+            "info": "OK",
+            "infocode": "10000",
+            "count": str(count),
+            "pois": [
+                {
+                    "id": f"{prefix}-{index}",
+                    "name": f"{prefix} place {index}",
+                    "location": f"120.{617 + index:03d},31.335",
+                    "type": "tourist attraction",
+                    "typecode": "110000",
+                    "address": f"road {index}",
+                    "cityname": "Suzhou",
+                    "business": {"rating": "4.5"},
+                }
+                for index in range(count)
+            ],
+        }
+
+    responses = [payload("lake", 25), payload("museum", 1), payload("sea", 1)]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.params["keywords"])
+        return httpx.Response(200, json=responses[len(calls) - 1])
+
+    results = provider_for(handler).search(
+        Coordinate(longitude=120.617, latitude=31.335),
+        "Suzhou",
+        (SceneryType.LAKE, SceneryType.MUSEUM, SceneryType.SEA),
+        50,
+    )
+
+    assert len(calls) == 3
+    assert len(results) == 25
+    assert "amap:museum-0" in {item.provider_id for item in results}
+    assert "amap:sea-0" in {item.provider_id for item in results}
+
+
 @pytest.mark.parametrize("raw_rating", [True, [], {}, "not-rating", "6.0", "-1"])
 def test_invalid_business_rating_becomes_missing(raw_rating: object) -> None:
     payload = fixture("poi_around_success.json")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import getpass
+import logging
 import os
 import stat
 import sys
@@ -17,6 +18,7 @@ from roambot.security.vault import CredentialVault, VaultAuthenticationError
 
 FRONTEND_DIST = Path("/app/frontend/dist")
 CONFIGURATION_EXIT_CODE = 78
+RUNTIME_LOG_HANDLER_NAME = "roambot-runtime"
 
 
 class InputStream(Protocol):
@@ -31,6 +33,19 @@ class RuntimeAccount(Protocol):
 
 class StartupConfigurationError(RuntimeError):
     pass
+
+
+def configure_runtime_logging() -> None:
+    logger = logging.getLogger("roambot")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if any(handler.name == RUNTIME_LOG_HANDLER_NAME for handler in logger.handlers):
+        return
+
+    handler = logging.StreamHandler()
+    handler.set_name(RUNTIME_LOG_HANDLER_NAME)
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    logger.addHandler(handler)
 
 
 def _posix_secret_mode(path: Path) -> int | None:
@@ -148,6 +163,7 @@ def _configuration_error(message: str) -> int:
 
 
 def main() -> int:
+    configure_runtime_logging()
     try:
         settings = Settings()
     except ValidationError:

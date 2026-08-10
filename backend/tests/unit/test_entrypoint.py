@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import os
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -29,6 +31,48 @@ class FakeStdin:
 
     def isatty(self) -> bool:
         return self.interactive
+
+
+@pytest.fixture(autouse=True)
+def restore_roambot_logger_state() -> Iterator[None]:
+    logger = logging.getLogger("roambot")
+    previous_handlers = list(logger.handlers)
+    previous_level = logger.level
+    previous_propagate = logger.propagate
+
+    yield
+
+    logger.handlers[:] = previous_handlers
+    logger.setLevel(previous_level)
+    logger.propagate = previous_propagate
+
+
+def test_runtime_logging_emits_roambot_info_once(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import roambot.entrypoint as entrypoint
+
+    assert hasattr(entrypoint, "configure_runtime_logging")
+    logger = logging.getLogger("roambot")
+    previous_handlers = list(logger.handlers)
+    previous_level = logger.level
+    previous_propagate = logger.propagate
+
+    try:
+        logger.handlers.clear()
+        logger.setLevel(logging.NOTSET)
+        logger.propagate = True
+
+        entrypoint.configure_runtime_logging()
+        entrypoint.configure_runtime_logging()
+        logger.info("provider_request provider=test status=ok")
+
+        captured = capsys.readouterr()
+        assert captured.err.count("provider_request provider=test status=ok") == 1
+    finally:
+        logger.handlers[:] = previous_handlers
+        logger.setLevel(previous_level)
+        logger.propagate = previous_propagate
 
 
 def test_resolve_master_password_reads_file_and_removes_only_trailing_newlines(
