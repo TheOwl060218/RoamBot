@@ -82,6 +82,21 @@ def test_geocode_retries_without_city_when_city_hint_has_no_result() -> None:
     assert "city" not in calls[1]
 
 
+def test_geocode_omits_city_parameter_when_no_hint_is_provided() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v3/geocode/geo"
+        assert dict(request.url.params) == {
+            "key": FAKE_KEY,
+            "address": "Suzhou Railway Station",
+            "output": "json",
+        }
+        return httpx.Response(200, json=fixture("geocode_success.json"))
+
+    result = provider_for(handler).geocode("Suzhou Railway Station", "")
+
+    assert result.coordinate == Coordinate(longitude=120.617, latitude=31.335)
+
+
 def test_input_tips_use_city_as_a_hint_and_parse_coordinates() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/v3/assistant/inputtips"

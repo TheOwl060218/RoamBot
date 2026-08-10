@@ -157,10 +157,24 @@ SCENERY_LABELS: dict[SceneryType, str] = {
 
 class MockGeocoder:
     def geocode(self, address: str, city: str) -> Origin:
-        key = (_normalize_text(address), _normalize_text(city))
-        if key not in ORIGINS:
-            raise ProviderError("not_found", "未找到出发地")
-        return ORIGINS[key]
+        normalized_address = _normalize_text(address)
+        normalized_city = _normalize_text(city)
+        if normalized_city:
+            key = (normalized_address, normalized_city)
+            if key in ORIGINS:
+                return ORIGINS[key]
+        else:
+            origin = next(
+                (
+                    candidate
+                    for (origin_address, _), candidate in ORIGINS.items()
+                    if origin_address == normalized_address
+                ),
+                None,
+            )
+            if origin is not None:
+                return origin
+        raise ProviderError("not_found", "未找到出发地")
 
 
 class MockPlaceProvider:

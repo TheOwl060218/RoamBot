@@ -35,9 +35,11 @@ class AMapProvider:
         params = {
             "key": self._api_key,
             "address": address,
-            "city": city,
             "output": "json",
         }
+        city_hint = city.strip()
+        if city_hint:
+            params["city"] = city_hint
         payload = self._http.get_json(
             operation="geocode", path="/v3/geocode/geo", params=params
         )
@@ -45,7 +47,7 @@ class AMapProvider:
         geocodes = payload.get("geocodes")
         if not isinstance(geocodes, list):
             raise _bad_response()
-        if not geocodes and city:
+        if not geocodes and city_hint:
             params.pop("city")
             payload = self._http.get_json(
                 operation="geocode", path="/v3/geocode/geo", params=params

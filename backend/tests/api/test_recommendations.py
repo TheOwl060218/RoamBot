@@ -221,18 +221,17 @@ def test_place_evaluation_unknown_companion_reports_actual_field_path() -> None:
     ]
 
 
-def test_place_evaluation_geocodes_each_origin_once(monkeypatch) -> None:
+def test_place_evaluation_geocodes_origin_without_target_city_hint(monkeypatch) -> None:
     class CountingGeocoder:
-        def __init__(self, delegate: object) -> None:
-            self.delegate = delegate
+        def __init__(self) -> None:
             self.calls: list[tuple[str, str]] = []
 
         def geocode(self, address: str, city: str) -> object:
             self.calls.append((address, city))
-            return self.delegate.geocode(address, city)
+            return next(iter(ORIGINS.values()))
 
     bundle = MockProviderBundle.default()
-    geocoder = CountingGeocoder(bundle.geocoder)
+    geocoder = CountingGeocoder()
     counting_bundle = replace(bundle, geocoder=geocoder)
     monkeypatch.setattr(MockProviderBundle, "default", staticmethod(lambda: counting_bundle))
 
@@ -242,7 +241,7 @@ def test_place_evaluation_geocodes_each_origin_once(monkeypatch) -> None:
     )
 
     assert response.status_code == 200
-    assert geocoder.calls == [(VALID_ORIGIN, VALID_CITY)]
+    assert geocoder.calls == [(VALID_ORIGIN, "")]
 
 
 def test_weather_provider_failure_returns_stable_unavailable(

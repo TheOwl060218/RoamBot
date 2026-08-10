@@ -209,7 +209,7 @@ class RecommendationService:
         origins = self._resolve_origins(
             request.main_origin,
             request.companion_origins,
-            request.city,
+            "",
             budget,
             request.main_origin_coordinate,
             request.companion_origin_coordinates,
