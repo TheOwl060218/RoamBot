@@ -46,11 +46,11 @@
 ## 六、仓库与课程提交
 
 - [ ] 让 AI 辅助完成最终测试、Docker 构建、secret 扫描和文档事实更新后，由本人审阅 diff。
-- [x] 已创建正式 PR [#1](https://github.com/TheOwl060218/RoamBot/pull/1)：`feat/roambot-v1` → `main`，当前保持 open、未合并。
-- [ ] 审阅 PR 与最终文档 diff 后，明确决定是否合并；在此之前不要合并或删除分支。
+- [x] 正式 PR [#1](https://github.com/TheOwl060218/RoamBot/pull/1) 已由本人明确同意并合并：`feat/roambot-v1` → `main`；后续 favicon PR #2-#4 也已明确同意并合并。
+- [x] 已审阅 PR checks 并明确作出合并决定；功能分支仍保留，未在收尾中自动删除。
 - [x] 当前 GitHub commit/PR 历史可见；仍需本人确认课程提交说明如何概括 AI/subagent 工作与人工修改。
 - [ ] 将最终版本推送到课程要求的 NJU Git 仓库。当前已确认的远程仓库是 GitHub；若课程平台另有 NJU Git 地址，需要本人创建或授权后再添加。
-- [x] 2026-08-11 的 PR/CI 证据快照中，提交 `6367c7d` 的 GitHub Actions `31412198356` 为 pass，`unit-test` 与 `docker-build` 均成功；`.gitlab-ci.yml` 中存在名为 `unit-test` 的 job。
+- [x] 2026-08-12 的最终生产基线 `2a3cd36` 对应 GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090)，`unit-test` 与 `docker-build` 均成功；`.gitlab-ci.yml` 中存在名为 `unit-test` 的 job。
 - [ ] 本人确认公开 GHCR 镜像与课程最终提交所采用的分支/标签一致。
 - [ ] 在课程平台提交同一个最终仓库链接、公网 WebUI URL，以及老师要求的其他入口。
 
