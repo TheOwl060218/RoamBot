@@ -84,6 +84,11 @@ def create_app(
         assets_dir = frontend_dist / "assets"
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
         index_path = frontend_dist / "index.html"
+        favicon_path = frontend_dist / "favicon.svg"
+
+        @app.get("/favicon.svg", include_in_schema=False)
+        def serve_favicon() -> FileResponse:
+            return FileResponse(favicon_path, media_type="image/svg+xml")
 
         @app.get("/{path:path}", include_in_schema=False)
         def serve_spa(path: str) -> Response:
