@@ -11,7 +11,7 @@ describe('favicon', () => {
     const iconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
 
     expect(iconLink?.type).toBe('image/svg+xml')
-    expect(iconLink?.getAttribute('href')).toBe('/favicon.svg')
+    expect(iconLink?.getAttribute('href')).toBe('/favicon.svg?v=2')
 
     const svg = readFileSync(resolve(frontendRoot, 'public/favicon.svg'), 'utf8')
     const svgDocument = new DOMParser().parseFromString(svg, 'image/svg+xml')
