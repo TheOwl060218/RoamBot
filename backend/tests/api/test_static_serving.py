@@ -13,6 +13,10 @@ def frontend_dist(tmp_path: Path) -> Path:
         "<!doctype html><html><body>RoamBot SPA</body></html>",
         encoding="utf-8",
     )
+    (dist / "favicon.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"></svg>',
+        encoding="utf-8",
+    )
     (assets / "app.js").write_text("window.ROAMBOT = true", encoding="utf-8")
     return dist
 
@@ -36,6 +40,7 @@ def test_production_serves_assets_without_capturing_api_or_missing_files(
     client = TestClient(create_app(frontend_dist=frontend_dist(tmp_path)))
 
     asset = client.get("/assets/app.js")
+    favicon = client.get("/favicon.svg")
     health = client.get("/api/v1/health")
     missing_api = client.get("/api/v1/missing")
     missing_asset = client.get("/assets/missing.js")
@@ -44,6 +49,9 @@ def test_production_serves_assets_without_capturing_api_or_missing_files(
     assert asset.status_code == 200
     assert asset.text == "window.ROAMBOT = true"
     assert "javascript" in asset.headers["content-type"]
+    assert favicon.status_code == 200
+    assert favicon.headers["content-type"].startswith("image/svg+xml")
+    assert "viewBox=\"0 0 32 32\"" in favicon.text
     assert health.status_code == 200
     assert health.json() == {"status": "ready"}
     assert missing_api.status_code == 404
