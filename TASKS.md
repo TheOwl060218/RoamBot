@@ -71,6 +71,7 @@
 - [x] `Dockerfile`
 - [x] `.env.example`
 - [x] WebUI 可访问地址：[https://roambot-production.up.railway.app](https://roambot-production.up.railway.app)
-- [x] 当前功能基线 CI/CD pass 记录：GitHub Actions `31368741662`，提交 `1bd06496b9af3743f7161bf1c5a524c0b378887d`
+- [x] 正式 PR 证据：[PR #1](https://github.com/TheOwl060218/RoamBot/pull/1)，`feat/roambot-v1` → `main`，当前为 open、非 draft、未合并
+- [x] PR/CI 证据快照（2026-08-11）：GitHub Actions `31412198356`，提交 `6367c7d3d8e37dff290ef200eb7fda9b011129ab`，`unit-test` 与 `docker-build` 均为 success
 - [ ] 学生本人完成 `REFLECTION.md`
 - [ ] 按课程平台要求提交 WebUI URL、NJU Git 地址和最终材料

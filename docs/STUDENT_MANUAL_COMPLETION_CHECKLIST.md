@@ -46,25 +46,27 @@
 ## 六、仓库与课程提交
 
 - [ ] 让 AI 辅助完成最终测试、Docker 构建、secret 扫描和文档事实更新后，由本人审阅 diff。
-- [ ] 决定当前 `feat/roambot-v1` 分支是创建 PR、合并到主分支还是暂时保留；不要在未看过 diff 的情况下直接合并。
-- [ ] 确认完整 commit/PR 历史可见，提交信息说明 AI/subagent 工作与人工修改。
+- [x] 已创建正式 PR [#1](https://github.com/TheOwl060218/RoamBot/pull/1)：`feat/roambot-v1` → `main`，当前保持 open、未合并。
+- [ ] 审阅 PR 与最终文档 diff 后，明确决定是否合并；在此之前不要合并或删除分支。
+- [x] 当前 GitHub commit/PR 历史可见；仍需本人确认课程提交说明如何概括 AI/subagent 工作与人工修改。
 - [ ] 将最终版本推送到课程要求的 NJU Git 仓库。当前已确认的远程仓库是 GitHub；若课程平台另有 NJU Git 地址，需要本人创建或授权后再添加。
-- [ ] 确认最后一次 CI/CD 是 pass，且 `.gitlab-ci.yml` 中存在名为 `unit-test` 的 job；若使用容器分发，还要确认最终镜像构建成功并可公开获取。
+- [x] 2026-08-11 的 PR/CI 证据快照中，提交 `6367c7d` 的 GitHub Actions `31412198356` 为 pass，`unit-test` 与 `docker-build` 均成功；`.gitlab-ci.yml` 中存在名为 `unit-test` 的 job。
+- [ ] 本人确认公开 GHCR 镜像与课程最终提交所采用的分支/标签一致。
 - [ ] 在课程平台提交同一个最终仓库链接、公网 WebUI URL，以及老师要求的其他入口。
 
 ## 七、最终提交前逐项勾选
 
-- [ ] `SPEC.md`
-- [ ] `PLAN.md`
-- [ ] `SPEC_PROCESS.md`
-- [ ] `AGENT_LOG.md`
-- [ ] `README.md`
+- [x] `SPEC.md`
+- [x] `PLAN.md`
+- [x] `SPEC_PROCESS.md`
+- [x] `AGENT_LOG.md`
+- [x] `README.md`
 - [ ] 学生本人完成的 `REFLECTION.md`
-- [ ] 完整源代码与测试
-- [ ] 一键测试命令
-- [ ] `.gitlab-ci.yml` 的 `unit-test` job
-- [ ] `Dockerfile`、公开镜像与运行说明
-- [ ] `.env.example` 仅含非敏感配置
-- [ ] 最后一次 CI/CD pass 记录
-- [ ] 可公开访问的 WebUI URL
+- [x] 完整源代码与测试
+- [x] 一键测试命令
+- [x] `.gitlab-ci.yml` 的 `unit-test` job
+- [x] `Dockerfile`、公开镜像与运行说明
+- [x] `.env.example` 仅含非敏感配置
+- [x] 最后一次 CI/CD pass 记录
+- [x] 可公开访问的 WebUI URL
 - [ ] 仓库及 Git 历史中没有真实凭据

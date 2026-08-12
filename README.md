@@ -164,6 +164,8 @@ Linux/CI：
 
 `.gitlab-ci.yml` 提供作业要求的 `unit-test` 与生产镜像构建/推送；`.github/workflows/ci.yml` 让当前 GitHub 远程在 push/PR 时运行同一套断网测试并构建镜像。远程流水线结果只能在实际 push 后记录，不能由本地结果代替。
 
+正式收尾 PR 为 [#1](https://github.com/TheOwl060218/RoamBot/pull/1)，源分支 `feat/roambot-v1`、目标分支 `main`。2026-08-11 的证据快照中，该 PR 保持 open、未合并；当时头提交 `6367c7d3d8e37dff290ef200eb7fda9b011129ab` 的 GitHub Actions [run 31412198356](https://github.com/TheOwl060218/RoamBot/actions/runs/31412198356) 已完成，`unit-test` 与 `docker-build` 均为 success。
+
 ## 安全边界
 
 - 密码使用 Argon2 哈希；会话与 CSRF token 只以 SHA-256 哈希落库。

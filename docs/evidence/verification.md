@@ -138,3 +138,11 @@ Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆�
 
 - GitLab CI Lint/远程流水线：仓库只配置 GitHub remote，未运行 GitLab 远程 CI。
 - NJU Git、课程平台提交与学生个人反思尚未完成，必须由学生本人处理。
+
+## 2026-08-11 正式 PR 与最终 CI 证据
+
+- PR：[https://github.com/TheOwl060218/RoamBot/pull/1](https://github.com/TheOwl060218/RoamBot/pull/1)。源分支 `feat/roambot-v1`，目标分支 `main`；核对时为 open、非 draft、未合并。
+- PR 头提交：`6367c7d3d8e37dff290ef200eb7fda9b011129ab`。
+- 按收尾要求仅查询一次该提交 checks，共返回 4 个完成且成功的 check run。GitHub Actions `31405568984` 与 `31412198356` 各包含 `unit-test` 和 `docker-build`；最新成功记录为 [run 31412198356](https://github.com/TheOwl060218/RoamBot/actions/runs/31412198356)。
+- 本轮只做远程状态核对和文档事实更新，没有重复完整本地门禁，没有调用真实高德、QWeather 或 LLM，也没有合并 PR 或删除分支。
+- 课程截图应显示 PR URL、open 状态、源/目标分支，以及 Checks 中两个 job 的 success；必须避开账户敏感信息、Cookie、详细地址和凭据。
