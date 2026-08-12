@@ -1,5 +1,16 @@
 # RoamBot 验证证据
 
+## 2026-08-10 最终完整 Mock 门禁
+
+- 命令：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1`
+- 模式：`ROAMBOT_PROVIDER_MODE=mock`、`ROAMBOT_DEMO_MODE=true`，未调用真实高德、QWeather 或 LLM 服务。
+- 后端 pytest：`289 passed in 12.38s`。
+- Ruff：全部通过。
+- 前端 Vitest：14 个文件，`52 passed`。
+- ESLint、TypeScript、Vite 生产构建：全部通过；Vite 共转换 1822 个模块。
+- Playwright：桌面端与移动端共 `8 passed in 15.9s`。
+- 完整脚本退出码：`0`，总耗时约 55.8 秒。
+
 ## 2026-08-09 当前工作树完整 Mock 门禁
 
 - 分支：`feat/roambot-v1`。
@@ -114,9 +125,24 @@ Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆�
 - 学校 OpenAI-compatible LLM：Base URL `https://njusehub.info/v1`，模型 `deepseek-v4-flash`，结果为 `ok calls=1`，其余 provider 均为 `skipped calls=0`。
 - 上述结果只证明固定小样本在执行时连通；自动测试和 CI 仍强制 Mock/demo 模式并保持零真实调用。
 
+## 2026-08-10 公网部署与 Live 回归
+
+- Railway 公网地址为 `https://roambot-production.up.railway.app`，根页面与 `/api/v1/health` 均返回 200。
+- 服务使用 Railway 托管数据卷，挂载到 `/data`，容量 500 MB，区域为 EU West（Amsterdam）；生产环境启用安全 Cookie。
+- 公网 Live 检查确认认证、收藏、地址提示与推荐接口可访问；Railway Network Logs 中一次推荐请求返回 200，耗时约 29 秒。
+- 公网回归发现并修复两项既有行为偏差：风景类型覆盖提交 `80449ec`，跨城市指定地点出发地提交 `1bd0649`。后者对应 GitHub Actions 运行 `31368741662`，状态为通过。
+- 一次 LLM 请求曾降级到缓存与本地模板，因此这里只确认降级机制有效，不宣称外部 LLM 始终稳定。
+- 真实凭据仅保存在 Railway secret 与加密凭据库中，没有写入仓库、文档或自动测试；自动门禁仍使用 Mock/demo，不产生真实 provider 调用。
+
 ## 尚未宣称通过的外部验证
 
 - GitLab CI Lint/远程流水线：仓库只配置 GitHub remote，未运行 GitLab 远程 CI。
-- 公网 WebUI：尚未选择并授权部署平台；本地 URL 不是公网交付地址。
+- NJU Git、课程平台提交与学生个人反思尚未完成，必须由学生本人处理。
 
-本文件记录的既有远程 CI 只覆盖对应的旧提交，不覆盖 2026-08-09 当前未提交工作树。公网部署、最终 push 后的新一轮远程 CI 和后续真实 provider 结果仍必须在实际完成后补充；不得把本地验证写成远程成功。
+## 2026-08-11 正式 PR 与最终 CI 证据
+
+- PR：[https://github.com/TheOwl060218/RoamBot/pull/1](https://github.com/TheOwl060218/RoamBot/pull/1)。源分支 `feat/roambot-v1`，目标分支 `main`；核对时为 open、非 draft、未合并。
+- PR 头提交：`6367c7d3d8e37dff290ef200eb7fda9b011129ab`。
+- 按收尾要求仅查询一次该提交 checks，共返回 4 个完成且成功的 check run。GitHub Actions `31405568984` 与 `31412198356` 各包含 `unit-test` 和 `docker-build`；最新成功记录为 [run 31412198356](https://github.com/TheOwl060218/RoamBot/actions/runs/31412198356)。
+- 本轮只做远程状态核对和文档事实更新，没有重复完整本地门禁，没有调用真实高德、QWeather 或 LLM，也没有合并 PR 或删除分支。
+- 课程截图应显示 PR URL、open 状态、源/目标分支，以及 Checks 中两个 job 的 success；必须避开账户敏感信息、Cookie、详细地址和凭据。

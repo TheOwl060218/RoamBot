@@ -1,17 +1,26 @@
 # RoamBot
 
-RoamBot 是一个支持单人和多人汇合的天气感知风景出行推荐 Web 应用。用户给出出发地、日期、最大距离和风景偏好后，系统综合天气、距离、多人公平性、热度与偏好覆盖度，返回可解释的地点排序；也可以直接评估一个指定地点是否值得去。
+RoamBot 是一个支持单人和多人汇合的天气感知风景出行推荐 Web 应用。用户给出出发地、日期、最大距离和风景偏好后，系统综合天气、驾车距离、地点评分和风景偏好进行排序；多人查询还会以相对路程差异控制同行人的出行负担。系统也可以直接评估一个指定地点是否值得去。
 
 ## 功能
 
 - 游客可使用推荐与指定地点评估，无需注册。
-- 支持主出发地和最多两个同行人出发地，以距离方差衡量汇合公平性。
-- 展示地点距离、每日天气、分项评分、总分和推荐理由。
-- 用户可选择默认权重或自定义天气、距离、公平性和热度权重。
+- 支持主出发地和最多两个同行人出发地，以相对驾车时间与距离衡量同行出行差异。
+- 展示地点距离、每日天气、定性分项、出游匹配指数和推荐理由。
+- 用户可调整天气、距离和地点评分三项显式权重；多人公平性作为固定内部排序因素。
 - 本地账户支持注册、登录、退出、收藏、历史快照、重新查询和匿名只读分享。
 - Mock 模式提供确定性的苏州演示数据；Live 模式可接入高德、QWeather 和 OpenAI-compatible LLM。
 
 RoamBot 不是导航或行程规划工具。V1 不显示地图、不绘制路线，也不提供导航、交通预订或逐日行程安排。
+
+## 公网部署
+
+- WebUI：[https://roambot-production.up.railway.app](https://roambot-production.up.railway.app)
+- Railway production 当前从 `feat/roambot-v1` 部署单副本服务，并通过 HTTPS 对外提供 FastAPI API 与 React 页面。
+- SQLite 数据库和加密凭据库保存在 Railway 托管的 `/data` 卷中；当前卷上限为 500 MB，区域为 EU West（Amsterdam）。
+- 生产环境启用 `ROAMBOT_SECURE_COOKIES=true`。API key、主密码等秘密只保存在 Railway 变量或加密凭据库中，不进入仓库和镜像。
+- 当前公网功能基线为提交 `1bd06496b9af3743f7161bf1c5a524c0b378887d`；对应 GitHub Actions [run 31368741662](https://github.com/TheOwl060218/RoamBot/actions/runs/31368741662) 已通过。
+- 一次真实公网推荐人工观测约耗时 29 秒。远程部署会叠加 Railway 区域网络与第三方 provider 延迟，因此通常慢于本地运行。
 
 ## 安装与运行
 
@@ -155,6 +164,8 @@ Linux/CI：
 
 `.gitlab-ci.yml` 提供作业要求的 `unit-test` 与生产镜像构建/推送；`.github/workflows/ci.yml` 让当前 GitHub 远程在 push/PR 时运行同一套断网测试并构建镜像。远程流水线结果只能在实际 push 后记录，不能由本地结果代替。
 
+正式收尾 PR 为 [#1](https://github.com/TheOwl060218/RoamBot/pull/1)，源分支 `feat/roambot-v1`、目标分支 `main`。2026-08-11 的证据快照中，该 PR 保持 open、未合并；当时头提交 `6367c7d3d8e37dff290ef200eb7fda9b011129ab` 的 GitHub Actions [run 31412198356](https://github.com/TheOwl060218/RoamBot/actions/runs/31412198356) 已完成，`unit-test` 与 `docker-build` 均为 success。
+
 ## 安全边界
 
 - 密码使用 Argon2 哈希；会话与 CSRF token 只以 SHA-256 哈希落库。
@@ -183,10 +194,10 @@ REFLECTION.md             学生本人完成的课程反思
 
 ## 已知限制
 
-- 当前只在 Windows 11 + Docker Desktop Linux containers 上完成本地验收。
+- 当前已在 Windows 11 + Docker Desktop Linux containers 和 Railway 单副本公网环境完成验收。
 - 真实 provider 的可用性、价格、配额和数据质量由供应商决定；Mock 通过不等于真实服务已连通。
-- SQLite 适合本项目的单实例规模，不支持多副本同时写入同一文件。
-- 当前未提供公网部署 URL；本地 WebUI 是开发与验收入口，公网部署需要单独的平台账号与密钥配置。
+- SQLite 适合本项目的单实例规模，不支持多个应用副本同时写入同一文件；Railway 服务必须保持单副本。
+- Railway 试用额度、服务休眠和平台可用性由 Railway 决定；当前 Amsterdam 区域与中国用户、第三方 provider 之间可能存在额外延迟。
 - 微信小程序、地图、导航、行程安排与密码恢复均不在 V1 范围内。
 
 ## 第三方组件

@@ -55,7 +55,7 @@
 - [x] Task 10：WebUI
 - [x] M4.1-M4.7：真实 Provider 适配、缓存降级与零网络人工 Smoke 命令
 - [x] Task 11：Docker 分发
-- [ ] Task 12：CI 与最终文档
+- [x] Task 12：CI、部署证据与最终工程文档（学生个人反思和课程平台提交仍需本人完成）
 
 ## 4. 最终交付检查
 
@@ -70,5 +70,8 @@
 - [x] `.gitlab-ci.yml`，包含名为 `unit-test` 的 job
 - [x] `Dockerfile`
 - [x] `.env.example`
-- [ ] WebUI 可访问地址
-- [ ] 最终提交版本的最后一次 CI/CD pass 记录（已有旧版本成功证据：GitHub Actions `29689474384`，提交 `1ad45cb`）
+- [x] WebUI 可访问地址：[https://roambot-production.up.railway.app](https://roambot-production.up.railway.app)
+- [x] 正式 PR 证据：[PR #1](https://github.com/TheOwl060218/RoamBot/pull/1)，`feat/roambot-v1` → `main`，当前为 open、非 draft、未合并
+- [x] PR/CI 证据快照（2026-08-11）：GitHub Actions `31412198356`，提交 `6367c7d3d8e37dff290ef200eb7fda9b011129ab`，`unit-test` 与 `docker-build` 均为 success
+- [ ] 学生本人完成 `REFLECTION.md`
+- [ ] 按课程平台要求提交 WebUI URL、NJU Git 地址和最终材料

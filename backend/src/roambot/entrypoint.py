@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import getpass
+import logging
 import os
 import stat
 import sys
@@ -17,20 +18,79 @@ from roambot.security.vault import CredentialVault, VaultAuthenticationError
 
 FRONTEND_DIST = Path("/app/frontend/dist")
 CONFIGURATION_EXIT_CODE = 78
+RUNTIME_LOG_HANDLER_NAME = "roambot-runtime"
 
 
 class InputStream(Protocol):
     def isatty(self) -> bool: ...
 
 
+class RuntimeAccount(Protocol):
+    pw_name: str
+    pw_uid: int
+    pw_gid: int
+
+
 class StartupConfigurationError(RuntimeError):
     pass
+
+
+def configure_runtime_logging() -> None:
+    logger = logging.getLogger("roambot")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if any(handler.name == RUNTIME_LOG_HANDLER_NAME for handler in logger.handlers):
+        return
+
+    handler = logging.StreamHandler()
+    handler.set_name(RUNTIME_LOG_HANDLER_NAME)
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    logger.addHandler(handler)
 
 
 def _posix_secret_mode(path: Path) -> int | None:
     if os.name != "posix":
         return None
     return stat.S_IMODE(path.stat().st_mode)
+
+
+def _running_as_posix_root() -> bool:
+    return os.name == "posix" and os.geteuid() == 0
+
+
+def _runtime_account() -> RuntimeAccount:
+    import pwd
+
+    return pwd.getpwnam("roambot")
+
+
+def _chown_tree(root: Path, uid: int, gid: int) -> None:
+    for current_root, directory_names, file_names in os.walk(root):
+        os.chown(current_root, uid, gid, follow_symlinks=False)
+        for name in [*directory_names, *file_names]:
+            os.chown(
+                Path(current_root) / name,
+                uid,
+                gid,
+                follow_symlinks=False,
+            )
+
+
+def prepare_runtime_identity(settings: Settings) -> None:
+    if not _running_as_posix_root():
+        return
+
+    try:
+        account = _runtime_account()
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
+        _chown_tree(settings.data_dir, account.pw_uid, account.pw_gid)
+        os.initgroups(account.pw_name, account.pw_gid)
+        os.setgid(account.pw_gid)
+        os.setuid(account.pw_uid)
+    except (KeyError, OSError):
+        raise StartupConfigurationError(
+            "Runtime user or data-directory initialization failed."
+        ) from None
 
 
 def resolve_master_password(
@@ -69,6 +129,14 @@ def resolve_master_password(
             raise StartupConfigurationError("Master-password file is empty.")
         return password
 
+    environment_password = os.environ.pop("ROAMBOT_MASTER_PASSWORD", None)
+    if environment_password is not None:
+        if not environment_password:
+            raise StartupConfigurationError(
+                "ROAMBOT_MASTER_PASSWORD is empty."
+            )
+        return environment_password
+
     input_stream = stdin or sys.stdin
     if input_stream.isatty():
         read_password = prompt or getpass.getpass
@@ -95,6 +163,7 @@ def _configuration_error(message: str) -> int:
 
 
 def main() -> int:
+    configure_runtime_logging()
     try:
         settings = Settings()
     except ValidationError:
@@ -102,6 +171,11 @@ def main() -> int:
 
     if not (FRONTEND_DIST / "index.html").is_file():
         return _configuration_error("RoamBot frontend build is missing")
+
+    try:
+        prepare_runtime_identity(settings)
+    except StartupConfigurationError:
+        return _configuration_error("RoamBot data directory initialization failed")
 
     credentials: dict[str, str] = {}
     if settings.provider_mode is ProviderMode.LIVE:

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import logging
+import os
+from collections.abc import Iterator
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
@@ -27,6 +31,48 @@ class FakeStdin:
 
     def isatty(self) -> bool:
         return self.interactive
+
+
+@pytest.fixture(autouse=True)
+def restore_roambot_logger_state() -> Iterator[None]:
+    logger = logging.getLogger("roambot")
+    previous_handlers = list(logger.handlers)
+    previous_level = logger.level
+    previous_propagate = logger.propagate
+
+    yield
+
+    logger.handlers[:] = previous_handlers
+    logger.setLevel(previous_level)
+    logger.propagate = previous_propagate
+
+
+def test_runtime_logging_emits_roambot_info_once(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import roambot.entrypoint as entrypoint
+
+    assert hasattr(entrypoint, "configure_runtime_logging")
+    logger = logging.getLogger("roambot")
+    previous_handlers = list(logger.handlers)
+    previous_level = logger.level
+    previous_propagate = logger.propagate
+
+    try:
+        logger.handlers.clear()
+        logger.setLevel(logging.NOTSET)
+        logger.propagate = True
+
+        entrypoint.configure_runtime_logging()
+        entrypoint.configure_runtime_logging()
+        logger.info("provider_request provider=test status=ok")
+
+        captured = capsys.readouterr()
+        assert captured.err.count("provider_request provider=test status=ok") == 1
+    finally:
+        logger.handlers[:] = previous_handlers
+        logger.setLevel(previous_level)
+        logger.propagate = previous_propagate
 
 
 def test_resolve_master_password_reads_file_and_removes_only_trailing_newlines(
@@ -82,6 +128,92 @@ def test_resolve_master_password_prompts_only_for_a_tty(tmp_path: Path) -> None:
     assert len(prompts) == 1
 
 
+def test_resolve_master_password_consumes_cloud_environment_secret(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from roambot.entrypoint import resolve_master_password
+
+    settings = live_settings(tmp_path, tmp_path / "missing-secret")
+    monkeypatch.setenv("ROAMBOT_MASTER_PASSWORD", "cloud-secret")
+
+    password = resolve_master_password(
+        settings,
+        stdin=FakeStdin(False),
+        prompt=lambda _: pytest.fail("non-interactive input must not prompt"),
+    )
+
+    assert password == "cloud-secret"
+    assert "ROAMBOT_MASTER_PASSWORD" not in os.environ
+
+
+def test_prepare_runtime_identity_is_a_noop_for_non_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import roambot.entrypoint as entrypoint
+
+    settings = Settings(data_dir=tmp_path / "data", provider_mode="mock")
+    monkeypatch.setattr(entrypoint, "_running_as_posix_root", lambda: False)
+    monkeypatch.setattr(
+        entrypoint,
+        "_runtime_account",
+        lambda: pytest.fail("non-root startup must not look up a runtime account"),
+    )
+
+    entrypoint.prepare_runtime_identity(settings)
+
+    assert not settings.data_dir.exists()
+
+
+def test_prepare_runtime_identity_owns_data_before_dropping_privileges(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import roambot.entrypoint as entrypoint
+
+    settings = Settings(data_dir=tmp_path / "data", provider_mode="mock")
+    account = SimpleNamespace(
+        pw_name="roambot",
+        pw_uid=10001,
+        pw_gid=10001,
+        pw_dir="/home/roambot",
+    )
+    events: list[tuple[object, ...]] = []
+    monkeypatch.setattr(entrypoint, "_running_as_posix_root", lambda: True)
+    monkeypatch.setattr(entrypoint, "_runtime_account", lambda: account)
+    monkeypatch.setattr(
+        entrypoint,
+        "_chown_tree",
+        lambda path, uid, gid: events.append(("chown", path, uid, gid)),
+    )
+    monkeypatch.setattr(
+        entrypoint.os,
+        "initgroups",
+        lambda name, gid: events.append(("initgroups", name, gid)),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        entrypoint.os,
+        "setgid",
+        lambda gid: events.append(("setgid", gid)),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        entrypoint.os,
+        "setuid",
+        lambda uid: events.append(("setuid", uid)),
+        raising=False,
+    )
+
+    entrypoint.prepare_runtime_identity(settings)
+
+    assert settings.data_dir.is_dir()
+    assert events == [
+        ("chown", settings.data_dir, 10001, 10001),
+        ("initgroups", "roambot", 10001),
+        ("setgid", 10001),
+        ("setuid", 10001),
+    ]
+
+
 def test_mock_main_starts_without_reading_a_vault(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -96,6 +228,7 @@ def test_mock_main_starts_without_reading_a_vault(
     started: list[dict[str, object]] = []
     monkeypatch.setattr(entrypoint, "FRONTEND_DIST", dist)
     monkeypatch.setattr(entrypoint, "Settings", lambda: settings)
+    monkeypatch.setattr(entrypoint, "prepare_runtime_identity", lambda _: None)
     monkeypatch.setattr(
         entrypoint,
         "create_app",
@@ -151,6 +284,7 @@ def test_live_main_unlocks_once_and_passes_credentials_only_in_memory(
     created: list[dict[str, object]] = []
     monkeypatch.setattr(entrypoint, "FRONTEND_DIST", dist)
     monkeypatch.setattr(entrypoint, "Settings", lambda: settings)
+    monkeypatch.setattr(entrypoint, "prepare_runtime_identity", lambda _: None)
     monkeypatch.setattr(
         entrypoint.CredentialVault,
         "unlock",
@@ -191,6 +325,7 @@ def test_noninteractive_live_main_without_secret_exits_78_before_uvicorn(
     settings = live_settings(tmp_path, tmp_path / "missing-secret")
     monkeypatch.setattr(entrypoint, "FRONTEND_DIST", dist)
     monkeypatch.setattr(entrypoint, "Settings", lambda: settings)
+    monkeypatch.setattr(entrypoint, "prepare_runtime_identity", lambda _: None)
     monkeypatch.setattr(entrypoint.sys, "stdin", FakeStdin(False))
     monkeypatch.setattr(
         entrypoint.uvicorn,

@@ -9,7 +9,7 @@
 - 真实凭据只在 M4.7 人工 smoke 前申请，并由用户通过本机隐藏 CLI 录入加密凭据库，不进入聊天、`.env`、源代码、Git、日志、Docker 镜像或 CI。
 - 一个任务的验证没有通过时，不进入后续任务；不以“看起来正确”代替命令证据。
 - 本计划中“运行 Ruff”固定指令为 `./.venv/Scripts/python.exe -m ruff check backend`；“完整 backend 测试”固定指令为 `./.venv/Scripts/python.exe -m pytest backend/tests -q`。不得用未写明的 IDE 检查代替。
-- 前端聚焦测试固定使用 `npm --prefix frontend test -- <测试文件名>`，完整前端检查固定依次运行 `npm --prefix frontend test`、`npm --prefix frontend run lint`、`npm --prefix frontend run build`；这些 scripts 由 M3.1 固定创建。除已标明完成的 Task 1.1/1.2 外，当前 M1-M4 的 37 个实施任务状态全部为“待实施”，尚无产品代码；任务完成后必须在本文件和 `TASKS.md` 同步状态。
+- 前端聚焦测试固定使用 `npm --prefix frontend test -- <测试文件名>`，完整前端检查固定依次运行 `npm --prefix frontend test`、`npm --prefix frontend run lint`、`npm --prefix frontend run build`；这些 scripts 由 M3.1 固定创建。当前 M1-M4 产品实现与 Task 12 工程收尾均已完成；学生个人反思、NJU Git 与课程平台提交仍由学生本人完成。后续只修正文档事实或回归问题，并在本文件和 `TASKS.md` 同步状态。
 
 ## 1. 规约与计划
 
@@ -324,7 +324,7 @@
 - Modify：`backend/src/roambot/main.py`。Create：`backend/src/roambot/entrypoint.py`、`backend/tests/api/test_static_serving.py`、`backend/tests/unit/test_entrypoint.py`、`Dockerfile`、`.dockerignore`、`docker-compose.yml`。
 - 公开接口：M4.8 将 app factory 扩展为 `create_app(frontend_dist:Path|None=None)->FastAPI`；`entrypoint.resolve_master_password(mode,stdin_isatty,password_file)->str|None` 和 `entrypoint.main()->int`。默认 secret path `/run/secrets/roambot_master_password`，可由非秘密 `ROAMBOT_MASTER_PASSWORD_FILE` 覆盖；容器固定监听 `0.0.0.0:8000`，静态路径 `/app/frontend/dist`，数据 `/data`。
 - 第一条失败测试：临时目录写 `index.html` 与 `assets/app.js` 后，`create_app(temp)` 的 `/`、`/history` 返回同一 index，真实 asset 200，缺失 asset/带后缀文件 404，`/api/v1/health` 200，`/api/v1/missing` 为 JSON 404；初次因 factory 不接受参数失败。entrypoint 测试 mock 模式无需密码；live+非 TTY+缺文件返回 78 和固定脱敏 stderr；文件只 trim 尾部 CR/LF；POSIX 可见时拒绝 group/world-readable。
-- 最小实现：API 优先、assets 第二、suffixless fallback 最后；frontend_dist=None 不挂静态，生产缺 index 配置失败。entrypoint live 模式优先只读 password file，仅 TTY 可 getpass，绝不从环境变量值/argv取密码。三阶段镜像使用 `node:24-alpine`、`python:3.13-slim` wheel builder/runtime，最终非 root `roambot`、`EXPOSE 8000`、`VOLUME /data`、Python urllib healthcheck、CMD `python -m roambot.entrypoint`。
+- 最小实现：API 优先、assets 第二、suffixless fallback 最后；frontend_dist=None 不挂静态，生产缺 index 配置失败。entrypoint live 模式优先只读 password file，仅 TTY 可 getpass，绝不从环境变量值/argv取密码。三阶段镜像使用 `node:24-alpine`、`python:3.13-slim` wheel builder/runtime，最终非 root `roambot`、`EXPOSE 8000`、Python urllib healthcheck、CMD `python -m roambot.entrypoint`。本地 Compose 使用命名卷；Railway 等平台由平台把托管卷挂载到 `/data`，Dockerfile 不声明 `VOLUME`，避免平台构建器拒绝镜像。
 - Compose 服务固定名 `roambot`，默认 mock/demo，`8000:8000`，named volume `roambot-data:/data`；live profile 才把只读 secret 挂到固定路径，不含任何密码/key 字面值。
 - 验证：先运行两个聚焦 pytest、`./scripts/test.ps1` 和 `docker build -t roambot:local .`。再执行 `docker run --rm -d --name roambot-check -p 8000:8000 -v roambot-check-data:/data -e ROAMBOT_PROVIDER_MODE=mock -e ROAMBOT_DEMO_MODE=true roambot:local`；`Invoke-RestMethod http://127.0.0.1:8000/api/v1/health` 严格得 ready，`Invoke-WebRequest` 验证 `/`、`/history` 200，并完成一次 mock 推荐；最后 `docker stop roambot-check`。`--rm` 自动删容器，不删除 named volume。
 
@@ -339,8 +339,8 @@
 
 - 文件：`README.md`、`backend/README.md`、`REFLECTION.md`、`AGENT_LOG.md`、`TASKS.md`、`docs/evidence/verification.md`。
 - 第一条失败检查：README 的命令在新进程不可复现、证据无测试计数、或 Git 中出现秘密/数据库/测试产物时不得完成。
-- 最小实现：补齐 mock/live 运行、Docker、迁移、凭据恢复边界、费用、缓存降级、CI、已知限制和作业反思。
-- 验证：完整测试、Ruff、frontend build、Playwright、`git diff --check`、秘密扫描、最终 Docker smoke、`superpowers:requesting-code-review`。
+- 最小实现：补齐 mock/live 运行、Docker、迁移、凭据恢复边界、费用、缓存降级、CI、已知限制、部署事实和学生反思所需的事实提纲；`REFLECTION.md` 由学生本人完成。
+- 验证：完整测试、Ruff、frontend build、Playwright、`git diff --check`、秘密扫描、最终 Docker smoke、远程 CI 与正式 PR 记录。
 
 ## 6. 最终交付物
 
