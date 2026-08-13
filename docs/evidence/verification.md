@@ -153,4 +153,11 @@ Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆�
 - 当前生产代码基线为 `main` 提交 `2a3cd3665d9f20d8c2bd7c5e7d7db109b6407e9c`。对应 GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090) 状态为 `completed/success`，`unit-test` 与 `docker-build` 均成功。
 - Railway production 已从旧功能分支切换到 `main`。最终部署显示 `Deployment successful`；公网首页返回 200 并引用 `/favicon.svg?v=2`，该资源返回 200，Content-Type 为 `image/svg+xml`。
 - favicon 最终修复过程中的聚焦本地记录为：前端 15 个测试文件、53 个测试通过，Vite 生产构建成功；生产静态路由修复的后端记录为 289 个测试通过、Ruff 通过。它们属于对应变更的验证证据，不代表本次纯文档交接重新运行了整套门禁。
-- 当前仍未宣称完成的外部事项：学生本人 `REFLECTION.md` 正文、NJU Git（若课程要求）和课程平台最终提交。
+- 截至 2026-08-12 尚未宣称完成的外部事项：学生本人 `REFLECTION.md` 正文、NJU Git（若课程要求）和课程平台最终提交；后续状态见下一节。
+
+## 2026-08-13 最终反思 PR 与合并后 CI
+
+- [PR #5](https://github.com/TheOwl060218/RoamBot/pull/5) 将 `docs/reflection-workbook` 合并到 `main`，合并提交为 `0383a282aefc2b8e579f7aace8b27f0d75a4d094`。
+- 合并后的 GitHub Actions [run 31704124041](https://github.com/TheOwl060218/RoamBot/actions/runs/31704124041) 由 `main` push 触发，状态为 `completed/success`，`unit-test` 与 `docker-build` 均成功。
+- 本次状态只查询一次公开 GitHub API；没有重复本地完整门禁，也没有调用真实 provider。
+- 学生反思已完成并包含 AI 辅助声明。剩余外部事项仅为按课程平台要求上传源码压缩包、同级 `submission.jsonc` 及链接信息。

@@ -166,7 +166,7 @@ Linux/CI：
 
 `.gitlab-ci.yml` 提供作业要求的 `unit-test` 与生产镜像构建/推送；`.github/workflows/ci.yml` 让当前 GitHub 远程在 push/PR 时运行同一套断网测试并构建镜像。远程流水线结果只能在实际 push 后记录，不能由本地结果代替。
 
-正式功能收尾 [PR #1](https://github.com/TheOwl060218/RoamBot/pull/1) 已合并到 `main`；favicon 的 [PR #2](https://github.com/TheOwl060218/RoamBot/pull/2)、[PR #3](https://github.com/TheOwl060218/RoamBot/pull/3) 和 [PR #4](https://github.com/TheOwl060218/RoamBot/pull/4) 也已依次合并。当前生产基线 `2a3cd36` 的 GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090) 已完成，`unit-test` 与 `docker-build` 均为 success。
+正式功能收尾 [PR #1](https://github.com/TheOwl060218/RoamBot/pull/1) 已合并到 `main`；favicon 的 [PR #2](https://github.com/TheOwl060218/RoamBot/pull/2)、[PR #3](https://github.com/TheOwl060218/RoamBot/pull/3) 和 [PR #4](https://github.com/TheOwl060218/RoamBot/pull/4) 也已依次合并。最终反思与交接文档通过 [PR #5](https://github.com/TheOwl060218/RoamBot/pull/5) 合并为 `0383a28`；其 GitHub Actions [run 31704124041](https://github.com/TheOwl060218/RoamBot/actions/runs/31704124041) 已完成，`unit-test` 与 `docker-build` 均为 success。CI 记录是对应提交的时点证据；后续提交仍以 GitHub Actions 页面显示的最新结果为准。
 
 ## 安全边界
 
