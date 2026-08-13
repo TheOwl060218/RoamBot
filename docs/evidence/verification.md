@@ -146,3 +146,11 @@ Playwright 自动检查 `1440x900` 与 `390x844`；M3 人工布局检查还覆�
 - 按收尾要求仅查询一次该提交 checks，共返回 4 个完成且成功的 check run。GitHub Actions `31405568984` 与 `31412198356` 各包含 `unit-test` 和 `docker-build`；最新成功记录为 [run 31412198356](https://github.com/TheOwl060218/RoamBot/actions/runs/31412198356)。
 - 本轮只做远程状态核对和文档事实更新，没有重复完整本地门禁，没有调用真实高德、QWeather 或 LLM，也没有合并 PR 或删除分支。
 - 课程截图应显示 PR URL、open 状态、源/目标分支，以及 Checks 中两个 job 的 success；必须避开账户敏感信息、Cookie、详细地址和凭据。
+
+## 2026-08-12 最终合并与生产基线
+
+- 用户查看并确认各 PR checks 后明确同意合并。PR #1 已合并为 `12e061f`，PR #2 已合并为 `f4ee5eb`，PR #3 已合并为 `38a1104`，PR #4 已合并为 `2a3cd36`。
+- 当前生产代码基线为 `main` 提交 `2a3cd3665d9f20d8c2bd7c5e7d7db109b6407e9c`。对应 GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090) 状态为 `completed/success`，`unit-test` 与 `docker-build` 均成功。
+- Railway production 已从旧功能分支切换到 `main`。最终部署显示 `Deployment successful`；公网首页返回 200 并引用 `/favicon.svg?v=2`，该资源返回 200，Content-Type 为 `image/svg+xml`。
+- favicon 最终修复过程中的聚焦本地记录为：前端 15 个测试文件、53 个测试通过，Vite 生产构建成功；生产静态路由修复的后端记录为 289 个测试通过、Ruff 通过。它们属于对应变更的验证证据，不代表本次纯文档交接重新运行了整套门禁。
+- 当前仍未宣称完成的外部事项：学生本人 `REFLECTION.md` 正文、NJU Git（若课程要求）和课程平台最终提交。

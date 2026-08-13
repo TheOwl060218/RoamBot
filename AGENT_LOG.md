@@ -387,3 +387,11 @@
 - Railway 公网地址、`/data` 持久化卷（500 MB、EU West）、单副本 SQLite 限制和当前部署基线已在 README 与验证证据中记录；未记录、输出或索取 API key、主密码等秘密值。
 - 课程证据截图建议保留两张脱敏截图：PR 页面显示 URL、open 状态和 `feat/roambot-v1` → `main`；Checks 页面显示 `unit-test` 与 `docker-build` 成功。截图不得包含账户敏感信息、Cookie、详细地址或任何凭据。
 - `REFLECTION.md` 继续只保留事实提纲。个人经历、方法论判断和 1500–2500 字正文必须由学生本人撰写，AI 只可整理其已提供素材或做语病、结构校对。
+
+## 2026-08-12 PR 合并、favicon 与跨设备交接
+
+- 用户逐次确认 checks 全部成功并明确同意合并，PR #1 已合并为 `12e061f`；favicon 的 PR #2、生产静态路由 PR #3 和缓存刷新 PR #4 也均已合并，最终 `main` 基线为 `2a3cd3665d9f20d8c2bd7c5e7d7db109b6407e9c`。
+- 最新生产基线对应 GitHub Actions `31598691090`，`unit-test` 与 `docker-build` 均为 success。favicon 定点验证曾取得前端 15 个测试文件、53 个测试通过及生产构建成功；生产路由修复曾取得后端 289 个测试和 Ruff 通过。
+- Railway 已改为从 `main` 部署；最终部署成功，公网首页引用 `/favicon.svg?v=2`，该资源返回 200 和 `image/svg+xml`。单副本、EU West 和 `/data` 500 MB 持久化卷保持不变。
+- 新增 `AGENTS.md` 与 `docs/PROJECT_HANDOFF.md`，把当前事实、边界、剩余任务和新电脑接手步骤固化到 Git，而不是依赖旧聊天上下文。`docs/GPT_HANDOFF_2026-08-03.md` 保留为历史快照并增加过时警告。
+- 跨设备交接不包含聊天全文、个人偏好、浏览器状态、Cookie 或任何秘密值。项目剩余事项仍只有学生个人反思和课程平台/NJU Git 等本人提交步骤；没有把它们误记为完成。
