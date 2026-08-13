@@ -2,6 +2,8 @@
 
 RoamBot 是一个支持单人和多人汇合的天气感知风景出行推荐 Web 应用。用户给出出发地、日期、最大距离和风景偏好后，系统综合天气、驾车距离、地点评分和风景偏好进行排序；多人查询还会以相对路程差异控制同行人的出行负担。系统也可以直接评估一个指定地点是否值得去。
 
+跨设备继续开发或让新的 Codex 接手时，请先阅读 [`AGENTS.md`](AGENTS.md) 和 [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md)。
+
 ## 功能
 
 - 游客可使用推荐与指定地点评估，无需注册。
@@ -16,10 +18,10 @@ RoamBot 不是导航或行程规划工具。V1 不显示地图、不绘制路线
 ## 公网部署
 
 - WebUI：[https://roambot-production.up.railway.app](https://roambot-production.up.railway.app)
-- Railway production 当前从 `feat/roambot-v1` 部署单副本服务，并通过 HTTPS 对外提供 FastAPI API 与 React 页面。
+- Railway production 当前从 `main` 部署单副本服务，并通过 HTTPS 对外提供 FastAPI API 与 React 页面。
 - SQLite 数据库和加密凭据库保存在 Railway 托管的 `/data` 卷中；当前卷上限为 500 MB，区域为 EU West（Amsterdam）。
 - 生产环境启用 `ROAMBOT_SECURE_COOKIES=true`。API key、主密码等秘密只保存在 Railway 变量或加密凭据库中，不进入仓库和镜像。
-- 当前公网功能基线为提交 `1bd06496b9af3743f7161bf1c5a524c0b378887d`；对应 GitHub Actions [run 31368741662](https://github.com/TheOwl060218/RoamBot/actions/runs/31368741662) 已通过。
+- 当前公网功能基线为提交 `2a3cd3665d9f20d8c2bd7c5e7d7db109b6407e9c`；对应 GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090) 已通过。
 - 一次真实公网推荐人工观测约耗时 29 秒。远程部署会叠加 Railway 区域网络与第三方 provider 延迟，因此通常慢于本地运行。
 
 ## 安装与运行
@@ -27,7 +29,7 @@ RoamBot 不是导航或行程规划工具。V1 不显示地图、不绘制路线
 前置条件：Git 与 Docker Desktop。以下命令在仓库根目录执行，不需要 API key，也不会消耗 provider 配额。
 
 ```powershell
-git clone --branch feat/roambot-v1 https://github.com/TheOwl060218/RoamBot.git
+git clone https://github.com/TheOwl060218/RoamBot.git
 Set-Location RoamBot
 ```
 
@@ -53,7 +55,7 @@ docker pull ghcr.io/theowl060218/roambot:219437a849f65df40c5e9511536458174a527d9
 docker run --rm -p 8000:8000 -v roambot-data:/data -e ROAMBOT_PROVIDER_MODE=mock -e ROAMBOT_DEMO_MODE=true ghcr.io/theowl060218/roambot:219437a849f65df40c5e9511536458174a527d96
 ```
 
-公开镜像使用提交 SHA 标签保证可复现；当前功能分支不发布 `latest`，合并到默认分支后 CI 才会同时发布 `latest`。目标机器上的真实 key 仍必须按“凭据安全”一节通过隐藏 CLI 写入其数据卷，不能构建进镜像或作为命令参数传入。
+公开镜像使用提交 SHA 标签保证可复现；默认分支 `main` 的成功 CI 还会发布 `latest`。目标机器上的真实 key 仍必须按“凭据安全”一节通过隐藏 CLI 写入其数据卷，不能构建进镜像或作为命令参数传入。
 
 ## 本地开发
 
@@ -164,7 +166,7 @@ Linux/CI：
 
 `.gitlab-ci.yml` 提供作业要求的 `unit-test` 与生产镜像构建/推送；`.github/workflows/ci.yml` 让当前 GitHub 远程在 push/PR 时运行同一套断网测试并构建镜像。远程流水线结果只能在实际 push 后记录，不能由本地结果代替。
 
-正式收尾 PR 为 [#1](https://github.com/TheOwl060218/RoamBot/pull/1)，源分支 `feat/roambot-v1`、目标分支 `main`。2026-08-11 的证据快照中，该 PR 保持 open、未合并；当时头提交 `6367c7d3d8e37dff290ef200eb7fda9b011129ab` 的 GitHub Actions [run 31412198356](https://github.com/TheOwl060218/RoamBot/actions/runs/31412198356) 已完成，`unit-test` 与 `docker-build` 均为 success。
+正式功能收尾 [PR #1](https://github.com/TheOwl060218/RoamBot/pull/1) 已合并到 `main`；favicon 的 [PR #2](https://github.com/TheOwl060218/RoamBot/pull/2)、[PR #3](https://github.com/TheOwl060218/RoamBot/pull/3) 和 [PR #4](https://github.com/TheOwl060218/RoamBot/pull/4) 也已依次合并。当前生产基线 `2a3cd36` 的 GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090) 已完成，`unit-test` 与 `docker-build` 均为 success。
 
 ## 安全边界
 
@@ -181,6 +183,7 @@ backend/                 FastAPI、领域服务、provider、SQLite/Alembic 与 
 frontend/                React/Vite WebUI、Vitest 与 Playwright
 ci/Dockerfile            可复现的断网测试镜像
 docs/                    设计、分步计划与验证证据
+docs/PROJECT_HANDOFF.md  当前跨设备接手事实与剩余工作
 scripts/                 Windows/Linux 一键测试入口
 .gitlab-ci.yml            GitLab 测试、构建与 registry 推送
 .github/workflows/ci.yml  GitHub push/PR 流水线
@@ -189,6 +192,7 @@ docker-compose.yml        Mock 默认服务与显式 Live profile
 SPEC.md / PLAN.md         规约与根实现计划
 SPEC_PROCESS.md           规约迭代与陌生 agent 冷启动证据
 AGENT_LOG.md              实现过程、人工干预与验证记录
+AGENTS.md                 Codex 仓库级工作约束与接手入口
 REFLECTION.md             学生本人完成的课程反思
 ```
 

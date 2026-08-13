@@ -55,7 +55,7 @@
 - [x] Task 10：WebUI
 - [x] M4.1-M4.7：真实 Provider 适配、缓存降级与零网络人工 Smoke 命令
 - [x] Task 11：Docker 分发
-- [x] Task 12：CI、部署证据与最终工程文档（学生个人反思和课程平台提交仍需本人完成）
+- [x] Task 12：CI、部署证据与最终工程文档（课程平台提交仍需学生本人完成）
 
 ## 4. 最终交付检查
 
@@ -64,14 +64,15 @@
 - [x] `SPEC_PROCESS.md`
 - [x] `AGENT_LOG.md`
 - [x] `README.md`
-- [ ] `REFLECTION.md`
+- [x] `REFLECTION.md`
 - [x] 源代码
 - [x] 一键测试命令
 - [x] `.gitlab-ci.yml`，包含名为 `unit-test` 的 job
 - [x] `Dockerfile`
 - [x] `.env.example`
 - [x] WebUI 可访问地址：[https://roambot-production.up.railway.app](https://roambot-production.up.railway.app)
-- [x] 正式 PR 证据：[PR #1](https://github.com/TheOwl060218/RoamBot/pull/1)，`feat/roambot-v1` → `main`，当前为 open、非 draft、未合并
-- [x] PR/CI 证据快照（2026-08-11）：GitHub Actions `31412198356`，提交 `6367c7d3d8e37dff290ef200eb7fda9b011129ab`，`unit-test` 与 `docker-build` 均为 success
-- [ ] 学生本人完成 `REFLECTION.md`
+- [x] 正式 PR 证据：[PR #1](https://github.com/TheOwl060218/RoamBot/pull/1)，`feat/roambot-v1` → `main`，已合并为 `12e061f`
+- [x] 后续 favicon PR：[#2](https://github.com/TheOwl060218/RoamBot/pull/2)、[#3](https://github.com/TheOwl060218/RoamBot/pull/3)、[#4](https://github.com/TheOwl060218/RoamBot/pull/4) 均已合并到 `main`
+- [x] 最终生产基线 CI（2026-08-12）：GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090)，提交 `2a3cd3665d9f20d8c2bd7c5e7d7db109b6407e9c`，`unit-test` 与 `docker-build` 均为 success
+- [x] 学生本人完成并确认 `REFLECTION.md`（约 2342 字，含 AI 辅助声明）
 - [ ] 按课程平台要求提交 WebUI URL、NJU Git 地址和最终材料

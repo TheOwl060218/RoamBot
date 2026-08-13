@@ -4,11 +4,11 @@
 
 ## 一、必须由本人撰写
 
-- [ ] 用自己的语言完成 `REFLECTION.md`，正文为 1500-2500 字。
-- [ ] 删除当前文件中的写作提示，只保留自己形成的正文和标题。
-- [ ] 写出真实的个人判断，而不是只介绍工具：哪些 Superpowers 技能有用、哪些形式大于实质、审查为什么一度过量、TDD 在哪些场景有价值、如果重做会怎样调整。
-- [ ] 至少使用一个亲历案例说明 SPEC/PLAN 不清导致的问题，以及一个 RED-GREEN 或回归测试案例。
-- [ ] 在文末如实写 AI 辅助声明：AI 参与了需求澄清、计划、编码、测试和事实整理；反思观点与正文由本人完成。若最后让 AI 润色，应说明只做了语病或结构润色。
+- [x] 用自己的经历和判断完成 `REFLECTION.md`，正文约 2342 字，符合 1500-2500 字要求。
+- [x] 已删除写作提示，只保留正文、标题和 AI 辅助声明。
+- [x] 已写出对 Brainstorming、机械审查、测试、部署和重做流程的个人判断。
+- [x] 已使用 SPEC/PLAN 冷启动遗漏和最大距离 `0200` 回归测试作为亲历案例。
+- [x] 文末已如实说明 Codex 与 Superpowers 的参与范围以及本文的整理方式。
 
 作业明确禁止 AI 代写反思。AI 可以在你写完后指出语病、重复和结构问题，但不应替你生成可直接提交的正文。
 
@@ -46,11 +46,11 @@
 ## 六、仓库与课程提交
 
 - [ ] 让 AI 辅助完成最终测试、Docker 构建、secret 扫描和文档事实更新后，由本人审阅 diff。
-- [x] 已创建正式 PR [#1](https://github.com/TheOwl060218/RoamBot/pull/1)：`feat/roambot-v1` → `main`，当前保持 open、未合并。
-- [ ] 审阅 PR 与最终文档 diff 后，明确决定是否合并；在此之前不要合并或删除分支。
+- [x] 正式 PR [#1](https://github.com/TheOwl060218/RoamBot/pull/1) 已由本人明确同意并合并：`feat/roambot-v1` → `main`；后续 favicon PR #2-#4 也已明确同意并合并。
+- [x] 已审阅 PR checks 并明确作出合并决定；功能分支仍保留，未在收尾中自动删除。
 - [x] 当前 GitHub commit/PR 历史可见；仍需本人确认课程提交说明如何概括 AI/subagent 工作与人工修改。
 - [ ] 将最终版本推送到课程要求的 NJU Git 仓库。当前已确认的远程仓库是 GitHub；若课程平台另有 NJU Git 地址，需要本人创建或授权后再添加。
-- [x] 2026-08-11 的 PR/CI 证据快照中，提交 `6367c7d` 的 GitHub Actions `31412198356` 为 pass，`unit-test` 与 `docker-build` 均成功；`.gitlab-ci.yml` 中存在名为 `unit-test` 的 job。
+- [x] 2026-08-12 的最终生产基线 `2a3cd36` 对应 GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090)，`unit-test` 与 `docker-build` 均成功；`.gitlab-ci.yml` 中存在名为 `unit-test` 的 job。
 - [ ] 本人确认公开 GHCR 镜像与课程最终提交所采用的分支/标签一致。
 - [ ] 在课程平台提交同一个最终仓库链接、公网 WebUI URL，以及老师要求的其他入口。
 
@@ -61,7 +61,7 @@
 - [x] `SPEC_PROCESS.md`
 - [x] `AGENT_LOG.md`
 - [x] `README.md`
-- [ ] 学生本人完成的 `REFLECTION.md`
+- [x] 学生本人确认的 `REFLECTION.md`
 - [x] 完整源代码与测试
 - [x] 一键测试命令
 - [x] `.gitlab-ci.yml` 的 `unit-test` job
