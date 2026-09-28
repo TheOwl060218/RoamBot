@@ -146,3 +146,26 @@
   .weather-list-multi .weather-day { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
   .weather-list-multi .weather-facts { padding-top: 5px; border-top: 1px solid var(--border); }
 }
+
+.candidate-comparison { display: grid; gap: 10px; min-width: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-sm); }
+.candidate-comparison legend { padding: 0 6px; color: var(--ink-soft); font-size: 0.8rem; font-weight: 700; }
+.comparison-selector { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.comparison-option { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-muted); cursor: pointer; font-size: 0.84rem; }
+.comparison-option input { margin: 0; width: 16px; height: 16px; accent-color: var(--primary); }
+.comparison-option:has(input:disabled) { color: var(--muted); opacity: 0.65; cursor: not-allowed; }
+.comparison-hint { color: var(--muted); font-size: 0.76rem; }
+.comparison-table-scroll { min-width: 0; max-width: 100%; overflow-x: auto; }
+.candidate-comparison-table { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 0.82rem; }
+.candidate-comparison-table caption { caption-side: top; padding: 6px; color: var(--ink-soft); font-size: 0.84rem; font-weight: 700; text-align: left; }
+.candidate-comparison-table th, .candidate-comparison-table td { padding: 8px 10px; border: 1px solid var(--border); text-align: left; white-space: nowrap; }
+.candidate-comparison-table th[scope="col"] { color: var(--ink-soft); font-weight: 700; background: var(--surface-muted); }
+.candidate-comparison-table th[scope="row"] { font-weight: 600; background: var(--surface-muted); }
+.candidate-comparison-table td { color: var(--ink); font-variant-numeric: tabular-nums; }
+.comparison-value { color: var(--ink); }
+.comparison-best { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 3px; color: #fff; background: var(--primary); font-size: 0.68rem; font-weight: 700; }
+.comparison-conclusion { margin: 2px 0 0; color: var(--ink-soft); font-size: 0.84rem; line-height: 1.55; }
+
+@media (max-width: 600px) {
+  .candidate-comparison { padding: 10px; }
+  .comparison-option { min-height: 40px; padding: 4px 8px; }
+}
