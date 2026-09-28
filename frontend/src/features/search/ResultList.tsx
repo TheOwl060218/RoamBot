@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import type { RecommendationItem, SceneryType, SourceState } from '../../api/types'
 import { CandidateList } from './CandidateList'
@@ -18,6 +18,7 @@ type ResultListProps = {
   selectedId?: string | null
   onSelect?: (item: RecommendationItem) => void
   candidateSwitcherEnabled?: boolean
+  comparison?: ReactNode
 }
 
 const sceneryLabels: Record<SceneryType, string> = {
@@ -40,6 +41,7 @@ export function ResultList({
   selectedId,
   onSelect,
   candidateSwitcherEnabled = true,
+  comparison,
 }: ResultListProps) {
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null)
   const [candidateListVisible, setCandidateListVisible] = useState(true)
@@ -98,6 +100,7 @@ export function ResultList({
           <p className="result-method-note">
             天气数据来自和风天气；地点评分来自高德开放平台；距离与用时按查询时驾车路况估算；出游匹配指数仅用于比较本次候选地点。
           </p>
+          {comparison}
           {selectedItem && (
             <div className="results-comparison">
               <div className="candidate-pane">

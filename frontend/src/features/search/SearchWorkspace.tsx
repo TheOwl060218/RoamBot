@@ -268,11 +268,11 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
       {status && <div className="app-toast" role="status">{status}</div>}
       {result && (
         <div ref={resultsRef} className="results-anchor">
-          <CandidateComparison key={result.generated_at} items={items} />
           <ResultList
             items={items}
             source={result.source_state}
             generatedAt={result.generated_at}
+            comparison={<CandidateComparison key={result.generated_at} items={items} />}
             uncoveredTypes={uncoveredTypes}
             onFavorite={favorite}
             favoriteIds={new Set(Object.keys(favorites))}
