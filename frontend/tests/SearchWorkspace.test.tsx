@@ -82,6 +82,26 @@ const response: RecommendationResponse = {
   uncovered_scenery_types: [],
 }
 
+const multiItemResponse: RecommendationResponse = {
+  generated_at: '2026-07-17T08:00:00Z',
+  source_state: { kind: 'demo', notices: ['苏州内置演示数据'] },
+  items: [
+    response.items[0],
+    {
+      ...response.items[0],
+      destination: {
+        ...response.items[0].destination,
+        provider_id: 'suzhou-museum',
+        name: '苏州博物馆',
+        address: '东北街204号',
+        scenery_tags: ['museum' as const],
+      },
+      score: { ...response.items[0].score, total: 82.4 },
+    },
+  ],
+  uncovered_scenery_types: [],
+}
+
 describe('SearchWorkspace', () => {
   beforeEach(() => {
     scrollMocks.startSmoothScrollTo.mockReset()
@@ -369,5 +389,19 @@ describe('SearchWorkspace', () => {
     } finally {
       if (originalScrollY) Object.defineProperty(window, 'scrollY', originalScrollY)
     }
+  })
+
+  it('renders the candidate comparison control after a multi-candidate search', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(multiItemResponse)
+    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
+
+    await user.type(screen.getByLabelText('主出发地'), '苏州站')
+    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
+    await user.click(screen.getByRole('button', { name: '开始推荐' }))
+
+    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '选择候选进行对比' })).toBeInTheDocument()
   })
 })

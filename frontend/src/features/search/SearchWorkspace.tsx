@@ -11,6 +11,7 @@ import type {
   RecommendationResponse,
 } from '../../api/types'
 import { useAuth } from '../auth/authContext'
+import { CandidateComparison } from './CandidateComparison'
 import { ResultList } from './ResultList'
 import { QuerySummary } from './QuerySummary'
 import { startSmoothScrollTo } from './scrolling'
@@ -267,6 +268,7 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
       {status && <div className="app-toast" role="status">{status}</div>}
       {result && (
         <div ref={resultsRef} className="results-anchor">
+          <CandidateComparison key={result.generated_at} items={items} />
           <ResultList
             items={items}
             source={result.source_state}
