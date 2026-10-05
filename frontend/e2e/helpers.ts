@@ -18,7 +18,7 @@ export async function submitRecommendation(page: Page) {
   await page.getByRole('checkbox', { name: '湖景', exact: true }).check()
   await page.getByRole('button', { name: '开始推荐', exact: true }).click()
   await expect(page.locator('.place-detail')).toBeVisible()
-  await expect(page.getByRole('button', { name: '修改条件', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '重新查询', exact: true })).toBeVisible()
   await expect(page.getByText('演示数据', { exact: true })).toBeVisible()
 }
 

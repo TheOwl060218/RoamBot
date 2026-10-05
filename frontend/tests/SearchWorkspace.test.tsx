@@ -4,10 +4,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const scrollMocks = vi.hoisted(() => ({
+  startSmoothScrollInContainer: vi.fn(),
   startSmoothScrollTo: vi.fn(),
 }))
 
 vi.mock('../src/features/search/scrolling', () => ({
+  startSmoothScrollInContainer: scrollMocks.startSmoothScrollInContainer,
   startSmoothScrollTo: scrollMocks.startSmoothScrollTo,
 }))
 
@@ -104,6 +106,11 @@ const multiItemResponse: RecommendationResponse = {
 
 describe('SearchWorkspace', () => {
   beforeEach(() => {
+    scrollMocks.startSmoothScrollInContainer.mockReset()
+    scrollMocks.startSmoothScrollInContainer.mockImplementation((_container, _getTarget, onComplete) => {
+      queueMicrotask(() => onComplete?.())
+      return () => undefined
+    })
     scrollMocks.startSmoothScrollTo.mockReset()
     scrollMocks.startSmoothScrollTo.mockImplementation((_getTarget, onComplete) => {
       queueMicrotask(() => onComplete?.())
@@ -111,15 +118,25 @@ describe('SearchWorkspace', () => {
     })
   })
 
-  it('lands on the query summary without visiting the results first', async () => {
+  it('shows a persistent three-step quick-start guide', () => {
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
+
+    expect(screen.getByRole('heading', { name: '三步找到适合这次出行的地方' })).toBeInTheDocument()
+    expect(screen.getByText('填写条件')).toBeInTheDocument()
+    expect(screen.getByText('查看推荐')).toBeInTheDocument()
+    expect(screen.getByText('对比后决定')).toBeInTheDocument()
+  })
+
+  it('keeps the form visible and scrolls the sidebar to the query summary after submit', async () => {
     const user = userEvent.setup()
+    let scrollContainer: HTMLElement | null = null
     let scrollTarget: HTMLElement | null = null
-    let landingParentClasses = ''
     vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
     vi.spyOn(apiClient, 'post').mockResolvedValueOnce(response)
-    scrollMocks.startSmoothScrollTo.mockImplementation((getTarget, onComplete) => {
+    scrollMocks.startSmoothScrollInContainer.mockImplementation((container, getTarget, onComplete) => {
+      scrollContainer = container
       scrollTarget = getTarget()
-      landingParentClasses = scrollTarget?.parentElement?.className ?? ''
       queueMicrotask(() => onComplete?.())
       return () => undefined
     })
@@ -131,9 +148,10 @@ describe('SearchWorkspace', () => {
     await user.click(screen.getByRole('button', { name: '开始推荐' }))
 
     expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
-    await waitFor(() => expect(scrollMocks.startSmoothScrollTo).toHaveBeenCalledTimes(1))
-    expect(scrollTarget).toHaveClass('query-summary-landing')
-    expect(landingParentClasses).toContain('search-controls-landing')
+    expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
+    await waitFor(() => expect(scrollMocks.startSmoothScrollInContainer).toHaveBeenCalledTimes(1))
+    expect(scrollContainer).toHaveClass('workspace-sidebar')
+    expect(scrollTarget).toHaveClass('sidebar-summary-anchor')
   })
 
   it('opens a requested place evaluation even when a previous result is cached', () => {
@@ -148,7 +166,7 @@ describe('SearchWorkspace', () => {
 
     expect(screen.getByRole('radio', { name: '评估指定地点' })).toBeChecked()
     expect(screen.getByLabelText('目标地点')).toHaveValue('金鸡湖景区')
-    expect(screen.queryByRole('button', { name: '修改条件' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '评估这个地点' })).toBeInTheDocument()
   })
 
   it('submits the form and displays a complete recommendation result', async () => {
@@ -171,9 +189,9 @@ describe('SearchWorkspace', () => {
     expect(screen.getByText(/天气条件适合前往/)).toBeInTheDocument()
     expect(screen.getByText('天气和距离都适合短途出游。')).toBeInTheDocument()
     expect(screen.getAllByText(/天气数据来自和风天气；地点评分来自高德开放平台/)).toHaveLength(1)
-    expect(await screen.findByRole('button', { name: '修改条件' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '开始推荐' })).not.toBeInTheDocument()
-    expect(container.querySelector('.workspace-message-slot')).toHaveClass('workspace-message-slot-collapsed')
+    expect(await screen.findByRole('button', { name: '重新查询' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
+    expect(container.querySelector('.workspace-message-slot')).not.toHaveClass('workspace-message-slot-collapsed')
     expect(container.querySelectorAll('.query-summary .query-facts svg')).toHaveLength(4)
     expect(container.querySelectorAll('.place-detail')).toHaveLength(1)
   })
@@ -263,7 +281,7 @@ describe('SearchWorkspace', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('请先登录后再进行查询。')
   })
 
-  it('selects one candidate at a time and reopens the existing form in place', async () => {
+  it('selects one candidate at a time while keeping the existing form in place', async () => {
     const user = userEvent.setup()
     const museum = {
       ...response.items[0],
@@ -292,29 +310,30 @@ describe('SearchWorkspace', () => {
     expect(screen.getByRole('heading', { name: '苏州博物馆' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '修改条件' }))
-    expect(await screen.findByRole('button', { name: '开始推荐' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
     expect(screen.getByDisplayValue('苏州站')).toBeInTheDocument()
-    expect(container.querySelector('.search-controls')).toHaveClass('search-controls-editing')
+    expect(container.querySelector('.search-controls')).not.toHaveClass('search-controls-editing')
   })
 
-  it('expands the form before starting the upward scroll animation', async () => {
+  it('scrolls the sidebar back to the persistent form when re-querying', async () => {
     const user = userEvent.setup()
+    let scrollContainer: HTMLElement | null = null
+    let scrollTarget: HTMLElement | null = null
     vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
     saveSearchResult(response)
-    const requestAnimationFrame = vi
-      .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation(() => 1)
+    scrollMocks.startSmoothScrollInContainer.mockImplementation((container, getTarget) => {
+      scrollContainer = container
+      scrollTarget = getTarget()
+      return () => undefined
+    })
 
-    try {
-      render(<AuthProvider><SearchWorkspace /></AuthProvider>)
+    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
 
-      await user.click(screen.getByRole('button', { name: '修改条件' }))
+    await user.click(screen.getByRole('button', { name: '重新查询' }))
 
-      expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
-    } finally {
-      requestAnimationFrame.mockRestore()
-    }
+    expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
+    expect(scrollContainer).toHaveClass('workspace-sidebar')
+    expect(scrollTarget).toHaveClass('search-form-anchor')
   })
 
   it('locks repeated submissions immediately and shows non-numeric progress', async () => {
@@ -403,5 +422,34 @@ describe('SearchWorkspace', () => {
 
     expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: '选择候选进行对比' })).toBeInTheDocument()
+  })
+
+  it('takes users to the highlighted comparison after two candidates are selected', async () => {
+    const user = userEvent.setup()
+    let scrollTarget: HTMLElement | null = null
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(multiItemResponse)
+    scrollMocks.startSmoothScrollTo.mockImplementation((getTarget, onComplete) => {
+      scrollTarget = getTarget()
+      queueMicrotask(() => onComplete?.())
+      return () => undefined
+    })
+    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
+
+    await user.type(screen.getByLabelText('主出发地'), '苏州站')
+    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
+    await user.click(screen.getByRole('button', { name: '开始推荐' }))
+    await screen.findByRole('heading', { name: '金鸡湖景区' })
+
+    const comparisonGroup = screen.getByRole('group', { name: '选择候选进行对比' })
+    const choices = within(comparisonGroup).getAllByRole('checkbox')
+    await user.click(choices[0])
+    await user.click(choices[1])
+    await user.click(screen.getByRole('button', { name: '查看对比结果（2）' }))
+
+    await waitFor(() => expect(scrollMocks.startSmoothScrollTo).toHaveBeenCalledTimes(1))
+    expect(scrollTarget).toHaveClass('comparison-focus-target')
+    await waitFor(() => expect(scrollTarget).toHaveFocus())
+    expect(scrollTarget).toHaveClass('comparison-focus-highlight')
   })
 })

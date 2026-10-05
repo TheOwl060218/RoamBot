@@ -26,7 +26,7 @@ export function QuerySummary({ draft, onEdit }: QuerySummaryProps) {
         </div>
         <button className="icon-text-button" type="button" onClick={onEdit}>
           <Pencil aria-hidden="true" size={16} />
-          修改条件
+          重新查询
         </button>
       </div>
       {draft ? (

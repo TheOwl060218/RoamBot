@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { RecommendationItem } from '../src/api/types'
 import { CandidateComparison } from '../src/features/search/CandidateComparison'
@@ -85,6 +85,28 @@ describe('CandidateComparison', () => {
     expect(screen.queryByRole('table', { name: '候选地点对比' })).toBeNull()
   })
 
+  it('guides first-time users from one selection to the comparison result', async () => {
+    const user = userEvent.setup()
+    const onViewComparison = vi.fn()
+    render(
+      <CandidateComparison
+        items={[candidate('a', '甲'), candidate('b', '乙'), candidate('c', '丙')]}
+        onViewComparison={onViewComparison}
+      />,
+    )
+
+    expect(screen.getByText('选择 2～3 个候选，比较天气、路程与多人公平性。')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: '甲' }))
+    expect(screen.getByText('已选择 1 个，再选 1 个即可生成对比。')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: '乙' }))
+    const viewButton = screen.getByRole('button', { name: '查看对比结果（2）' })
+    expect(viewButton).toBeInTheDocument()
+    await user.click(viewButton)
+    expect(onViewComparison).toHaveBeenCalledTimes(1)
+  })
+
   it('renders full comparison table and conclusion after selecting two candidates', async () => {
     const items = [
       candidate('a', '甲', { total: 90, weather: 80, distance: 60, fairness: 100, popularity: 55 }),
@@ -164,6 +186,29 @@ describe('CandidateComparison', () => {
 
     expect(screen.getByRole('checkbox', { name: '丁' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: '甲' })).toBeEnabled()
+  })
+
+  it('drops selections that are unavailable after candidates are replaced', async () => {
+    const initialItems = [
+      candidate('a', '甲'),
+      candidate('b', '乙'),
+      candidate('c', '丙'),
+      candidate('d', '丁'),
+    ]
+    const { container, rerender } = render(<CandidateComparison items={initialItems} />)
+    await checkAll(container, ['甲', '乙', '丙'])
+
+    rerender(<CandidateComparison items={[
+      candidate('e', '戊'),
+      candidate('f', '己'),
+      candidate('g', '庚'),
+      candidate('h', '辛'),
+    ]} />)
+
+    for (const name of ['戊', '己', '庚', '辛']) {
+      expect(screen.getByRole('checkbox', { name })).toBeEnabled()
+      expect(screen.getByRole('checkbox', { name })).not.toBeChecked()
+    }
   })
 
   it('allows deselecting one candidate and selecting a replacement', async () => {

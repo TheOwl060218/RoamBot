@@ -87,6 +87,13 @@ export function clearSearchSession() {
   sessionStorage.removeItem(SELECTED_PLACE_KEY)
 }
 
+export function clearSearchResult() {
+  sessionStorage.removeItem(RESULT_KEY)
+  sessionStorage.removeItem(SELECTED_PLACE_KEY)
+}
+
+export const HOME_RESET_REQUEST_EVENT = 'roambot.home-reset-request'
+
 export function loadWeightPreference(mode: SearchMode, originCount: 1 | 2 | 3) {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)

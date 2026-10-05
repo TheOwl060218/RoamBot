@@ -15,7 +15,7 @@ test('candidate comparison can be used and stays horizontal-safe', async ({ page
   await page.getByRole('checkbox', { name: '博物馆', exact: true }).check()
   await page.getByRole('button', { name: '开始推荐', exact: true }).click()
   await expect(page.locator('.place-detail')).toBeVisible()
-  await expect(page.getByRole('button', { name: '修改条件', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '重新查询', exact: true })).toBeVisible()
 
   const group = page.getByRole('group', { name: '选择候选进行对比' })
   await expect(group).toBeVisible()
@@ -33,6 +33,11 @@ test('candidate comparison can be used and stays horizontal-safe', async ({ page
   await expect(page.getByText('最佳').first()).toBeVisible()
   await expect(page.locator('.candidate-comparison-table th[scope="col"]').first()).toBeVisible()
   await expect(page.locator('.candidate-comparison-table th[scope="row"]').first()).toBeVisible()
+
+  await page.getByRole('button', { name: '查看对比结果（2）' }).click()
+  const comparisonTarget = page.locator('.comparison-focus-target')
+  await expect(comparisonTarget).toBeFocused()
+  await expect(comparisonTarget).toHaveClass(/comparison-focus-highlight/)
 
   if (page.viewportSize()!.width <= 600) {
     const scrollable = page.locator('.comparison-table-scroll')

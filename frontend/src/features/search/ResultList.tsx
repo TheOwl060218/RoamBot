@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import type { RecommendationItem, SceneryType, SourceState } from '../../api/types'
-import { CandidateList } from './CandidateList'
 import { CandidateDrawer } from './CandidateDrawer'
 import { MobileCandidateSwitcher } from './MobileCandidateSwitcher'
 import { PlaceDetail } from './PlaceDetail'
@@ -44,9 +43,9 @@ export function ResultList({
   comparison,
 }: ResultListProps) {
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null)
-  const [candidateListVisible, setCandidateListVisible] = useState(true)
+  const [switcherVisible, setSwitcherVisible] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const candidateSentinelRef = useRef<HTMLDivElement>(null)
+  const topRef = useRef<HTMLDivElement>(null)
   const requestedId = selectedId ?? internalSelectedId
   const selectedItem = items.find((item) => item.destination.provider_id === requestedId) ?? items[0]
 
@@ -56,24 +55,16 @@ export function ResultList({
   }
 
   useEffect(() => {
-    const sentinel = candidateSentinelRef.current
-    if (!sentinel) return
-    const scrollContainer = sentinel.closest('.candidate-pane')
     const updateFromScroll = () => {
-      const headerOffset = window.innerWidth <= 600 ? 104 : 60
       const pageHasMoved = window.scrollY > 96
-      const listHasMovedUp = sentinel.getBoundingClientRect().top <= headerOffset + 120
-      const listHasScrolled = (scrollContainer?.scrollTop ?? 0) > 16
-      setCandidateListVisible(!pageHasMoved && !listHasMovedUp && !listHasScrolled)
+      setSwitcherVisible(candidateSwitcherEnabled && pageHasMoved && (window.innerWidth <= 1024))
     }
     updateFromScroll()
     window.addEventListener('scroll', updateFromScroll, { passive: true })
     window.addEventListener('resize', updateFromScroll)
-    scrollContainer?.addEventListener('scroll', updateFromScroll, { passive: true })
     return () => {
       window.removeEventListener('scroll', updateFromScroll)
       window.removeEventListener('resize', updateFromScroll)
-      scrollContainer?.removeEventListener('scroll', updateFromScroll)
     }
   }, [candidateSwitcherEnabled, items.length])
 
@@ -100,24 +91,17 @@ export function ResultList({
           <p className="result-method-note">
             天气数据来自和风天气；地点评分来自高德开放平台；距离与用时按查询时驾车路况估算；出游匹配指数仅用于比较本次候选地点。
           </p>
-          {comparison}
           {selectedItem && (
-            <div className="results-comparison">
-              <div className="candidate-pane">
-                <div className="candidate-list-sentinel" ref={candidateSentinelRef} aria-hidden="true" />
-                <CandidateList
-                  items={items}
-                  selectedId={selectedItem.destination.provider_id}
-                  onSelect={select}
-                />
-              </div>
+            <div className="results-detail">
               <div className="detail-pane">
+                <div ref={topRef} />
                 <PlaceDetail
                   item={selectedItem}
-                onFavorite={onFavorite}
+                  onFavorite={onFavorite}
                   isFavorite={favoriteIds.has(selectedItem.destination.provider_id)}
                   favoritePending={favoritePendingIds.has(selectedItem.destination.provider_id)}
                 />
+                {comparison}
               </div>
             </div>
           )}
@@ -126,7 +110,7 @@ export function ResultList({
               <MobileCandidateSwitcher
                 items={items}
                 selectedId={selectedItem.destination.provider_id}
-                visible={candidateSwitcherEnabled && !candidateListVisible}
+                visible={switcherVisible && candidateSwitcherEnabled}
                 onSelect={select}
                 onOpenDrawer={() => setDrawerOpen(true)}
               />

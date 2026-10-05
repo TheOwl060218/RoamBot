@@ -10,7 +10,19 @@ test('form and results keep their intended responsive relationship', async ({ pa
   const initialContentWidth = await page.evaluate(() => document.documentElement.clientWidth)
   expect(initialForm).not.toBeNull()
   expect(initialViewport).not.toBeNull()
-  expect(Math.abs(initialForm!.x + initialForm!.width / 2 - initialContentWidth / 2)).toBeLessThanOrEqual(8)
+
+  const initialScenes = await page.locator('.sample-scenes').boundingBox()
+  const sidebar = await page.locator('.workspace-sidebar').boundingBox()
+  expect(sidebar).not.toBeNull()
+  if (initialViewport!.width > 768) {
+    expect(initialScenes).not.toBeNull()
+    expect(initialForm!.x + initialForm!.width).toBeLessThanOrEqual(initialScenes!.x + 8)
+    expect(initialForm!.x).toBeGreaterThanOrEqual(sidebar!.x)
+    expect(initialScenes!.x).toBeGreaterThanOrEqual(sidebar!.x + sidebar!.width)
+  } else {
+    await expect(page.locator('.sample-scenes')).toBeHidden()
+    expect(Math.abs(initialForm!.x + initialForm!.width / 2 - initialContentWidth / 2)).toBeLessThanOrEqual(8)
+  }
 
   const handles = await page.getByRole('slider').all()
   expect(handles).toHaveLength(2)
@@ -24,18 +36,26 @@ test('form and results keep their intended responsive relationship', async ({ pa
   await page.getByRole('checkbox', { name: '博物馆', exact: true }).check()
   await submitRecommendation(page)
 
-  const header = await page.locator('.shell-header').boundingBox()
-  expect(header).not.toBeNull()
-  await expect.poll(async () => {
-    const box = await page.locator('.query-summary').boundingBox()
-    return Math.abs((box?.y ?? 0) - (header!.height + 16))
-  }).toBeLessThanOrEqual(4)
-  await expect(page.locator('.travel-form')).toHaveCount(0)
+  await expect(page.locator('.query-summary')).toBeVisible()
+  await expect(page.locator('.travel-form')).toBeVisible()
   await expect(page.locator('.query-summary')).toHaveCount(1)
+
+  if (initialViewport!.width > 768) {
+    await expect.poll(async () => {
+      const summaryBox = await page.locator('.sidebar-summary-anchor').boundingBox()
+      const sidebarBox = await page.locator('.workspace-sidebar').boundingBox()
+      const sidebarClientTop = await page.locator('.workspace-sidebar').evaluate((element) => element.clientTop)
+      const pageGutter = await page.locator('.shell-main').evaluate((element) => (
+        Number.parseFloat(getComputedStyle(element).paddingLeft)
+      ))
+      const actualGap = (summaryBox?.y ?? 0) - (sidebarBox?.y ?? 0) - sidebarClientTop
+      return Math.abs(actualGap - pageGutter)
+    }).toBeLessThanOrEqual(2)
+  }
 
   const summary = await page.locator('.query-summary').boundingBox()
   const results = await page.locator('.results-panel').boundingBox()
-  const candidates = await page.locator('.candidate-list').boundingBox()
+  const candidates = await page.locator('.sidebar-candidate-list').boundingBox()
   const detail = await page.locator('.place-detail').boundingBox()
   const viewport = page.viewportSize()
   expect(summary).not.toBeNull()
@@ -43,26 +63,21 @@ test('form and results keep their intended responsive relationship', async ({ pa
   expect(candidates).not.toBeNull()
   expect(detail).not.toBeNull()
   expect(viewport).not.toBeNull()
-  const summaryToResultsGap = results!.y - (summary!.y + summary!.height)
-  const intendedGap = viewport!.width <= 600 ? 12 : 20
-  expect(Math.abs(summaryToResultsGap - intendedGap)).toBeLessThanOrEqual(4)
 
-  expect(Math.abs(summary!.y - (header!.height + 16))).toBeLessThanOrEqual(4)
+  if (viewport!.width <= 600) {
+    expect(summary!.y).toBeLessThan(candidates!.y)
+    expect(candidates!.y).toBeLessThan(detail!.y)
+  } else {
+    expect(candidates!.x + candidates!.width).toBeLessThanOrEqual(detail!.x + 8)
+  }
 
   if (viewport!.width >= 1024) {
     expect(candidates!.x + candidates!.width).toBeLessThanOrEqual(detail!.x)
-    const candidatePane = page.locator('.candidate-pane')
-    const paneMetrics = await candidatePane.evaluate((element) => {
-      const list = element.querySelector('.candidate-list') as HTMLElement
-      const style = getComputedStyle(element)
-      return {
-        paneHeight: element.getBoundingClientRect().height,
-        listHeight: list.getBoundingClientRect().height,
-        overscrollBehaviorY: style.overscrollBehaviorY,
-      }
-    })
-    expect(paneMetrics.paneHeight).toBeLessThanOrEqual(paneMetrics.listHeight + 32)
-    expect(paneMetrics.overscrollBehaviorY).not.toBe('contain')
+    const candidatesList = page.locator('.sidebar-candidate-list .candidate-list')
+    const candidatesStyle = await candidatesList.evaluate((element) => (
+      getComputedStyle(element).overscrollBehaviorY
+    ))
+    expect(candidatesStyle).not.toBe('contain')
   } else {
     expect(candidates!.y + candidates!.height).toBeLessThanOrEqual(detail!.y)
   }
@@ -111,13 +126,17 @@ test('form and results keep their intended responsive relationship', async ({ pa
     await expect(selectedName).toHaveText(firstSelectedName ?? '')
   }
 
-  await page.getByRole('button', { name: '修改条件' }).click()
+  await page.getByRole('button', { name: '重新查询' }).click()
   await expect(page.locator('.travel-form')).toBeVisible()
-  await expect(page.getByLabel('切换候选地点')).toHaveCount(0)
   const editingForm = await page.locator('.travel-form').boundingBox()
   const editingContentWidth = await page.evaluate(() => document.documentElement.clientWidth)
   expect(editingForm).not.toBeNull()
-  expect(Math.abs(editingForm!.x + editingForm!.width / 2 - editingContentWidth / 2)).toBeLessThanOrEqual(8)
+  if (viewport!.width <= 600) {
+    expect(editingForm!.x).toBeLessThanOrEqual(24)
+    expect(editingForm!.width).toBeGreaterThan(editingContentWidth * 0.7)
+  } else {
+    expect(editingForm!.x + editingForm!.width).toBeLessThanOrEqual(detail!.x + 8)
+  }
 
   const dimensions = await page.evaluate(() => ({
     contentWidth: document.documentElement.clientWidth,
