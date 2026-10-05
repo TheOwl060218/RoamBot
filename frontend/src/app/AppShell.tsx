@@ -1,11 +1,11 @@
 import { useEffect, useState, type PropsWithChildren } from 'react'
-import { Home as HomeIcon, UserRound } from 'lucide-react'
+import { UserRound } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 import { AuthDialog } from '../features/auth/AuthDialog'
 import { useAuth } from '../features/auth/authContext'
 import { ACCOUNT_DIALOG_REQUEST_EVENT } from './accountDialog'
-import { HOME_RESET_REQUEST_EVENT } from '../features/search/formState'
+import { HOME_RESET_REQUEST_EVENT, clearSearchResult } from '../features/search/formState'
 
 const navigation = [
   { label: '推荐', to: '/' },
@@ -33,6 +33,7 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [])
 
   function goHome() {
+    clearSearchResult()
     if (location.pathname !== '/') {
       navigate('/')
     }
@@ -42,15 +43,10 @@ export function AppShell({ children }: PropsWithChildren) {
   return (
     <div className="app-shell">
       <header className="shell-header">
-        <NavLink className="brand" to="/" aria-label="RoamBot">
+        <NavLink className="brand" to="/" aria-label="RoamBot" onClick={goHome}>
           <span aria-hidden="true" className="brand-mark">R</span>
           <span>RoamBot</span>
         </NavLink>
-
-        <button className="home-button" type="button" aria-label="首页" onClick={goHome}>
-          <HomeIcon aria-hidden="true" size={18} strokeWidth={1.8} />
-          <span>首页</span>
-        </button>
 
         <nav className="primary-nav" aria-label="主导航">
           {navigation.map((item) => (
@@ -59,6 +55,7 @@ export function AppShell({ children }: PropsWithChildren) {
               end={item.to === '/'}
               key={item.label}
               to={item.to}
+              onClick={item.to === '/' ? goHome : undefined}
             >
               {item.label}
             </NavLink>

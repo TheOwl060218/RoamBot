@@ -138,3 +138,77 @@ GPT-6 在本轮只承担只读设计/实现复核；具体范围、交互选择�
 - 终端测试摘要截图：86/86 Vitest、10/10 Playwright、ESLint/tsc 退出 0、Vite build 成功。
 - Mock 演示录屏，并在画面或解说中明确“演示数据 / Mock”，避免被理解为真实 Provider 已上线。
 - 一份“AI 建议被拒绝或延期”的清单，例如：不恢复旧状态机、不盲目升级依赖、不把环境进程回收问题包装成产品通过、不在 Phase 0 顺手加入顶部内容和 hover 动效。
+
+## 6. 2026-10-05 P0：删除“三步快速开始”与独立“首页”按钮（推荐 UI 基线）
+
+### 6.1 背景与人工决定
+
+本轮只做“阶段 0：当前 UI 基线”，不改旅行计划的阶段 1～6。工作区 `experiment/ui-clean-a` 保留此前湛卢、Codex 与人工协作的所有未提交成果，不回退、不覆盖。GitHub 上已有人工备份 `backup/ui-clean-a-pre-p0-20261005`（Commit `506f12f`），仅用于异常时人工恢复，本轮不使用。
+
+人工审阅后的决定并如实记录：
+
+- “三步快速开始”顶部栏此前曾被实现并被旧测试当作“长期可见”契约覆盖；人工查看实际界面后认为它不符合最终顶部设计，明确拒绝并决定在 P0 删除。
+- 独立“首页”按钮被人工决定取消；由现有“推荐”导航与 RoamBot 品牌承担“回到推荐工作区并恢复初始推荐状态”的入口。
+- 本记录不把被拒绝方案写成从未发生，也不删除第 4.5 节对该方案的既有预记录。
+
+### 6.2 修改范围
+
+为完成上述删除并回归到稳定基线，改动了四个前端文件与两个测试文件：
+
+- `frontend/src/features/search/SearchWorkspace.tsx`：删除 `quick-start-guide` 区块。
+- `frontend/src/styles/results.css`：删除全部 `quick-start-*` 基础样式及其 `@media` 响应式规则。
+- `frontend/src/app/AppShell.tsx`：删除独立“首页”按钮与 `HomeIcon` 引用，把 `goHome`（返回 `/` 并派发 `HOME_RESET_REQUEST_EVENT`）挂到 RoamBot 品牌与“推荐”导航。
+- `frontend/src/styles/app.css`：删除 `.home-button` 及其 hover 样式，桌面 header 网格由 4 列收敛为 `auto minmax(0,1fr) 40px`，删除移动端为 home-button 保留的网格占位。
+- 测试：`frontend/tests/SearchWorkspace.test.tsx` 与 `frontend/tests/AppShell.test.tsx`（见 RED）。
+
+保留未动：左栏常驻查询表单、无结果示例场景、候选列表与候选对比选择器、“查看对比结果（N）”引导、对比表焦点与短暂高亮、已调浅的按钮填充色、hover/focus 反馈、桌面/移动端响应式、推荐完成后的 gutter 留白与 `scroll-margin-top` 联动、Mock/demo 能力；不修改推荐算法、评分、后端接口或数据模型。
+
+### 6.3 RED→GREEN
+
+按 RED→GREEN 执行，先改/补测试再改实现：
+
+1. 修改 `SearchWorkspace.test.tsx` 旧契约，并新增两条行为测试：初始表单仍可见且不再显示“三步找到适合这次出行的地方”；点击 RoamBot 品牌可恢复初始推荐状态；点击“推荐”同样恢复初始推荐状态。
+2. 在 `AppShell.test.tsx` 新增：顶部不再存在名为“首页”的独立按钮，同时“推荐”入口保留。
+3. 有效 RED：聚焦 `SearchWorkspace.test.tsx` + `AppShell.test.tsx` 共 17 项，13 通过、4 失败；失败原因分别是旧 `home-button` 仍存在、旧 `quick-start` 标题仍存在、以及品牌/“推荐”尚未挂响重置事件（点击后仍停留在 with-result 状态）。
+4. 最小实现 GREEN：同一组聚焦测试 17/17 通过。
+
+### 6.4 完整门禁结果
+
+环境边界：Node（codex runtime）、`.venv` FastAPI Mock/demo 后端、系统 Chrome channel，未调用 Live Provider，未下载新浏览器或依赖，未操作 Docker。
+
+| 检查 | 实际结果 |
+| --- | --- |
+| 聚焦 Vitest（SearchWorkspace + AppShell） | 17/17 通过 |
+| 全量 Vitest | 17 个文件，89/89 通过，约 14 秒 |
+| ESLint 全量 | 退出码 0，无错误输出 |
+| TypeScript `tsc -b` | 退出码 0，无错误输出 |
+| Vite build | 退出码 0；1847 modules transformed；CSS 40.26 kB（gzip 7.94 kB），JS 356.91 kB（gzip 112.21 kB）；约 0.64 秒 |
+| 全量 Playwright 桌面/手机 | 10/10 通过（干净数据环境），约 38.1 秒 |
+
+Playwright 环境说明：本轮使用隔离端口（8010 Mock 后端 / 5180 前端）手工启动并复用。**首轮全量运行的 4 个桌面用例失败**，失败点均为“提交推荐后 `.place-detail` 未出现 / 登录对话框行为”，而同批 mobile 全部通过；经排查为自建隔离数据目录被前序运行反复写入导致的状态污染与首次并行加载时序，并非本次功能回归。按约定未放宽断言、未修改无关模块，而是在清空隔离数据目录并重启 Mock 后端后单独复现该用例如下：先是相关桌面用例单独串行复跑 3 通过、`account-personal-data` 仍失败，清空数据目录并重启后端后再跑 `account-personal-data` 2/2 通过，随后干净环境全量 10/10 通过。
+
+### 6.5 人工审查发现的跨路由问题与最小修复
+
+人工审查发现一个 P0 阻塞问题：`AppShell.goHome()` 在非推荐页（如 `/favorites`、`/history`）执行时先 `navigate('/')` 再派发 `HOME_RESET_REQUEST_EVENT`，而 `SearchWorkspace` 此时尚未挂载，事件丢失；推荐页随后挂载时仍可能从 sessionStorage 恢复旧推荐结果，不符合“从收藏、历史等页面点击 RoamBot 品牌或‘推荐’后，进入干净初始推荐状态”的 P0 契约。
+
+1. 新增两条真实跨路由行为测试（`SearchWorkspace.test.tsx`）：初始路由位于 `/favorites`、`SearchWorkspace` 未挂载、sessionStorage 预存推荐结果，分别点击 RoamBot 品牌与“推荐”导航，断言导航到 `/` 后 `.search-workspace` 为 empty、旧地点结果不出现、推荐表单可见。
+2. 有效 RED：聚焦 `SearchWorkspace.test.tsx` + `AppShell.test.tsx` 共 19 项，17 通过、2 失败；两条跨路由用例均因旧缓存恢复（`search-workspace-with-result`）而失败，失败原因符合预期。
+3. 最小修复：`AppShell.goHome()` 先始终调用现有 `clearSearchResult()`（清结果与 selected place 的 sessionStorage）；只有当当前路径不是 `/` 时才调用 `navigate('/')`；随后始终派发 `HOME_RESET_REQUEST_EVENT`，以清理可能已经挂载的 SearchWorkspace 内存 state，未挂载场景则在挂载时读到干净的 storage。不引入 `setTimeout` 等时序补丁，不清除表单草稿或权重偏好。品牌与“推荐”均经由共享的 `goHome` 覆盖该行为。
+4. GREEN：二次聚焦 19/19 通过。
+
+跨路由修复后的二次完整门禁（实际运行）：
+
+| 检查 | 实际结果 |
+| --- | --- |
+| 聚焦 Vitest（SearchWorkspace + AppShell） | 19/19 通过 |
+| 全量 Vitest | 17 个文件，91/91 通过，约 16.9 秒 |
+| ESLint 全量 | 退出码 0，无错误输出 |
+| TypeScript `tsc -b` | 退出码 0，无错误输出 |
+| Vite build | 退出码 0；1847 modules transformed；CSS 40.26 kB（gzip 7.94 kB），JS 356.91 kB（gzip 112.21 kB）；约 0.56 秒 |
+| 全量 Playwright 桌面/手机 | 10/10 通过（干净数据环境），约 35.6 秒 |
+
+### 6.6 当前边界与未验证
+
+- P0 已完成人工审查，并作为本节所在的独立 Git 提交形成后续阶段基线；尚未 push。
+- 真实 Provider、远程部署与真实第三方 API 本轮未验证，不得写成已验证。
+- 旅行计划阶段 1～6 未开始实施，也未写成已完成。

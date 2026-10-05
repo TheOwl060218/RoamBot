@@ -26,4 +26,20 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: '账户' })).toBeInTheDocument()
     expect(screen.getByRole('main')).toHaveTextContent('Route content')
   })
+
+  it('does not render a separate 首页 button', () => {
+    vi.spyOn(apiClient, 'me').mockResolvedValue(null)
+    render(
+      <AuthProvider>
+        <MemoryRouter>
+          <AppShell>
+            <p>Route content</p>
+          </AppShell>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+
+    expect(screen.queryByRole('button', { name: '首页' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '推荐' })).toBeInTheDocument()
+  })
 })

@@ -267,18 +267,6 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
 
   return (
     <div className={`search-workspace${result ? ' search-workspace-with-result' : ' search-workspace-empty'}`}>
-      <section className="quick-start-guide" aria-labelledby="quick-start-title">
-        <div className="quick-start-copy">
-          <p className="eyebrow">快速开始</p>
-          <h2 id="quick-start-title">三步找到适合这次出行的地方</h2>
-          <p>从出发条件到候选对比，把天气、路程和同行人的需要放在一起考虑。</p>
-        </div>
-        <ol className="quick-start-steps">
-          <li><span>1</span><strong>填写条件</strong><small>出发地、日期与偏好</small></li>
-          <li><span>2</span><strong>查看推荐</strong><small>综合天气与路程筛选</small></li>
-          <li><span>3</span><strong>对比后决定</strong><small>选择 2～3 个候选</small></li>
-        </ol>
-      </section>
       <div
         className="workspace-layout"
         style={{ ['--sidebar-width' as string]: `${sidebarWidth}px` }}

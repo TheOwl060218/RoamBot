@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const scrollMocks = vi.hoisted(() => ({
@@ -118,14 +118,105 @@ describe('SearchWorkspace', () => {
     })
   })
 
-  it('shows a persistent three-step quick-start guide', () => {
+  it('keeps the initial form visible and does not show the quick-start guide', () => {
     vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
     render(<AuthProvider><SearchWorkspace /></AuthProvider>)
 
-    expect(screen.getByRole('heading', { name: '三步找到适合这次出行的地方' })).toBeInTheDocument()
-    expect(screen.getByText('填写条件')).toBeInTheDocument()
-    expect(screen.getByText('查看推荐')).toBeInTheDocument()
-    expect(screen.getByText('对比后决定')).toBeInTheDocument()
+    expect(screen.getByLabelText('主出发地')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '三步找到适合这次出行的地方' })).not.toBeInTheDocument()
+  })
+
+  it('clicking the RoamBot brand resets to the initial recommendation state', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    saveSearchResult(response)
+    const { container } = render(
+      <AuthProvider>
+        <MemoryRouter>
+          <AppShell><SearchWorkspace /></AppShell>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+
+    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
+    expect(container.querySelector('.search-workspace')).not.toHaveClass('search-workspace-empty')
+
+    await user.click(screen.getByRole('link', { name: 'RoamBot' }))
+
+    await waitFor(() => expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty'))
+    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('主出发地')).toBeInTheDocument()
+  })
+
+  it('clicking the 推荐 link resets to the initial recommendation state', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    saveSearchResult(response)
+    const { container } = render(
+      <AuthProvider>
+        <MemoryRouter>
+          <AppShell><SearchWorkspace /></AppShell>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+
+    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: '推荐' }))
+
+    await waitFor(() => expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty'))
+    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
+  })
+
+  it('navigating from /favorites via the brand lands on a clean empty workspace', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    saveSearchResult(response)
+    const { container } = render(
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/favorites']}>
+          <AppShell>
+            <Routes>
+              <Route path="/" element={<SearchWorkspace />} />
+              <Route path="/favorites" element={<p>Favorites placeholder</p>} />
+            </Routes>
+          </AppShell>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+
+    expect(screen.getByText('Favorites placeholder')).toBeInTheDocument()
+    expect(screen.queryByLabelText('主出发地')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'RoamBot' }))
+
+    await waitFor(() => expect(screen.getByLabelText('主出发地')).toBeInTheDocument())
+    expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty')
+    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
+  })
+
+  it('navigating from /favorites via the 推荐 link lands on a clean empty workspace', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    saveSearchResult(response)
+    const { container } = render(
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/favorites']}>
+          <AppShell>
+            <Routes>
+              <Route path="/" element={<SearchWorkspace />} />
+              <Route path="/favorites" element={<p>Favorites placeholder</p>} />
+            </Routes>
+          </AppShell>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+
+    await user.click(screen.getByRole('link', { name: '推荐' }))
+
+    await waitFor(() => expect(screen.getByLabelText('主出发地')).toBeInTheDocument())
+    expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty')
+    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
   })
 
   it('keeps the form visible and scrolls the sidebar to the query summary after submit', async () => {
