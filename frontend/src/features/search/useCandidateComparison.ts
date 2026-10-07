@@ -17,6 +17,7 @@ export function useCandidateComparison(items: RecommendationItem[]) {
       canCompare: false,
       result: null as ReturnType<typeof compareCandidates> | null,
       toggle: () => {},
+      reset: () => setStoredSelectedIds([]),
     }
   }
   const selectedItems = items.filter((item) => selectedIds.includes(item.destination.provider_id))
@@ -30,5 +31,5 @@ export function useCandidateComparison(items: RecommendationItem[]) {
       return [...availableCurrent, id]
     })
   }
-  return { items, selectedIds, selectedItems, canCompare: true, result, toggle }
+  return { items, selectedIds, selectedItems, canCompare: true, result, toggle, reset: () => setStoredSelectedIds([]) }
 }

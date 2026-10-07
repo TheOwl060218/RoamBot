@@ -1,5 +1,7 @@
 # RoamBot AI Coding 开发过程记录
 
+> 2026-10-06 同行计划增量由 **Codex** 实现，不能归属为湛卢代码生成。P1～P6 与收尾审查实际记录见 [CODEX_PLAN_IMPLEMENTATION.md](CODEX_PLAN_IMPLEMENTATION.md)；当前均未提交，无新增 Commit SHA。原湛卢候选对比与 P0 记录保持不变。Mock 自动通过不等于用户人工验收或 Live 验证。
+
 > 用途：第五届“移动云杯”智算应用创新大赛 AI Coding 赛道的过程证据索引。
 >
 > 原则：本文件只记录能够由原生对话、代码差异、Commit 或测试输出核验的事实。暑期训练营阶段已有代码不追溯标注为湛卢生成；未实际运行的内容不写成“已验证”。

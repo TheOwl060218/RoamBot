@@ -515,6 +515,20 @@ describe('SearchWorkspace', () => {
     expect(screen.getByRole('group', { name: '选择候选进行对比' })).toBeInTheDocument()
   })
 
+  it('announces offscreen comparison only when the second candidate first makes it available', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 2000, bottom: 2100, left: 0, right: 300, width: 300, height: 100 } as DOMRect)
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    saveSearchResult(multiItemResponse)
+    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
+    const choices = within(screen.getByRole('group', { name: '选择候选进行对比' })).getAllByRole('checkbox')
+    await userEvent.click(choices[0])
+    expect(screen.queryByText(/对比已准备好/)).not.toBeInTheDocument()
+    await userEvent.click(choices[1])
+    expect(await screen.findByText(/对比已准备好/)).toBeInTheDocument()
+    await userEvent.click(choices[1])
+    expect(screen.queryByText(/对比已准备好/)).not.toBeInTheDocument()
+  })
+
   it('takes users to the highlighted comparison after two candidates are selected', async () => {
     const user = userEvent.setup()
     let scrollTarget: HTMLElement | null = null
@@ -525,7 +539,7 @@ describe('SearchWorkspace', () => {
       queueMicrotask(() => onComplete?.())
       return () => undefined
     })
-    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
+    render(<MemoryRouter><AuthProvider><SearchWorkspace /></AuthProvider></MemoryRouter>)
 
     await user.type(screen.getByLabelText('主出发地'), '苏州站')
     await user.click(screen.getByRole('checkbox', { name: '湖景' }))
@@ -536,6 +550,8 @@ describe('SearchWorkspace', () => {
     const choices = within(comparisonGroup).getAllByRole('checkbox')
     await user.click(choices[0])
     await user.click(choices[1])
+    expect(within(screen.getByRole('complementary', { name: '查询与候选列表' }))
+      .getByRole('button', { name: '创建同行计划' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '查看对比结果（2）' }))
 
     await waitFor(() => expect(scrollMocks.startSmoothScrollTo).toHaveBeenCalledTimes(1))

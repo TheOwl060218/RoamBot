@@ -3,6 +3,7 @@
 __pycache__/
 .pytest_cache/
 data/
+data-competition-demo/
 *.db
 *.sqlite
 *.sqlite3

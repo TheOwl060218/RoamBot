@@ -6,8 +6,11 @@ import { apiClient } from '../api/client'
 import type { HistoryDetail, HistorySummary } from '../api/types'
 import { ConfirmDialog } from '../app/ConfirmDialog'
 import { HistoryList } from '../features/history/HistoryList'
+import { restoreHistorySearch } from '../features/history/restoreHistorySearch'
+import { useAuth } from '../features/auth/authContext'
 
 export function HistoryPage() {
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [histories, setHistories] = useState<HistorySummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,7 +44,8 @@ export function HistoryPage() {
     setRerunningId(id)
     try {
       const response = await apiClient.post<{ history: HistoryDetail }>(`/history/${id}/rerun`)
-      navigate(`/history/${response.history.id}`)
+      const restoredSearch = restoreHistorySearch(response.history, user?.username ?? null)
+      navigate('/', { state: { restoredSearch } })
     } catch {
       setStatus('重新查询失败。')
     } finally {

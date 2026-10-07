@@ -7,6 +7,7 @@ import { HistoryDetailPage } from '../pages/HistoryDetailPage'
 import { RequireAuth } from '../features/auth/RequireAuth'
 import { PublicSharePage } from '../features/shares/PublicSharePage'
 import { AppShell } from './AppShell'
+import { PlansPage, PlanDetailPage, JoinPlanPage } from '../features/plans/PlanPages'
 
 const router = createBrowserRouter([
   {
@@ -21,6 +22,9 @@ const router = createBrowserRouter([
       { path: 'history', element: <RequireAuth><HistoryPage /></RequireAuth> },
       { path: 'history/:historyId', element: <RequireAuth><HistoryDetailPage /></RequireAuth> },
       { path: 'share/:token', element: <PublicSharePage /> },
+      { path: 'plans', element: <RequireAuth><PlansPage /></RequireAuth> },
+      { path: 'plans/:planId', element: <RequireAuth><PlanDetailPage /></RequireAuth> },
+      { path: 'join/:inviteToken', element: <JoinPlanPage /> },
     ],
   },
 ])

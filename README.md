@@ -4,6 +4,12 @@ RoamBot 是一个支持单人和多人汇合的天气感知风景出行推荐 We
 
 跨设备继续开发或让新的 Codex 接手时，请先阅读 [`AGENTS.md`](AGENTS.md) 和 [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md)。
 
+## 当前参赛实验版（2026-10-06）
+
+`experiment/ui-clean-a` 在 P0 基线后新增可选的同行计划：登录后从可信推荐历史创建计划，邀请匿名同行者先投后看、修改投票，发起者按需复查天气并决定最终地点。普通推荐和候选对比仍可不登录独立使用。
+
+新增功能目前是未提交的本地修改，未发布到下面列出的历史生产镜像或 Railway。比赛演示采用本地 Mock，不依赖 Docker 或真实第三方 API。参见 [本地启动、架构与演示脚本](docs/competition/TRAVEL_PLAN_DEMO.md) 和 [开发/测试证据](docs/competition/CODEX_PLAN_IMPLEMENTATION.md)。
+
 ## 功能
 
 - 游客可使用推荐与指定地点评估，无需注册。
@@ -15,7 +21,9 @@ RoamBot 是一个支持单人和多人汇合的天气感知风景出行推荐 We
 
 RoamBot 不是导航或行程规划工具。V1 不显示地图、不绘制路线，也不提供导航、交通预订或逐日行程安排。
 
-## 公网部署
+## 历史公网部署（2026-08，非当前参赛入口）
+
+用户已告知 Railway 到期，本轮未重新核查其在线状态。以下为暑期版本的历史信息，不代表新功能已部署；当前参赛入口见上方本地演示说明。
 
 - WebUI：[https://roambot-production.up.railway.app](https://roambot-production.up.railway.app)
 - Railway production 当前从 `main` 部署单副本服务，并通过 HTTPS 对外提供 FastAPI API 与 React 页面。

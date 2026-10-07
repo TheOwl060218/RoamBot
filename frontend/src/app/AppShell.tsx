@@ -6,6 +6,7 @@ import { AuthDialog } from '../features/auth/AuthDialog'
 import { useAuth } from '../features/auth/authContext'
 import { ACCOUNT_DIALOG_REQUEST_EVENT } from './accountDialog'
 import { HOME_RESET_REQUEST_EVENT, clearSearchResult } from '../features/search/formState'
+import { PlanNavigation } from '../features/plans/PlanNavigation'
 
 const navigation = [
   { label: '推荐', to: '/' },
@@ -48,7 +49,10 @@ export function AppShell({ children }: PropsWithChildren) {
           <span>RoamBot</span>
         </NavLink>
 
+        <div className='mobile-plan-status'><PlanNavigation mobile /></div>
+
         <nav className="primary-nav" aria-label="主导航">
+          <PlanNavigation />
           {navigation.map((item) => (
             <NavLink
               className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}

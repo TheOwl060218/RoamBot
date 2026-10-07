@@ -110,6 +110,7 @@ export type RecommendationItem = {
 export type SourceState = { kind: SourceKind; notices: string[] }
 
 export type RecommendationResponse = {
+  history_id?: string | null
   items: RecommendationItem[]
   source_state: SourceState
   generated_at: string
@@ -201,4 +202,45 @@ export type PublicSnapshot = {
   items: PublicItem[]
   generated_at: string
   uncovered_scenery_types: SceneryType[]
+}
+
+export type PlanCandidate = {
+  id: string
+  snapshot: PublicItem & { group_accessibility: RecommendationItem['group_accessibility']; source_state?: SourceState | null }
+  latest_weather: {
+    checked_at: string
+    status: 'success' | 'failed'
+    source: string
+    risk: 'stable' | 'caution' | 'high' | null
+    change: 'stable' | 'attention' | 'worsened' | 'improved' | 'unavailable'
+    weather: DailyWeather[] | null
+    daily_suitability?: DailySuitability[]
+    last_success_at: string | null
+  } | null
+}
+
+export type TravelPlan = {
+  id: string
+  name: string
+  city: string
+  start_date: string
+  end_date: string
+  expected_count: number
+  status: 'voting' | 'closed' | 'decided'
+  final_candidate_id: string | null
+  ended: boolean
+  created_at: string
+  updated_at: string
+  decided_at: string | null
+  candidates: PlanCandidate[]
+  participants: { id: string; nickname: string; role: 'owner' | 'guest'; voted: boolean }[] | null
+  summary: {
+    voted_count: number
+    joined_count: number
+    complete: boolean
+    candidates: { id: string; preferred_count: number; acceptable_count: number; all_accept: boolean }[]
+  } | null
+  me: { id: string; nickname: string; preferred_id: string | null; acceptable_ids: string[] } | null
+  next_weather_check_at: string | null
+  invite_active?: boolean
 }

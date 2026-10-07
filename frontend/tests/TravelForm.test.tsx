@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -6,6 +6,63 @@ import { apiClient } from '../src/api/client'
 import { TravelForm } from '../src/features/search/TravelForm'
 
 describe('TravelForm', () => {
+  it('announces all invalid fields prominently without starting a recommendation', () => {
+    const onSubmit = vi.fn()
+    render(<TravelForm onSubmit={onSubmit} />)
+    fireEvent.change(screen.getByLabelText('最大距离（km）'), { target: { value: '500000' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+    const bubble = screen.getByRole('alert', { name: '请检查填写内容' })
+    expect(within(bubble).getByText(/主出发地/)).toBeInTheDocument()
+    expect(within(bubble).getByText(/最大距离.*500/)).toBeInTheDocument()
+    expect(within(bubble).getByText(/风景类型/)).toBeInTheDocument()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('restarts the two-second bubble on repeated invalid submission without stacking', () => {
+    vi.useFakeTimers()
+    try {
+      render(<TravelForm onSubmit={vi.fn()} />)
+      const submit = screen.getByRole('button', { name: '开始推荐' })
+      fireEvent.click(submit)
+      expect(screen.getByRole('alert', { name: '请检查填写内容' })).toBeInTheDocument()
+      act(() => vi.advanceTimersByTime(1000))
+      fireEvent.click(submit)
+      expect(screen.getAllByRole('alert', { name: '请检查填写内容' })).toHaveLength(1)
+      act(() => vi.advanceTimersByTime(1999))
+      expect(screen.getByRole('alert', { name: '请检查填写内容' })).toBeInTheDocument()
+      act(() => vi.advanceTimersByTime(1))
+      expect(screen.queryByRole('alert', { name: '请检查填写内容' })).not.toBeInTheDocument()
+      expect(screen.getByText('请输入主出发地')).toBeInTheDocument()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('clears the bubble when corrected fields are successfully submitted', () => {
+    const onSubmit = vi.fn()
+    render(<TravelForm onSubmit={onSubmit} />)
+    fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+    expect(screen.getByRole('alert', { name: '请检查填写内容' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('主出发地'), { target: { value: '苏州站' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: '湖景' }))
+    fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+    expect(screen.queryByRole('alert', { name: '请检查填写内容' })).not.toBeInTheDocument()
+    expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
+  it('announces server field errors without exposing the entered address', () => {
+    const view = render(<TravelForm onSubmit={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('主出发地'), { target: { value: '私人地址' } })
+    view.rerender(<TravelForm onSubmit={vi.fn()} fieldErrors={{ main_origin: '无法识别出发地，请重新选择' }} />)
+    const bubble = screen.getByRole('alert', { name: '请检查填写内容' })
+    expect(within(bubble).getByText(/无法识别出发地/)).toBeInTheDocument()
+    expect(bubble).not.toHaveTextContent('私人地址')
+  })
+
+  it('names the affected field when server validation uses an English message', () => {
+    render(<TravelForm onSubmit={vi.fn()} fieldErrors={{ main_origin: 'Origin could not be resolved.' }} />)
+    const bubble = screen.getByRole('alert', { name: '请检查填写内容' })
+    expect(bubble).toHaveTextContent('主出发地')
+    expect(bubble).not.toHaveTextContent('Origin could not be resolved.')
+  })
   it('switches between recommendation and place evaluation inputs', async () => {
     const user = userEvent.setup()
     render(<TravelForm onSubmit={vi.fn()} />)
@@ -137,7 +194,7 @@ describe('TravelForm', () => {
     await user.clear(screen.getByLabelText('最大距离（km）'))
     await user.click(screen.getByRole('button', { name: '开始推荐' }))
 
-    expect(screen.getByText('最大距离必须在 0 到 500 km 之间')).toBeInTheDocument()
+    expect(within(container).getByText('最大距离必须在 0 到 500 km 之间')).toBeInTheDocument()
     expect(container.querySelectorAll('.field-message')).toHaveLength(slotsBefore)
   })
 

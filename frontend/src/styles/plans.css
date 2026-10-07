@@ -1,0 +1,283 @@
+.plan-page { max-width: 1200px; margin: 0 auto; }
+.plan-page-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 8px 0 28px; }
+.plan-page-heading h1 { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); overflow-wrap: anywhere; }
+.plan-page-heading p { color: var(--muted); margin: 6px 0; }
+.plan-page-heading > .icon-text-button { color: var(--primary); font-weight: 600; }
+.plan-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.plan-back { display: inline-flex; gap: 8px; align-items: center; color: var(--primary); text-decoration: none; min-height: 44px; }
+.plan-section { margin: 24px 0; }
+.plan-section h2 { font-size: 1.15rem; }
+.plan-collection-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.plan-rail-controls { display: flex; gap: 8px; }
+.plan-empty-line { margin: 0; padding: 32px 0; text-align: center; color: var(--muted); }
+.plan-workbench-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 340px)); gap: 18px; min-width: 0; }
+.plan-card-rail { display: flex; overflow-x: auto; padding: 4px 4px 16px; scroll-snap-type: x proximity; }
+.plan-card-rail > .plan-card { flex: 0 0 clamp(260px, calc((100% - 36px) / 3.2), 340px); scroll-snap-align: start; }
+.plan-list-topline { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.plan-list-date { color: var(--muted); font-size: .8rem; }
+.plan-list-card { display: flex; flex-direction: column; }
+.plan-list-candidates { padding: 14px 0; margin: 8px 0; border-block: 1px solid var(--border); color: var(--ink-soft); }
+.plan-card-action { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 16px; color: var(--primary); font-weight: 600; }
+.plan-section { min-width: 0; }
+@media (max-width: 600px) {
+  .plan-workbench-cards { display: flex; overflow-x: auto; padding: 4px 4px 16px; scroll-snap-type: x mandatory; }
+  .plan-workbench-cards > .plan-card { flex: 0 0 min(340px, calc(100% - 24px)); scroll-snap-align: start; }
+}
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 18px; }
+.plan-card { min-width: 0; border: 1px solid var(--border); border-radius: 20px; padding: 24px; background: var(--surface); box-shadow: var(--shadow-sm); overflow-wrap: anywhere; }
+.plan-card h2 { margin: 0 0 16px; font-size: 1.1rem; }
+.plan-card h3 { margin: 0; font-size: 1.12rem; }
+.plan-list-card { color: var(--ink); text-decoration: none; transition: transform 180ms ease, box-shadow 180ms ease; }
+.plan-list-card h3 { margin: 16px 0; }
+.plan-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; color: var(--primary); background: var(--primary-soft); font-size: .8rem; font-weight: 600; }
+.plan-badge.decided { color: var(--positive); background: var(--positive-soft); }
+.plan-empty { border: 1px dashed var(--border-strong); border-radius: 16px; padding: 22px; color: var(--muted); }
+.plan-detail-grid { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1.5fr); gap: 24px; align-items: start; }
+.plan-detail-page .plan-detail-grid { grid-template-columns: minmax(300px, .9fr) minmax(0, 1.3fr); }
+.plan-detail-page, .plan-invite-page { padding-bottom: 90px; }
+.plan-invite-page .plan-grid { align-items: start; }
+.plan-candidate-details .weather-list { margin-top: 14px; }
+.plan-candidate-details .weather-day { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.plan-candidate-details .weather-day-heading, .plan-candidate-details .weather-facts { justify-content: space-between; }
+.plan-vote-float { position: fixed; right: max(24px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 40; display: grid; justify-items: end; gap: 10px; max-width: calc(100vw - 32px); }
+.plan-vote-launcher { display: flex; align-items: center; gap: 9px; min-height: 48px; padding: 12px 20px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--primary); color: white; box-shadow: var(--shadow-card); font: inherit; font-weight: 600; cursor: pointer; }
+.plan-vote-panel { width: min(370px, calc(100vw - 32px)); max-height: calc(100dvh - 190px); overflow-y: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid var(--border-strong); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow-popover); animation: vote-panel-enter 180ms ease-out; }
+.plan-vote-panel[hidden] { display: none; }
+.plan-vote-panel-heading { display: flex; justify-content: space-between; align-items: center; color: var(--primary); }
+.plan-vote-panel .muted { font-size: .82rem; color: var(--muted); }
+.plan-vote-panel .plan-vote-form { border: 0; border-radius: 0; padding: 0; box-shadow: none; }
+.plan-vote-panel .plan-vote-form h2 { font-size: 1rem; margin: 14px 0 8px; }
+.plan-vote-panel .plan-choice { padding: 8px; }
+@keyframes vote-panel-enter { from { opacity: 0; translate: 0 10px; scale: .98; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .plan-vote-panel { animation: none; } }
+@media (max-width: 600px) { .plan-vote-float { right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); } .plan-vote-panel { width: calc(100vw - 32px); max-height: min(65dvh, calc(100dvh - 190px)); } }
+.plan-detail-page .plan-card h2 { color: var(--primary); }
+.plan-management-card { border-top: 3px solid var(--primary); }
+.plan-management .plan-card-heading { align-items: center; margin-bottom: 14px; }
+.plan-management .plan-card-heading h2 { margin: 0; }
+.plan-management-overview { display: grid; gap: 10px; padding: 14px; border-radius: 12px; background: var(--primary-soft); }
+.plan-management-overview span { display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: .85rem; }
+.plan-management .plan-edit-form { padding: 14px; border-radius: 12px; background: var(--primary-soft); }
+.plan-detail-page .icon-text-button, .plan-detail-page .text-button:not(.plan-delete) { color: var(--primary); }
+.plan-detail-page .plan-participants li { padding-inline: 8px; border-radius: 8px; background: var(--surface-subtle); }
+.plan-candidate-summary .plan-metrics { padding: 12px; border: 0; border-radius: 12px; background: var(--surface-subtle); }
+.plan-final.plan-candidate-summary .plan-metrics { background: var(--surface); }
+.plan-weather-overview { display: flex; align-items: center; gap: 8px; color: var(--primary); font-size: .86rem; }
+.plan-weather-overview svg { flex-shrink: 0; }
+.plan-candidate-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.plan-candidate-actions .plan-decide { margin: 0; background: var(--primary-soft); border-color: var(--border-strong); }
+.plan-details-toggle { margin-left: auto; }
+.plan-details-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+.plan-candidate-summary .plan-candidate-details { margin-top: 16px; padding-top: 4px; border-top: 1px solid var(--border); }
+.plan-feedback-bubble { position: fixed; z-index: 100; top: calc(var(--shell-header-height, 76px) + 16px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 9px; max-width: min(640px, calc(100vw - 32px)); width: max-content; padding: 12px 20px; border: 1px solid var(--border-strong); border-radius: 999px; background: color-mix(in srgb, var(--primary-soft) 38%, var(--surface)); color: var(--primary); box-shadow: var(--shadow-card); font-size: .9rem; }
+.plan-feedback-bubble svg { flex-shrink: 0; }
+.plan-stack { display: grid; gap: 18px; min-width: 0; }
+.plan-card-heading { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.plan-score { font-size: 1.6rem; color: var(--primary); }
+.plan-final { border-color: var(--primary); background: var(--primary-soft); }
+.plan-final-label { display: flex; gap: 6px; color: var(--primary); font-weight: 600; }
+.plan-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px 0; border-block: 1px solid var(--border); }
+.plan-metrics dt { color: var(--muted); font-size: .78rem; }
+.plan-metrics dd { margin: 4px 0 0; font-weight: 600; }
+.plan-weather { border-top: 1px solid var(--border); padding-top: 16px; }
+.plan-weather p { font-size: .88rem; }
+.plan-days p { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; margin: 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.plan-choice { display: flex; gap: 12px; align-items: center; min-height: 48px; padding: 10px 12px; border-radius: 10px; cursor: pointer; }
+.plan-choice:hover { background: var(--primary-soft); }
+.plan-choice input { accent-color: var(--primary); width: 18px; height: 18px; }
+.plan-vote-form fieldset { margin: 18px 0; padding: 6px; border: 1px solid var(--border); border-radius: 12px; }
+.plan-vote-form legend { padding-inline: 8px; color: var(--ink-soft); font-size: .88rem; }
+.plan-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.plan-edit-form { display: grid; gap: 12px; }
+.plan-page .icon-text-button, .plan-page .text-button, .create-plan-control button { min-height: 44px; }
+.plan-link-copy { display: grid; gap: 10px; margin-top: 16px; }
+.plan-tallies { display: grid; gap: 12px; }
+.plan-tally { padding: 14px; border-radius: 12px; background: var(--surface-subtle); }
+.plan-tally div { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 6px; }
+.plan-tally small { color: var(--positive); }
+.plan-participants { list-style: none; padding: 0; margin: 0; }
+.plan-participants li { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.plan-weather-action { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.plan-weather-action h2 { margin: 0; font-size: 1.12rem; }
+.plan-delete { color: var(--danger); justify-self: start; }
+.plan-decide { margin-top: 16px; }
+.plan-notice { position: sticky; bottom: 16px; padding: 12px 18px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-card); color: var(--primary); }
+.plan-invite-page { max-width: 940px; display: grid; gap: 20px; }
+.plan-privacy-note { padding: 12px 16px; color: var(--ink-soft); background: var(--surface-muted); border-radius: 12px; }
+.plan-decision-banner { padding: 20px; border-radius: 16px; background: var(--positive-soft); color: var(--positive); }
+.create-plan-control { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 22px; margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+.create-plan-control p { margin: 4px 0 0; color: var(--muted); font-size: .86rem; }
+.workspace-sidebar .create-plan-control { margin-top: 0; padding: 16px; flex-wrap: wrap; }
+.workspace-sidebar .create-plan-control > button { color: var(--primary); font-weight: 600; }
+.plan-create-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; border: 1px solid var(--border); border-radius: 22px; padding: 28px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow-popover); }
+.plan-create-dialog::backdrop { background: rgb(22 33 38 / 35%); backdrop-filter: blur(3px); }
+.plan-create-dialog form { display: grid; gap: 16px; }
+.plan-create-dialog h2 { margin: 0; }
+.plan-create-dialog p { line-height: 1.6; }
+.plan-page .muted, .plan-create-dialog .muted { color: var(--muted); font-size: .86rem; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) { .plan-list-card:hover { transform: scale(1.01); box-shadow: var(--shadow-card); } }
+@media (max-width: 800px) { .plan-detail-grid, .plan-detail-page .plan-detail-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .plan-page-heading { display: block; margin-top: 4px; }
+  .plan-feedback-bubble { top: calc(var(--shell-header-height, 112px) + 12px); border-radius: 24px; }
+  .plan-page-heading > a { margin-top: 16px; }
+  .plan-card { padding: 18px; border-radius: 16px; }
+  .create-plan-control { align-items: stretch; flex-direction: column; padding: 18px; }
+  .plan-create-dialog { padding: 22px; }
+}
+
+.mobile-plan-status { display: none; }
+.plan-nav-anchor { position: relative; flex: 0 0 118px; height: 44px; }
+.plan-status-link { position: absolute; right: 0; top: 0; display: flex; gap: 8px; align-items: center; width: 164px; min-height: 44px; padding: 9px 14px; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--primary); background: var(--primary-soft); text-decoration: none; box-shadow: var(--shadow-sm); transition: width 480ms cubic-bezier(.22, 1.2, .36, 1), box-shadow 200ms ease; }
+.plan-status-link svg { flex-shrink: 0; }
+.plan-status-title { min-width: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; font-size: .82rem; font-weight: 600; }
+.plan-status-detail { min-width: 0; max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .76rem; opacity: 0; transition: opacity 200ms ease, max-width 400ms ease; }
+.plan-status-link { interpolate-size: allow-keywords; }
+.plan-status-link.expanded, .plan-status-link:hover, .plan-status-link:focus-visible { width: max-content; max-width: 340px; box-shadow: var(--shadow-card); }
+.plan-status-link.expanded .plan-status-detail, .plan-status-link:hover .plan-status-detail, .plan-status-link:focus-visible .plan-status-detail { max-width: 180px; opacity: 1; }
+@media (min-width: 601px) and (max-width: 900px) { .plan-status-link.expanded, .plan-status-link:hover, .plan-status-link:focus-visible { max-width: 240px; } }
+@media (max-width: 600px) {
+  .mobile-plan-status { display: block; grid-column: 2; grid-row: 1; min-width: 0; }
+  .mobile-plan-anchor { min-width: 0; }
+  .mobile-plan-anchor .plan-status-link { position: static; width: 100%; padding: 6px 8px; gap: 5px; min-height: 36px; height: 36px; transition: height 280ms ease; }
+  .mobile-plan-anchor .plan-status-link.expanded { height: 58px; flex-wrap: wrap; }
+  .mobile-plan-anchor .plan-status-link svg { width: 13px; }
+  .mobile-plan-anchor .plan-status-title { font-size: .7rem; }
+  .mobile-plan-anchor .plan-status-detail { display: none; }
+  .mobile-plan-anchor .plan-status-link.expanded .plan-status-detail { display: block; flex: 0 0 calc(100% - 18px); max-width: calc(100% - 18px); opacity: 1; margin-left: 18px; font-size: .65rem; line-height: 1.25; text-overflow: ellipsis; }
+  .primary-nav .plan-nav-anchor { flex: 1 1 0; height: auto; }
+  .primary-nav .plan-nav-anchor .plan-status-link { position: static; display: block; width: auto; min-height: 38px; padding: 8px; text-align: center; border: 0; box-shadow: none; background: transparent; }
+  .primary-nav .plan-nav-anchor .plan-status-title { font-size: 0; }
+  .primary-nav .plan-nav-anchor .plan-status-title::after { content: '计划'; font-size: .94rem; }
+  .primary-nav .plan-nav-anchor .plan-status-detail, .primary-nav .plan-nav-anchor svg { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .plan-status-link, .plan-status-detail, .plan-list-card { transition: none; animation: none; } }
+
+/* Decision workbench: desktop voting takes space, never covers candidates. */
+.plan-detail-page, .plan-invite-page { max-width: 1440px; padding-bottom: 32px; display: block; }
+.plan-page-heading.plan-workbench-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .6fr); align-items: center; gap: 28px; margin: 8px 0 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+.plan-heading-info { min-width: 0; }
+.plan-workbench-heading h1 { font-size: clamp(1.2rem, 2vw, 1.5rem); line-height: 1.35; margin-bottom: 10px; }
+.plan-workbench-heading .plan-meta { margin: 0; font-size: .86rem; }
+.plan-candidate-total { padding-left: 4px; }
+.plan-heading-progress { min-width: 0; text-align: right; }
+.plan-heading-progress-label { display: flex; justify-content: flex-end; align-items: center; gap: 7px; color: var(--muted); font-size: .76rem; margin-bottom: 5px; }
+.plan-heading-progress > strong { display: block; color: var(--primary); font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
+.plan-workbench-heading .plan-heading-progress > p { margin: 6px 0 0; font-size: .78rem; }
+@media (max-width: 740px) {
+  .plan-page-heading.plan-workbench-heading { grid-template-columns: minmax(0, 1fr); gap: 14px; padding-bottom: 18px; margin-bottom: 20px; }
+  .plan-heading-progress { text-align: left; }
+  .plan-heading-progress-label { justify-content: flex-start; }
+  .plan-heading-progress > strong { font-size: .95rem; }
+}
+.plan-workbench-actions, .plan-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.plan-toolbar-actions { display: grid; grid-template-columns: repeat(2, max-content); column-gap: 12px; row-gap: 4px; align-items: start; margin-left: auto; }
+.plan-toolbar-actions > button { grid-column: 1; grid-row: 1; }
+.plan-toolbar-actions .plan-check-controls { display: contents; }
+.plan-toolbar-actions .plan-check-controls > button { grid-column: 2; grid-row: 1; }
+.plan-toolbar-actions .plan-check-controls small { grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; max-width: 100%; contain: inline-size; text-align: right; }
+.plan-date-toolbar { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px 18px; }
+.plan-date-toolbar .plan-date-tabs { flex: 1 1 280px; min-width: 0; padding-top: 0; }
+.plan-comparison-toolbar.plan-workbench-toolbar { align-items: flex-start; margin-bottom: 18px; }
+.plan-workbench-toolbar h2 { display: flex; align-items: center; min-height: 44px; }
+.plan-toolbar-actions > button, .plan-check-controls > button { min-height: 40px; }
+.plan-member-badge { min-height: 44px; padding: 10px 18px; font-size: .88rem; max-width: 100%; overflow-wrap: anywhere; }
+.plan-decision-workspace { --vote-width: 310px; display: grid; grid-template-columns: minmax(0, 1fr) 0px; column-gap: 0; align-items: start; }
+.plan-decision-workspace.voting { grid-template-columns: minmax(0, 1fr) var(--vote-width); column-gap: 22px; }
+.plan-comparison-region, .plan-comparison { min-width: 0; }
+.plan-comparison-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.plan-comparison-toolbar h2 { margin: 0; font-size: 1.15rem; }
+.plan-comparison-toolbar p { margin: 5px 0 0; }
+.plan-check-controls { display: grid; justify-items: end; gap: 4px; }
+.plan-check-controls small { max-width: 240px; }
+.plan-date-tabs { display: flex; gap: 7px; overflow-x: auto; padding: 4px 2px 8px; }
+.plan-date-tabs button { flex-shrink: 0; border-radius: 12px; min-width: 62px; justify-content: center; }
+.plan-date-tabs button[aria-pressed='true'] { background: var(--primary); border-color: var(--primary); color: white; }
+.plan-date-note { margin: 6px 0 12px; }
+.plan-comparison-rail { min-width: 0; overflow-x: auto; padding: 2px 2px 12px; scroll-snap-type: x proximity; }
+.plan-comparison-cards { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); align-items: start; gap: 16px; }
+.plan-comparison-cards.plan-candidate-count-2 { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+.plan-comparison-cards.plan-candidate-count-1 { grid-template-columns: minmax(260px, 440px); }
+.plan-comparison-cards.plan-candidate-count-0 { display: none; }
+.plan-comparison-card { padding: 20px; scroll-snap-align: start; background: var(--surface); }
+.plan-comparison-card.plan-final { border-color: var(--primary); background: color-mix(in srgb, var(--primary-soft) 35%, var(--surface)); }
+.plan-comparison-card .plan-card-heading { flex-wrap: nowrap; align-items: start; min-height: 52px; }
+.plan-comparison-card h3 { font-size: 1.05rem; }
+.plan-comparison-title { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.plan-comparison-title h3 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-final-marker { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 4px 7px; border-radius: 999px; color: var(--primary); background: var(--primary-soft); font-size: .68rem; font-weight: 600; white-space: nowrap; }
+.plan-comparison-score { flex-shrink: 0; text-align: right; }
+.plan-comparison-score small { display: block; font-size: .68rem; color: var(--muted); }
+.plan-candidate-address { margin: 6px 0 14px; }
+.plan-comparison-card .plan-metrics { gap: 6px; padding: 12px 8px; border: 0; border-radius: 12px; background: var(--surface-subtle); }
+.plan-comparison-card .plan-metrics dt { font-size: .7rem; }
+.plan-comparison-card .plan-metrics dd { font-size: .86rem; }
+.plan-weather-source { font-size: .75rem !important; margin: 14px 0 8px; }
+.plan-selected-weather .weather-day { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 14px; }
+.plan-selected-weather .weather-list { margin: 0; }
+.plan-selected-weather .weather-day-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.plan-selected-weather .weather-condition { gap: 6px; }
+.plan-selected-weather .weather-condition svg { flex-shrink: 0; }
+.plan-selected-weather .weather-facts { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.day-explanation-popover { position: fixed; z-index: 60; width: min(360px, calc(100vw - 24px)); max-height: 320px; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; padding: 16px 18px; border: 1px solid var(--border-strong); border-radius: 18px; background: color-mix(in srgb, var(--primary-soft) 40%, var(--surface)); box-shadow: var(--shadow-card); color: var(--ink); outline: none; }
+.day-explanation-popover > strong { color: var(--primary); font-size: .86rem; }
+.day-explanation-popover > p { margin: 8px 0 0; font-size: .86rem; line-height: 1.65; overflow-wrap: anywhere; }
+.day-explanation-popover:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.plan-comparison-card .plan-candidate-actions { margin-top: 12px; gap: 6px; }
+.plan-comparison-card .plan-details-toggle { display: inline-flex; gap: 5px; align-items: center; margin-left: 0; }
+.plan-comparison-card .plan-decide { margin: 0; font-size: .84rem; }
+.plan-missing-weather { padding: 18px 0; color: var(--muted); }
+.plan-rail-hint { margin: 0 0 18px; font-size: .76rem !important; }
+.plan-all-dates { overflow-x: auto; margin: 18px 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 14px; }
+.plan-all-dates table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: .86rem; }
+.plan-all-dates caption { text-align: left; color: var(--primary); font-weight: 600; padding: 0 0 12px; }
+.plan-all-dates th, .plan-all-dates td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
+.plan-comparison-region > .plan-card { margin-top: 18px; padding: 18px; }
+.plan-comparison-region .plan-tallies { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.plan-comparison-region .plan-tally { padding: 0; background: transparent; }
+.plan-comparison-region > .plan-empty { border: 0; padding: 16px 0; }
+.plan-vote-slot { min-width: 0; width: 100%; overflow: hidden; opacity: 0; visibility: hidden; pointer-events: none; position: sticky; top: calc(var(--shell-header-height, 76px) + 16px); }
+.plan-decision-workspace.voting .plan-vote-slot { opacity: 1; visibility: visible; pointer-events: auto; }
+.plan-vote-workbench-panel { width: var(--vote-width); padding: 18px; border: 1px solid var(--border-strong); border-radius: 22px; background: var(--surface); max-height: calc(100dvh - var(--shell-header-height, 76px) - 36px); overflow-y: auto; overscroll-behavior: contain; }
+.plan-vote-workbench-panel h2 { font-size: 1.1rem; margin: 0; }
+.plan-vote-workbench-panel .muted { font-size: .8rem; }
+.plan-compact-vote { margin: 16px 0; border: 0; padding: 0; min-width: 0; }
+.plan-compact-vote legend { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.plan-vote-columns, .plan-vote-choice-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px 56px; align-items: center; }
+.plan-vote-columns { font-size: .7rem; color: var(--muted); }
+.plan-vote-columns span:not(:first-child) { text-align: center; }
+.plan-vote-choice-row { padding: 10px 0; border-top: 1px solid var(--border); font-size: .84rem; }
+.plan-vote-choice-row strong { font-weight: 500; overflow-wrap: anywhere; }
+.plan-vote-choice-row label { display: flex; align-items: center; justify-content: center; min-height: 44px; cursor: pointer; }
+.plan-vote-choice-row input { width: 18px; height: 18px; accent-color: var(--primary); }
+.plan-vote-tip { padding: 12px; border-radius: 12px; background: var(--primary-soft); font-size: .78rem; color: var(--ink-soft); }
+.plan-vote-workbench-panel .primary-button { width: 100%; }
+.plan-management-workbench { display: grid; grid-template-columns: 1.2fr 1fr 1fr; align-items: stretch; gap: 24px; margin-bottom: 24px; }
+.plan-management-workbench > section { display: flex; flex-direction: column; min-width: 0; }
+.plan-management-workbench h2 { color: var(--primary); }
+.plan-management-action-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 14px; }
+.plan-management-invite .plan-management-action-row { order: 2; }
+.plan-management-workbench .plan-link-copy { margin-top: 0; }
+.plan-management-overview { padding: 0; background: transparent; }
+@media (max-width: 1100px) { .plan-decision-workspace { --vote-width: 300px; } .plan-comparison-cards { gap: 12px; } }
+@media (prefers-reduced-motion: no-preference) {
+  .plan-decision-workspace { transition: grid-template-columns 280ms cubic-bezier(.22, 1, .36, 1), column-gap 280ms cubic-bezier(.22, 1, .36, 1); }
+  .plan-comparison-cards { transition: gap 280ms cubic-bezier(.22, 1, .36, 1); }
+  .plan-decision-workspace.voting .plan-comparison-cards { gap: 12px; }
+  .plan-vote-slot { transform: translateX(14px); transition: opacity 200ms ease, transform 280ms cubic-bezier(.22, 1, .36, 1), visibility 0s 280ms; }
+  .plan-decision-workspace.voting .plan-vote-slot { transform: translateX(0); transition: opacity 200ms ease 40ms, transform 280ms cubic-bezier(.22, 1, .36, 1), visibility 0s; }
+}
+@media (max-width: 700px) {
+  .plan-decision-workspace, .plan-decision-workspace.voting { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
+  .plan-page-heading { display: flex; flex-direction: column; align-items: start; gap: 14px; }
+  .plan-workbench-actions { width: 100%; }
+  .plan-management-workbench { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .plan-comparison-cards { grid-template-columns: repeat(3, minmax(280px, 1fr)); }
+  .plan-comparison-cards.plan-candidate-count-2 { grid-template-columns: repeat(2, minmax(280px, 1fr)); }
+  .plan-comparison-cards.plan-candidate-count-1 { grid-template-columns: minmax(0, 1fr); }
+  .plan-vote-slot { position: fixed; width: auto; left: 16px; right: 16px; top: auto; bottom: max(16px, env(safe-area-inset-bottom)); max-height: 60dvh; z-index: 40; transform: translateY(calc(100% + 32px)); border-radius: 22px; }
+  .plan-vote-workbench-panel { width: 100%; max-height: 60dvh; }
+  .plan-decision-workspace.voting .plan-vote-slot { transform: translateY(0); }
+  .plan-check-controls { justify-items: start; }
+}
+@media (prefers-reduced-motion: reduce) { .plan-decision-workspace, .plan-vote-slot { transition: none; transform: none; } }

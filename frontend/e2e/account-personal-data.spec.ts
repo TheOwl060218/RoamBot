@@ -30,13 +30,17 @@ test('account keeps favorites and history through the main workflow', async ({ p
 
   await page.getByRole('button', { name: '更多历史操作', exact: true }).click()
   await page.getByRole('button', { name: '重新查询', exact: true }).click()
-  await expect(page).toHaveURL(/\/history\/[^/]+$/)
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('region', { name: '当前查询条件' })).toBeVisible()
+  // Rerun returns to the workspace; viewing the original snapshot remains separate.
+  await page.goto(`/history/${share.history_id}`)
   await expect(page.getByRole('heading', { name: '历史快照', exact: true })).toBeVisible()
 
   await page.goto('/history')
   const sourceHistory = page.locator(`[data-history-id="${share.history_id}"]`)
   await expect(sourceHistory).toHaveCount(1)
   await sourceHistory.getByRole('button', { name: '更多历史操作', exact: true }).click()
+  await page.getByRole('button', { name: '更多操作', exact: true }).click()
   await page.getByRole('button', { name: '删除历史', exact: true }).click()
   const confirmDialog = page.getByRole('alertdialog', { name: '删除这条历史？', exact: true })
   await expect(confirmDialog).toBeVisible()

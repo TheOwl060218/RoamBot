@@ -249,6 +249,7 @@ class RecommendationItem(DomainModel):
 
 
 class RecommendationResponse(DomainModel):
+    history_id: str | None = None
     items: list[RecommendationItem]
     source_state: SourceState
     generated_at: str

@@ -63,6 +63,19 @@ export class ApiClient {
     return this.request<void>(path, { method: 'DELETE' })
   }
 
+  put<T>(path: string, body?: unknown, headers?: HeadersInit) {
+    return this.request<T>(path, { method: 'PUT', headers,
+      body: body === undefined ? undefined : JSON.stringify(body) }, !path.startsWith('/public/plans/'))
+  }
+
+  patch<T>(path: string, body: unknown) {
+    return this.request<T>(path, { method: 'PATCH', body: JSON.stringify(body) })
+  }
+
+  remove<T>(path: string) {
+    return this.request<T>(path, { method: 'DELETE' })
+  }
+
   async register(username: string, password: string) {
     const session = await this.post<AuthResponse>('/auth/register', { username, password })
     this.setSession(session)

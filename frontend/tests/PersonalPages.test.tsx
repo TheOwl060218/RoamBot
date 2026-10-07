@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render as renderView, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,9 +8,51 @@ import { FavoritesPage } from '../src/pages/FavoritesPage'
 import { HistoryPage } from '../src/pages/HistoryPage'
 import { HistoryDetailPage } from '../src/pages/HistoryDetailPage'
 import { PublicSharePage } from '../src/features/shares/PublicSharePage'
+import { SearchPage } from '../src/pages/SearchPage'
+import { AuthContext } from '../src/features/auth/authContext'
+
+function render(ui: React.ReactNode) {
+  return renderView(<AuthContext.Provider value={{ user: { username: 'owner' }, initializing: false, login: vi.fn(), register: vi.fn(), logout: vi.fn() }}>{ui}</AuthContext.Provider>)
+}
 
 describe('personal and shared pages', () => {
   beforeEach(() => vi.restoreAllMocks())
+
+  it('reruns once and returns fresh results to the workspace even without session storage', async () => {
+    sessionStorage.setItem('roambot.session.search-draft.v1', JSON.stringify({ mode: 'recommendation', city: '旧城市', mainOrigin: '旧出发地', companions: [], mainOriginCoordinate: null, companionOriginCoordinates: [], maxDistance: '50', startDate: '2026-11-01', endDate: '2026-11-01', sceneryTypes: ['lake'], matchMode: 'any', targetPlace: '' }))
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('disabled') })
+    vi.spyOn(apiClient, 'get').mockImplementation(async path => path === '/history'
+      ? { histories: [{ id: 'old', mode: 'recommendation', city: '杭州', start_date: '2026-12-01', end_date: '2026-12-01', item_count: 0, created_at: '2026-10-06' }] }
+      : { favorites: [] })
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ history: { id: 'fresh', mode: 'recommendation',
+      request: { city: '杭州', main_origin: '杭州东站', companion_origins: [], main_origin_coordinate: null, companion_origin_coordinates: [], max_distance_km: 35, start_date: '2026-12-01', end_date: '2026-12-01', scenery_types: ['museum'], scenery_match_mode: 'any', weights: { weather: 40, distance: 30, popularity: 30, fairness: 0 } },
+      result: { items: [], source_state: { kind: 'demo', notices: [] }, generated_at: '2026-10-06', uncovered_scenery_types: [] }, snapshot: true } })
+    render(<AuthContext.Provider value={{ user: { username: 'owner' }, initializing: false, login: vi.fn(), register: vi.fn(), logout: vi.fn() }}>
+      <MemoryRouter initialEntries={['/history']}><Routes>
+        <Route path='/history' element={<HistoryPage />} /><Route path='/' element={<SearchPage />} />
+        <Route path='/history/:id' element={<p>不应进入历史详情</p>} />
+      </Routes></MemoryRouter></AuthContext.Provider>)
+    await userEvent.click(await screen.findByRole('button', { name: '更多历史操作' }))
+    await userEvent.click(screen.getByRole('button', { name: '重新查询' }))
+    expect(await screen.findByRole('region', { name: '当前查询条件' })).toHaveTextContent('杭州 · 杭州东站')
+    expect(document.querySelector('.search-workspace-with-result')).toBeInTheDocument()
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(post).toHaveBeenCalledWith('/history/old/rerun')
+    sessionStorage.clear()
+  })
+
+  it('failed rerun stays in history without clearing the current saved result', async () => {
+    sessionStorage.setItem('roambot.session.search-result.v1', 'preserved')
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ histories: [{ id: 'old', mode: 'recommendation', city: '杭州', start_date: '2026-12-01', end_date: '2026-12-01', item_count: 0, created_at: '2026-10-06' }] })
+    vi.spyOn(apiClient, 'post').mockRejectedValue(new Error('offline'))
+    render(<MemoryRouter><HistoryPage /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: '更多历史操作' }))
+    await userEvent.click(screen.getByRole('button', { name: '重新查询' }))
+    expect(await screen.findByText('重新查询失败。')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '历史' })).toBeInTheDocument()
+    expect(sessionStorage.getItem('roambot.session.search-result.v1')).toBe('preserved')
+    sessionStorage.clear()
+  })
 
   it('lists saved places without presenting stale scores', async () => {
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
@@ -176,6 +218,7 @@ describe('personal and shared pages', () => {
     const remove = vi.spyOn(apiClient, 'delete').mockResolvedValue(undefined)
     render(<MemoryRouter><HistoryPage /></MemoryRouter>)
     await user.click(await screen.findByRole('button', { name: '更多历史操作' }))
+    await user.click(screen.getByRole('button', { name: '更多操作' }))
     await user.click(await screen.findByRole('button', { name: '删除历史' }))
 
     expect(remove).not.toHaveBeenCalled()

@@ -11,6 +11,8 @@ import type {
   RecommendationResponse,
 } from '../../api/types'
 import { useAuth } from '../auth/authContext'
+import type { RestoredHistorySearch } from '../history/restoreHistorySearch'
+import { CreatePlanControl } from '../plans/CreatePlanControl'
 import {
   CandidateComparisonSelector,
   CandidateComparisonTable,
@@ -22,6 +24,8 @@ import { QuerySummary } from './QuerySummary'
 import { SampleScenes } from './SampleScenes'
 import { startSmoothScrollInContainer, startSmoothScrollTo } from './scrolling'
 import { TravelForm } from './TravelForm'
+import { RevealNotice } from '../../components/RevealNotice'
+import { useRevealNotice } from '../../components/useRevealNotice'
 import {
   HOME_RESET_REQUEST_EVENT,
   clearSearchResult,
@@ -32,20 +36,26 @@ import {
   saveSelectedPlaceId,
 } from './formState'
 
-type SearchResult = RecommendationResponse | PlaceEvaluationResponse
+export type SearchResult = (RecommendationResponse | PlaceEvaluationResponse) & {
+  query_request?: RecommendationRequest | PlaceEvaluationRequest
+  history_owner?: string | null
+}
 
 type SearchWorkspaceProps = {
   initialMode?: 'recommendation' | 'place_evaluation'
   initialTarget?: string
+  restoredSearch?: RestoredHistorySearch
 }
 
 const MIN_SIDEBAR_WIDTH = 490
 const MAX_SIDEBAR_WIDTH = 700
 
-export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceProps) {
+export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: SearchWorkspaceProps) {
   const { user } = useAuth()
-  const [result, setResult] = useState<SearchResult | null>(() => loadSearchResult<SearchResult>())
-  const [selectedId, setSelectedId] = useState<string | null>(loadSelectedPlaceId)
+  const [result, setResult] = useState<SearchResult | null>(() => restoredSearch?.result ?? loadSearchResult<SearchResult>())
+  const [selectedId, setSelectedId] = useState<string | null>(() => restoredSearch
+    ? ('items' in restoredSearch.result ? restoredSearch.result.items[0] : restoredSearch.result.item)?.destination.provider_id ?? null
+    : loadSelectedPlaceId())
   const [submitting, setSubmitting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -63,6 +73,8 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
   const summaryRef = useRef<HTMLDivElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const comparisonRef = useRef<HTMLDivElement>(null)
+  const { notice: comparisonNotice, notify: notifyComparison, clear: clearComparisonNotice } = useRevealNotice()
+  const revealComparison = useRef(false)
   const comparisonHighlightTimer = useRef<number | null>(null)
 
   useEffect(() => {
@@ -129,9 +141,10 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
     setError('')
     setFieldErrors({})
     try {
-      const next = 'target_place' in request
+      const response = 'target_place' in request
         ? await apiClient.post<PlaceEvaluationResponse>('/place-evaluations', request)
         : await apiClient.post<RecommendationResponse>('/recommendations', request)
+      const next: SearchResult = { ...response, query_request: request, history_owner: user?.username ?? null }
       setResult(next)
       saveSearchResult(next)
       const nextItems = 'items' in next ? next.items : [next.item]
@@ -140,6 +153,7 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
       if (firstId) saveSelectedPlaceId(firstId)
       window.setTimeout(() => requestSummaryScroll(), 0)
       setProgress(100)
+      return next
     } catch (caught) {
       if (caught instanceof ApiError) {
         if (caught.status === 401) {
@@ -202,6 +216,7 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
   }
 
   function viewComparison() {
+    clearComparisonNotice()
     const target = comparisonRef.current
     if (!target) return
     const finish = () => {
@@ -264,6 +279,22 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
   }
 
   const comparisonState = useCandidateComparison(items)
+  const comparisonCount = comparisonState.selectedItems.length
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (comparisonCount < 2) clearComparisonNotice()
+      else if (revealComparison.current) {
+        notifyComparison(comparisonRef.current, '对比已准备好，点击「查看对比结果」查看')
+      }
+      revealComparison.current = false
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [comparisonCount, notifyComparison, clearComparisonNotice])
+  function toggleComparison(id: string) {
+    if (comparisonCount === 2 && comparisonState.selectedIds.includes(id)) clearComparisonNotice()
+    revealComparison.current = comparisonCount === 1 && !comparisonState.selectedIds.includes(id)
+    comparisonState.toggle(id)
+  }
 
   return (
     <div className={`search-workspace${result ? ' search-workspace-with-result' : ' search-workspace-empty'}`}>
@@ -279,11 +310,12 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
           <div ref={formRef} className="search-form-anchor">
             <div className="search-controls">
               <TravelForm
+                initialDraft={restoredSearch?.draft}
                 initialMode={initialMode}
                 initialTarget={initialTarget}
                 isSubmitting={submitting}
                 fieldErrors={fieldErrors}
-                onSubmit={submit}
+                onSubmit={async request => { await submit(request) }}
               />
               {progress > 0 && (
                 <div
@@ -305,7 +337,7 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
           {result && (
             <div className="sidebar-result-stack">
               <div ref={summaryRef} className="sidebar-summary-anchor">
-                <QuerySummary draft={loadTravelDraft()} onEdit={editConditions} />
+                <QuerySummary draft={restoredSearch && result === restoredSearch.result ? restoredSearch.draft : loadTravelDraft()} onEdit={editConditions} />
               </div>
               {items.length > 0 && (
                 <div className="sidebar-candidate-list">
@@ -320,8 +352,29 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
                 <CandidateComparisonSelector
                   items={comparisonState.items}
                   selectedIds={comparisonState.selectedIds}
-                  toggle={comparisonState.toggle}
+                  toggle={toggleComparison}
                   onViewComparison={viewComparison}
+                />
+              )}
+              {comparisonState.selectedItems.length >= 2 && 'items' in result && result.query_request && !('target_place' in result.query_request) && (
+                <CreatePlanControl
+                  key={result.generated_at}
+                  historyId={result.history_id ?? null}
+                  trusted={Boolean(user && result.history_owner === user.username && result.history_id)}
+                  selectedIds={comparisonState.selectedIds}
+                  city={result.query_request.city}
+                  startDate={result.query_request.start_date}
+                  endDate={result.query_request.end_date}
+                  originCount={1 + result.query_request.companion_origins.length}
+                  onRerun={async () => {
+                    const next = await submit(result.query_request!)
+                    if (!next) throw new Error('重新推荐失败')
+                    const nextIds = 'items' in next ? next.items.map(i => i.destination.provider_id) : []
+                    if (!comparisonState.selectedIds.every(id => nextIds.includes(id))) {
+                      comparisonState.reset()
+                      setStatus('推荐已更新，请重新选择 2～3 个地点。')
+                    } else setStatus('推荐已更新，可以继续创建同行计划了。')
+                  }}
                 />
               )}
             </div>
@@ -359,11 +412,12 @@ export function SearchWorkspace({ initialMode, initialTarget }: SearchWorkspaceP
               />
             </div>
           ) : (
-            <SampleScenes onExplore={submit} />
+            <SampleScenes onExplore={async request => { await submit(request) }} />
           )}
         </div>
       </div>
       {status && <div className="app-toast" role="status">{status}</div>}
+      <RevealNotice notice={comparisonNotice} />
     </div>
   )
 }

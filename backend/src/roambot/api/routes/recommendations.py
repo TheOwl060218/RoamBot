@@ -44,12 +44,13 @@ def recommend(
     except ProviderError:
         return _provider_unavailable()
     if session is not None:
-        personal_data.capture_history(
+        history = personal_data.capture_history(
             user_id=session.authenticated.user_id,
             mode="recommendation",
             request=request,
             result=result,
         )
+        result = result.model_copy(update={"history_id": history.id})
     return result
 
 

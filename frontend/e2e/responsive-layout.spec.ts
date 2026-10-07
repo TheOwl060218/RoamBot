@@ -87,11 +87,13 @@ test('form and results keep their intended responsive relationship', async ({ pa
   ))
   expect(matchColumnCount).toBe(viewport!.width <= 600 ? 1 : 3)
 
-  const weatherDate = await page.locator('.weather-day-heading time').first().boundingBox()
-  const weatherCondition = await page.locator('.weather-condition').first().boundingBox()
-  const weatherHeading = await page.locator('.weather-list-single .weather-day-heading').boundingBox()
-  const weatherFacts = await page.locator('.weather-list-single .weather-facts').boundingBox()
-  const weatherSummary = await page.locator('.weather-list-single .weather-summary').boundingBox()
+  // One frame: smooth scrolling must not mix viewport coordinates from different frames.
+  const [weatherDate, weatherCondition, weatherHeading, weatherFacts, weatherSummary] = await page.evaluate(() =>
+    ['.weather-day-heading time', '.weather-condition', '.weather-list-single .weather-day-heading',
+      '.weather-list-single .weather-facts', '.weather-list-single .weather-summary'].map(selector => {
+      const box = document.querySelector(selector)?.getBoundingClientRect()
+      return box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null
+    }))
   expect(weatherDate).not.toBeNull()
   expect(weatherCondition).not.toBeNull()
   expect(weatherHeading).not.toBeNull()

@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel
 
@@ -12,6 +13,7 @@ from roambot.domain.models import (
     Destination,
     PlaceEvaluationRequest,
     RecommendationRequest,
+    RecommendationResponse,
 )
 from roambot.persistence.database import SessionFactory
 from roambot.persistence.repositories import (
@@ -101,6 +103,9 @@ class PersonalDataService:
         request: BaseModel,
         result: BaseModel,
     ) -> HistorySnapshot:
+        history_id = str(uuid4())
+        if isinstance(result, RecommendationResponse):
+            result = result.model_copy(update={"history_id": history_id})
         request_json = _canonical_json(
             request.model_dump(mode="json", exclude_computed_fields=True)
         )
@@ -112,6 +117,7 @@ class PersonalDataService:
                 request_json=request_json,
                 result_json=result_json,
                 created_at=self._now(),
+                history_id=history_id,
             )
         return _snapshot(record)
 

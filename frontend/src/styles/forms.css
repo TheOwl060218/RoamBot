@@ -36,7 +36,36 @@
 .companion-row { display: grid; grid-template-columns: minmax(0, 1fr) 40px; align-items: end; gap: 8px; }
 .icon-button, .text-button, .icon-text-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink); cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease; }
 .icon-button { width: 40px; padding: 0; border-radius: 50%; }
-.text-button, .icon-text-button { width: fit-content; padding: 8px 11px; }
+.text-button, .icon-text-button { width: fit-content; padding: 8px 11px; text-decoration: none; }
+
+.validation-bubble {
+  position: fixed;
+  top: calc(var(--shell-header-height, 76px) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 32px));
+  max-height: 40dvh;
+  overflow-y: auto;
+  padding: 16px 24px;
+  border-radius: 28px;
+  border: 1px solid var(--border-strong);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary-soft) 38%, var(--surface));
+  box-shadow: var(--shadow-popover);
+  overflow-wrap: anywhere;
+  animation: validation-bubble-enter 180ms ease-out;
+}
+.validation-bubble-icon { flex: 0 0 24px; border-radius: 50%; background: var(--primary); color: white; text-align: center; font-weight: 700; }
+.validation-bubble ul { margin: 4px 0 0; padding: 0; list-style: none; color: var(--ink-soft); font-size: .9rem; }
+.validation-bubble li + li { margin-top: 4px; }
+@keyframes validation-bubble-enter { from { opacity: 0; transform: translate(-50%, -8px) scale(.98); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@media (max-width: 600px) { .validation-bubble { padding: 14px 18px; top: calc(var(--shell-header-height, 112px) + 12px); } }
+@media (prefers-reduced-motion: reduce) { .validation-bubble { animation: none; } }
 .icon-button:hover, .text-button:hover, .icon-text-button:hover { border-color: var(--border-strong); color: var(--primary); background: var(--surface-muted); }
 .icon-button:disabled, .text-button:disabled, .icon-text-button:disabled { cursor: not-allowed; }
 

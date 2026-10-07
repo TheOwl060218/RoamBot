@@ -344,9 +344,10 @@ class HistoryRepository:
         request_json: str,
         result_json: str,
         created_at: datetime,
+        history_id: str | None = None,
     ) -> HistoryRecord:
         row = HistoryTable(
-            id=str(uuid4()),
+            id=history_id or str(uuid4()),
             user_id=user_id,
             mode=mode,
             request_json=request_json,

@@ -18,12 +18,16 @@ from roambot.api.routes.favorites import router as favorites_router
 from roambot.api.routes.health import router as health_router
 from roambot.api.routes.history import router as history_router
 from roambot.api.routes.places import router as places_router
+from roambot.api.routes.plans import public_router as public_plans_router
+from roambot.api.routes.plans import router as plans_router
 from roambot.api.routes.recommendations import router as recommendations_router
 from roambot.api.routes.shares import router as shares_router
 from roambot.config import ProviderMode, Settings
 from roambot.persistence.cache import SessionCacheStore
 from roambot.persistence.database import create_engine_and_session_factory, initialize_schema
 from roambot.providers.factory import build_provider_runtime
+from roambot.security.plan_logging import protect_plan_access_logs
+from roambot.services.plans import PlanError
 
 
 def create_app(
@@ -32,6 +36,7 @@ def create_app(
     provider_credentials: Mapping[str, str] | None = None,
 ) -> FastAPI:
     configured_settings = settings or Settings()
+    protect_plan_access_logs()
     pending_credentials = dict(provider_credentials or {})
 
     @asynccontextmanager
@@ -73,6 +78,11 @@ def create_app(
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
     app.add_exception_handler(AuthApiError, auth_api_exception_handler)
     app.add_exception_handler(Exception, unexpected_exception_handler)
+
+    @app.exception_handler(PlanError)
+    async def plan_error_handler(_request, exc):
+        return error_response(status_code=exc.status, code=exc.code, message=exc.message)
+
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(recommendations_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
@@ -80,6 +90,8 @@ def create_app(
     app.include_router(history_router, prefix="/api/v1")
     app.include_router(places_router, prefix="/api/v1")
     app.include_router(shares_router, prefix="/api/v1")
+    app.include_router(plans_router, prefix="/api/v1")
+    app.include_router(public_plans_router, prefix="/api/v1")
     if frontend_dist is not None:
         assets_dir = frontend_dist / "assets"
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
@@ -99,6 +111,7 @@ def create_app(
                     message="Resource was not found.",
                 )
             return FileResponse(index_path)
+
     return app
 
 
