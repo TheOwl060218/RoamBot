@@ -106,9 +106,11 @@ class StaticPlaceProvider:
         city: str,
         scenery_types: tuple[SceneryType, ...],
         radius_km: float,
+        destination_regions: tuple[str, ...] = (),
     ) -> list[Destination]:
         self.search_calls.append((center, city, scenery_types, radius_km))
         return self.destinations
+
 
     def resolve(self, name: str, city: str) -> Destination:
         self.resolve_calls.append((name, city))
@@ -229,6 +231,25 @@ def request(**changes: object) -> RecommendationRequest:
     }
     values.update(changes)
     return RecommendationRequest.model_validate(values)
+
+
+def test_selected_regions_are_or_and_intersect_primary_route_distance():
+    tags = frozenset({SceneryType.LAKE})
+    js = destination('js', '江苏湖', tags).model_copy(update={
+        'province_adcode': '320000', 'city_adcode': '320500'})
+    hz = destination('hz', '杭州湖', tags).model_copy(update={
+        'province_adcode': '330000', 'city_adcode': '330100'})
+    other = destination('other', '其他湖', tags).model_copy(update={
+        'province_adcode': '330000', 'city_adcode': '330200'})
+    far = destination('far', '路程过远湖', tags).model_copy(update={
+        'province_adcode': '320000', 'city_adcode': '320500'})
+    unknown = destination('unknown', '地区未知湖', tags)
+    instance, *_ = service(destinations=[js, hz, other, far, unknown],
+                           distances={'js': [2], 'hz': [3], 'other': [4],
+                                      'far': [70], 'unknown': [1]})
+    response = instance.recommend(request(destination_regions=['320000', '330100']))
+    assert {item.destination.provider_id for item in response.items} == {'js', 'hz'}
+    assert 'region_metadata_missing' in response.source_state.notices
 
 
 def evaluation_request(**changes: object) -> PlaceEvaluationRequest:

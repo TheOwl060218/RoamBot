@@ -45,7 +45,7 @@ export function HistoryPage() {
     try {
       const response = await apiClient.post<{ history: HistoryDetail }>(`/history/${id}/rerun`)
       const restoredSearch = restoreHistorySearch(response.history, user?.username ?? null)
-      navigate('/', { state: { restoredSearch } })
+      navigate('/recommend', { state: { restoredSearch } })
     } catch {
       setStatus('重新查询失败。')
     } finally {

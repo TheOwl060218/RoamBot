@@ -33,6 +33,7 @@ export type TravelRequestBase = {
 }
 
 export type RecommendationRequest = TravelRequestBase & {
+  destination_regions?: string[]
   scenery_types: SceneryType[]
   scenery_match_mode: 'any' | 'cover_all'
 }

@@ -61,6 +61,32 @@ def history_ids(client) -> list[str]:
     return [item["id"] for item in response.json()["histories"]]
 
 
+def test_region_selection_survives_capture_and_explicit_rerun(auth_api_fixture):
+    client, _, _ = auth_api_fixture()
+    csrf = register(client, 'region_owner')
+    original = client.post('/api/v1/recommendations',
+        json={**recommendation_payload(), 'destination_regions': ['320500', '320000']},
+        headers={'X-CSRF-Token': csrf})
+    assert original.status_code == 200
+    record = client.get(f'{HISTORY_URL}/{history_ids(client)[0]}').json()['history']
+    assert record['request']['destination_regions'] == ['320000']
+    rerun = client.post(f"{HISTORY_URL}/{history_ids(client)[0]}/rerun",
+                        headers={'X-CSRF-Token': csrf})
+    assert rerun.status_code == 200
+    latest = client.get(f'{HISTORY_URL}/{history_ids(client)[0]}').json()['history']
+    assert latest['request']['destination_regions'] == ['320000']
+
+
+def test_invalid_region_creates_no_history(auth_api_fixture):
+    client, _, _ = auth_api_fixture()
+    csrf = register(client, 'region_invalid')
+    response = client.post('/api/v1/recommendations',
+        json={**recommendation_payload(), 'destination_regions': ['000000']},
+        headers={'X-CSRF-Token': csrf})
+    assert response.status_code == 422
+    assert history_ids(client) == []
+
+
 class CountingService:
     def __init__(self, delegate: RecommendationService, *, fail: bool = False) -> None:
         self.delegate = delegate
@@ -173,9 +199,15 @@ def test_old_history_detail_derives_new_display_fields_without_rewriting_storage
         history = db.get(HistoryTable, history_id)
         assert history is not None
         result = json.loads(history.result_json)
+        old_request = json.loads(history.request_json)
+        old_request.pop('destination_regions', None)
+        history.request_json = json.dumps(old_request, ensure_ascii=False)
+        stored_old_request = history.request_json
         result.pop("uncovered_scenery_types", None)
         for item in result["items"]:
             item["destination"].pop("rating", None)
+            for field in ('province_adcode', 'city_adcode', 'adcode'):
+                item['destination'].pop(field, None)
             item.pop("overall_advice", None)
             for day in item["daily_suitability"]:
                 day.pop("status", None)
@@ -187,6 +219,9 @@ def test_old_history_detail_derives_new_display_fields_without_rewriting_storage
 
     assert response.status_code == 200
     displayed = response.json()["history"]["result"]
+    # History returns the original request JSON; only explicit rerun normalizes defaults.
+    assert 'destination_regions' not in response.json()['history']['request']
+    assert 'province_adcode' not in displayed['items'][0]['destination']
     assert displayed["uncovered_scenery_types"] == []
     assert displayed["items"][0]["destination"]["rating"] is None
     assert displayed["items"][0]["daily_suitability"][0]["status"]
@@ -196,6 +231,11 @@ def test_old_history_detail_derives_new_display_fields_without_rewriting_storage
         history = db.get(HistoryTable, history_id)
         assert history is not None
         assert history.result_json == stored_old_json
+        assert history.request_json == stored_old_request
+    rerun = client.post(f'{HISTORY_URL}/{history_id}/rerun', headers={'X-CSRF-Token': csrf})
+    assert rerun.status_code == 200
+    latest = client.get(f'{HISTORY_URL}/{history_ids(client)[0]}').json()['history']
+    assert latest['request']['destination_regions'] == []
 
 
 def test_logged_in_missing_csrf_makes_zero_provider_calls(auth_api_fixture) -> None:

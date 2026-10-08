@@ -11,6 +11,11 @@ describe('AuthDialog', () => {
     vi.spyOn(apiClient, 'me').mockResolvedValue(null)
   })
 
+  it('supports opening directly in registration mode', () => {
+    render(<AuthProvider><AuthDialog open initialMode="register" onClose={vi.fn()} /></AuthProvider>)
+    expect(screen.getByRole('button', { name: '注册并登录' })).toBeInTheDocument()
+  })
+
   it('offers username and password login without verification fields', async () => {
     const user = userEvent.setup()
     render(

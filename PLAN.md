@@ -397,3 +397,9 @@
 | M4.8 单 Docker 镜像 | 完成 | `cd04abe`，Railway 适配 `ff1a99b`、`6e9b16f` |
 | M4.9 GitLab/GitHub CI | 完成 | `6f0d240`、`219437a` |
 | M4.10 最终文档与证据 | 完成 | `1ad45cb`、`cc47077`、`0383a28`；最终 CI run `31704124041` success |
+
+## 2026-10-08 增量实施（不改写原里程碑证据）
+
+目的地多省市范围正式实现完成、未提交。实施计划见docs/superpowers/plans/2026-10-08-destination-region.md，RED/GREEN见docs/competition/DESTINATION_REGION_PROGRESS.md。独立2023目录取代用途受限的高德下载表，后端地区校验/空间发现/硬过滤/缓存隔离，前端固定高度输入多选与历史/摘要贯通。数据库无迁移；用户服务及演示库未操作。
+
+验收仅Mock/HTTPfixture；真实高德矩形接口权限/实际结果、真实手机、wheel/新Docker镜像实际构建及远程部署留作后续。目录版本维护属于长期任务，不能把31大陆省级目录写成当前全国景点覆盖。未接入美团。

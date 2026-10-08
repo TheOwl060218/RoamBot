@@ -4,8 +4,57 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { apiClient } from '../src/api/client'
 import { TravelForm } from '../src/features/search/TravelForm'
+import { chinaDate, type TravelFormDraft } from '../src/features/search/formState'
+
+it('submits regions only in recommendation and preserves them through mode switching', () => {
+  const onSubmit = vi.fn()
+  const initialDraft: TravelFormDraft = { mode: 'recommendation', city: '苏州', mainOrigin: '苏州站',
+    companions: [], mainOriginCoordinate: null, companionOriginCoordinates: [], maxDistance: '200',
+    startDate: chinaDate(1), endDate: chinaDate(1), sceneryTypes: ['lake'], matchMode: 'any',
+    targetPlace: '金鸡湖', destinationRegions: ['330100'] }
+  render(<TravelForm initialDraft={initialDraft} onSubmit={onSubmit} />)
+  fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+  expect(onSubmit.mock.calls[0][0]).toMatchObject({ destination_regions: ['330100'] })
+  fireEvent.click(screen.getByRole('radio', { name: '评估指定地点' }))
+  expect(screen.queryByRole('combobox', { name: '目的地城市范围' })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '评估这个地点' }))
+  expect(onSubmit.mock.calls[1][0]).not.toHaveProperty('destination_regions')
+  fireEvent.click(screen.getByRole('radio', { name: '推荐地点' }))
+  fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+  expect(onSubmit.mock.calls[2][0]).toMatchObject({ destination_regions: ['330100'] })
+})
+
+it('unconfirmed_region_text_blocks_submit', () => {
+  const onSubmit = vi.fn()
+  render(<TravelForm onSubmit={onSubmit} />)
+  fireEvent.change(screen.getByRole('combobox', { name: '目的地城市范围' }), { target: { value: '杭' } })
+  fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('请从候选中选择省市，或清空未选择的输入')
+  expect(onSubmit).not.toHaveBeenCalled()
+})
 
 describe('TravelForm', () => {
+  it('clears an outdated distance error after the value is corrected', () => {
+    render(<TravelForm onSubmit={vi.fn()} />)
+    const distance = screen.getByLabelText('最大距离（km）')
+    fireEvent.change(distance, { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+    expect(distance.closest('label')?.querySelector('.field-error')).not.toBeNull()
+    fireEvent.change(distance, { target: { value: '50' } })
+    expect(distance.closest('label')?.querySelector('.field-error')).toBeNull()
+  })
+  it('places departure details between the departure city and destination limits', () => {
+    render(<TravelForm onSubmit={vi.fn()} />)
+    const city = screen.getByLabelText('出发城市')
+    const origins = screen.getByRole('group', { name: '从哪里出发' })
+    const distance = screen.getByLabelText('最大距离（km）')
+    const regions = screen.getByRole('combobox', { name: '目的地城市范围' })
+    const date = screen.getByLabelText('开始日期')
+    for (const [first, second] of [[city, origins], [origins, distance], [distance, regions], [regions, date]]) {
+      expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+  })
+
   it('announces all invalid fields prominently without starting a recommendation', () => {
     const onSubmit = vi.fn()
     render(<TravelForm onSubmit={onSubmit} />)
@@ -68,7 +117,7 @@ describe('TravelForm', () => {
     render(<TravelForm onSubmit={vi.fn()} />)
 
     expect(screen.getByRole('heading', { name: '想去哪里走走？' })).toBeInTheDocument()
-    expect(screen.getByLabelText('城市')).toHaveValue('苏州')
+    expect(screen.getByLabelText('出发城市')).toHaveValue('苏州')
     expect(screen.getByLabelText('最大距离（km）')).toHaveValue(50)
     expect(screen.getByText('风景类型')).toBeInTheDocument()
     expect(screen.queryByLabelText('目标地点')).not.toBeInTheDocument()
@@ -143,8 +192,8 @@ describe('TravelForm', () => {
 
     await user.type(screen.getByLabelText('主出发地'), '南京大学')
     await user.click(await screen.findByRole('option', { name: /南京大学苏州校区东区/ }, { timeout: 1500 }))
-    await user.clear(screen.getByLabelText('城市'))
-    await user.type(screen.getByLabelText('城市'), '上海')
+    await user.clear(screen.getByLabelText('出发城市'))
+    await user.type(screen.getByLabelText('出发城市'), '上海')
     await new Promise((resolve) => setTimeout(resolve, 550))
 
     expect(screen.queryByRole('option')).not.toBeInTheDocument()
@@ -202,8 +251,8 @@ describe('TravelForm', () => {
     const user = userEvent.setup()
     const first = render(<TravelForm onSubmit={vi.fn()} />)
 
-    await user.clear(screen.getByLabelText('城市'))
-    await user.type(screen.getByLabelText('城市'), '上海')
+    await user.clear(screen.getByLabelText('出发城市'))
+    await user.type(screen.getByLabelText('出发城市'), '上海')
     await user.type(screen.getByLabelText('主出发地'), '人民广场')
     await user.click(screen.getByRole('radio', { name: '评估指定地点' }))
     await user.type(screen.getByLabelText('目标地点'), '上海博物馆')
@@ -211,7 +260,7 @@ describe('TravelForm', () => {
 
     render(<TravelForm onSubmit={vi.fn()} />)
 
-    expect(screen.getByLabelText('城市')).toHaveValue('上海')
+    expect(screen.getByLabelText('出发城市')).toHaveValue('上海')
     expect(screen.getByLabelText('主出发地')).toHaveValue('人民广场')
     expect(screen.getByLabelText('目标地点')).toHaveValue('上海博物馆')
   })

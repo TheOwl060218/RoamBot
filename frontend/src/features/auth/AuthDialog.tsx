@@ -9,11 +9,12 @@ type AuthDialogProps = {
   onClose: () => void
   onAuthenticated?: () => void
   onStatus?: (message: string) => void
+  initialMode?: 'login' | 'register'
 }
 
-export function AuthDialog({ open, onClose, onAuthenticated, onStatus }: AuthDialogProps) {
+export function AuthDialog({ open, onClose, onAuthenticated, onStatus, initialMode = 'login' }: AuthDialogProps) {
   const { user, login, register, logout } = useAuth()
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

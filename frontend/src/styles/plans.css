@@ -1,4 +1,5 @@
 .plan-page { max-width: 1200px; margin: 0 auto; }
+.plan-form-feedback { width: 100%; margin: 0; padding: 10px 16px; border: 1px solid var(--border-strong); border-radius: 24px; color: var(--primary); background: color-mix(in srgb, var(--primary-soft) 38%, var(--surface)); font-size: .9rem; font-weight: 500; }
 .plan-page-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 8px 0 28px; }
 .plan-page-heading h1 { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); overflow-wrap: anywhere; }
 .plan-page-heading p { color: var(--muted); margin: 6px 0; }
@@ -139,12 +140,14 @@
 @media (max-width: 600px) {
   .mobile-plan-status { display: block; grid-column: 2; grid-row: 1; min-width: 0; }
   .mobile-plan-anchor { min-width: 0; }
-  .mobile-plan-anchor .plan-status-link { position: static; width: 100%; padding: 6px 8px; gap: 5px; min-height: 36px; height: 36px; transition: height 280ms ease; }
-  .mobile-plan-anchor .plan-status-link.expanded { height: 58px; flex-wrap: wrap; }
+  .mobile-plan-anchor .plan-status-link { position: static; width: 100%; padding: 6px 8px; gap: 5px; min-height: 36px; height: 36px; flex-wrap: nowrap; }
+  .mobile-plan-anchor .plan-status-link.expanded { width: 100%; max-width: 100%; }
   .mobile-plan-anchor .plan-status-link svg { width: 13px; }
   .mobile-plan-anchor .plan-status-title { font-size: .7rem; }
   .mobile-plan-anchor .plan-status-detail { display: none; }
-  .mobile-plan-anchor .plan-status-link.expanded .plan-status-detail { display: block; flex: 0 0 calc(100% - 18px); max-width: calc(100% - 18px); opacity: 1; margin-left: 18px; font-size: .65rem; line-height: 1.25; text-overflow: ellipsis; }
+  .mobile-plan-anchor .plan-status-link.expanded .plan-status-title { flex: 0 1 auto; max-width: 55%; }
+  .mobile-plan-anchor .plan-status-link.expanded .plan-status-detail { display: block; flex: 1 1 0; max-width: none; opacity: 1; font-size: .65rem; line-height: 1.25; text-overflow: ellipsis; }
+  .mobile-plan-anchor .plan-status-detail::before { content: '· '; }
   .primary-nav .plan-nav-anchor { flex: 1 1 0; height: auto; }
   .primary-nav .plan-nav-anchor .plan-status-link { position: static; display: block; width: auto; min-height: 38px; padding: 8px; text-align: center; border: 0; box-shadow: none; background: transparent; }
   .primary-nav .plan-nav-anchor .plan-status-title { font-size: 0; }

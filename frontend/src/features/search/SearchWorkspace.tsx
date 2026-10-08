@@ -63,7 +63,7 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
   const [status, setStatus] = useState('')
   const [favorites, setFavorites] = useState<Record<string, Favorite>>({})
   const [favoritePendingIds, setFavoritePendingIds] = useState<Set<string>>(new Set())
-  const [sidebarWidth, setSidebarWidth] = useState(490)
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null)
   const [scrollToSummaryVersion, setScrollToSummaryVersion] = useState(0)
   const [comparisonHighlighted, setComparisonHighlighted] = useState(false)
   const submitLock = useRef(false)
@@ -193,7 +193,7 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
     event.preventDefault()
     sidebarResizing.current = true
     const startX = event.clientX
-    const startWidth = sidebarWidth
+    const startWidth = sidebarRef.current?.getBoundingClientRect().width ?? MIN_SIDEBAR_WIDTH
     const onMove = (moveEvent: PointerEvent) => {
       if (!sidebarResizing.current) return
       const next = Math.min(Math.max(startWidth + (moveEvent.clientX - startX), MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH)
@@ -300,7 +300,7 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
     <div className={`search-workspace${result ? ' search-workspace-with-result' : ' search-workspace-empty'}`}>
       <div
         className="workspace-layout"
-        style={{ ['--sidebar-width' as string]: `${sidebarWidth}px` }}
+        style={sidebarWidth === null ? undefined : { ['--sidebar-width' as string]: `${sidebarWidth}px` }}
       >
         <aside
           ref={sidebarRef}
@@ -337,7 +337,7 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
           {result && (
             <div className="sidebar-result-stack">
               <div ref={summaryRef} className="sidebar-summary-anchor">
-                <QuerySummary draft={restoredSearch && result === restoredSearch.result ? restoredSearch.draft : loadTravelDraft()} onEdit={editConditions} />
+                <QuerySummary request={result.query_request} draft={restoredSearch && result === restoredSearch.result ? restoredSearch.draft : loadTravelDraft()} onEdit={editConditions} />
               </div>
               {items.length > 0 && (
                 <div className="sidebar-candidate-list">

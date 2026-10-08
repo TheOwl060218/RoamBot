@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { tomorrowInChina } from './helpers'
 
 test('candidate comparison can be used and stays horizontal-safe', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/recommend')
 
   const date = tomorrowInChina()
   await page.getByLabel('主出发地', { exact: true }).fill('苏州站')

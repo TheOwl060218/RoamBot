@@ -7,6 +7,7 @@ import type { TravelPlan } from '../../api/types'
 import { useAuth } from '../auth/authContext'
 import { PLAN_CHANGED_EVENT, compactDates, planProgress } from './planPresentation'
 import { usePlanClock } from './usePlanClock'
+import { requestAccountDialog } from '../../app/accountDialog'
 
 export function PlanNavigation({ mobile = false }: { mobile?: boolean }) {
   const { user } = useAuth()
@@ -42,7 +43,12 @@ export function PlanNavigation({ mobile = false }: { mobile?: boolean }) {
     return () => { window.clearTimeout(begin); window.clearTimeout(end) }
   }, [activeId])
 
-  if (!active) return mobile ? null : <NavLink className={({ isActive }) => `nav-link plan-nav-plain${isActive ? ' active' : ''}`} to='/plans'>计划中心</NavLink>
+  if (!active) return mobile ? null : <NavLink className={({ isActive }) => `nav-link plan-nav-plain${isActive ? ' active' : ''}`} to='/plans' onClick={event => {
+    if (!user && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) {
+      event.preventDefault()
+      requestAccountDialog('/plans')
+    }
+  }}>计划中心</NavLink>
   const label = `${active.city} ${compactDates(active.start_date, active.end_date)}`
   const state = active.status === 'decided' ? `已决定 ${active.candidates.find(c => c.id === active.final_candidate_id)?.snapshot.destination.name ?? ''}` : `${active.status === 'closed' ? '待决定' : '投票中'} ${planProgress(active)}`
   return <div className={mobile ? 'mobile-plan-anchor' : 'plan-nav-anchor'}>

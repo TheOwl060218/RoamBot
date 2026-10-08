@@ -28,6 +28,7 @@ from roambot.domain.models import (
     TravelAdviceStatus,
 )
 from roambot.domain.ranking import final_score
+from roambot.domain.regions import matches_destination_regions, missing_region_membership
 from roambot.domain.scoring import (
     aggregate_weather,
     score_daily_weather,
@@ -123,6 +124,8 @@ class RecommendationService:
             city=request.city,
             scenery_types=tuple(request.scenery_types),
             radius_km=request.max_distance_km,
+            **({'destination_regions': tuple(request.destination_regions)}
+               if request.destination_regions else {}),
         )
 
         matching_destinations = [
@@ -131,6 +134,7 @@ class RecommendationService:
             if destination.scenery_tags & frozenset(request.scenery_types)
             and self._haversine_km(origins[0].coordinate, destination.coordinate)
             <= request.max_distance_km
+            and matches_destination_regions(destination, tuple(request.destination_regions))
         ]
         target_count = self._target_count(request)
         eligible_destinations = self._preselect_candidates(
@@ -141,6 +145,12 @@ class RecommendationService:
         )
 
         notices: list[str] = []
+        if getattr(destinations, 'region_metadata_missing', False) or any(
+            missing_region_membership(item, tuple(request.destination_regions))
+            for item in destinations
+        ):
+            notices.append('region_metadata_missing')
+            self._mark(ProviderEvent.REGION_METADATA_MISSING)
         otherwise_eligible_count = 0
         items: list[RecommendationItem] = []
         for destination in eligible_destinations:

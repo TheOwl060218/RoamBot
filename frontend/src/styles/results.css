@@ -145,7 +145,7 @@
   .weather-list-multi .weather-facts { padding-top: 5px; border-top: 1px solid var(--border); }
 }
 
-.workspace-layout { display: grid; grid-template-columns: var(--sidebar-width, 340px) 10px minmax(0, 1fr); gap: 0; min-width: 0; align-items: start; }
+.workspace-layout { display: grid; grid-template-columns: var(--sidebar-width, minmax(320px, 36%)) 10px minmax(0, 1fr); gap: 0; min-width: 0; align-items: start; }
 .workspace-sidebar { --workspace-sidebar-viewport: calc(100vh - 104px); display: grid; gap: 16px; min-width: 0; align-content: start; position: sticky; top: 84px; max-height: var(--workspace-sidebar-viewport); overflow-y: auto; padding-right: 8px; }
 .sidebar-summary-anchor { scroll-margin-top: var(--shell-content-gutter, 24px); }
 .sidebar-result-stack { display: grid; align-content: start; gap: 16px; min-height: var(--workspace-sidebar-viewport); }

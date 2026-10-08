@@ -49,7 +49,7 @@ export function PlansPage() {
     return () => { active = false }
   }, [])
   return <section className='plan-page'>
-    <header className='plan-page-heading'><div><p className='eyebrow'>从候选到共同决定</p><h1>计划中心</h1><p>你发起的计划会一直保存在这个账户中。</p></div><Link className='icon-text-button' to='/'>开始一次推荐</Link></header>
+    <header className='plan-page-heading'><div><p className='eyebrow'>从候选到共同决定</p><h1>计划中心</h1><p>你发起的计划会一直保存在这个账户中。</p></div><Link className='icon-text-button' to='/recommend'>开始一次推荐</Link></header>
     {error && <p role='alert' className='error-banner'>{error}</p>}
     {!plans && !error && <p className='loading-state'>正在加载计划…</p>}
     {plans && <>

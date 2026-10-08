@@ -25,7 +25,7 @@ export function CreatePlanControl(props: Props) {
   const [open, setOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [name, setName] = useState(() => defaultPlanName(props.city, props.startDate, props.endDate))
-  const [count, setCount] = useState(props.originCount)
+  const [count, setCount] = useState(String(Math.max(1, props.originCount)))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const lock = useRef(false)
@@ -63,11 +63,16 @@ export function CreatePlanControl(props: Props) {
     }} />, document.body)}
     <dialog ref={dialog} className='plan-create-dialog' aria-labelledby={titleId}
       onCancel={() => setOpen(false)} onClose={() => setOpen(false)}>
-      {open && <form onSubmit={(event) => {
+      {open && <form noValidate onSubmit={(event) => {
         event.preventDefault()
+        if (!props.trusted || !props.historyId) return
+        if (!name.trim()) { setError('请填写计划名称。'); return }
+        if (!count.trim() || !Number.isInteger(Number(count)) || Number(count) < 1 || Number(count) > 100) {
+          setError('预计同行人数需为 1–100 的整数。'); return
+        }
         void run(async () => {
           const response = await apiClient.post<{ plan: TravelPlan }>('/plans', {
-            history_id: props.historyId, candidate_ids: props.selectedIds, name, expected_count: count,
+            history_id: props.historyId, candidate_ids: props.selectedIds, name: name.trim(), expected_count: Number(count),
           })
           announcePlanChange()
           navigate(`/plans/${response.plan.id}`)
@@ -84,11 +89,11 @@ export function CreatePlanControl(props: Props) {
         </> : <>
           <p>{props.city} {props.startDate} 至 {props.endDate} · 已选 {props.selectedIds.length} 个候选</p>
           <label className='field'><span>计划名称</span><input value={name} maxLength={100} required onChange={e => setName(e.target.value)} /></label>
-          <label className='field'><span>预计同行人数</span><input type='number' min={1} max={100} required value={count} onChange={e => setCount(Number(e.target.value))} /></label>
+          <label className='field'><span>预计同行人数</span><input type='number' inputMode='numeric' min={1} max={100} required value={count} onChange={e => { setCount(e.target.value.replace(/^0+(?=\d)/, '')); setError('') }} /></label>
           <p className='muted'>人数用于提示进度，不限制同行者加入。邀请页不会公开出发地和坐标。</p>
           <button className='primary-button' type='submit' disabled={busy || props.selectedIds.length < 2}>{busy ? '正在保存…' : '确认创建'}</button>
         </>}
-        {error && <p role='alert' className='field-error'>{error}</p>}
+        {error && <p role='alert' className='plan-form-feedback'>{error}</p>}
         <button className='text-button' type='button' disabled={busy} onClick={close}>取消</button>
       </form>}
     </dialog>

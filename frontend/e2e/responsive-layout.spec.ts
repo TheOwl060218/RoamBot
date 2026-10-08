@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { submitRecommendation } from './helpers'
 
 test('form and results keep their intended responsive relationship', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/recommend')
 
   const initialForm = await page.locator('.travel-form').boundingBox()
   const initialViewport = page.viewportSize()

@@ -33,6 +33,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/roambot"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/roambot/domain/data/regions.json" = "roambot/domain/data/regions.json"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers --strict-config"

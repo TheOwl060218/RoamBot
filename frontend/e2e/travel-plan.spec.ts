@@ -3,7 +3,7 @@ import path from 'node:path'
 import { tomorrowInChina } from './helpers'
 
 test('guest recommendation becomes an owned plan after explicit rerun, anonymous vote and decision', async ({ page, browser }, testInfo) => {
-  await page.goto('/')
+  await page.goto('/recommend')
   const day = tomorrowInChina()
   await page.getByLabel('主出发地', { exact: true }).fill('苏州站')
   await page.getByLabel('最大距离（km）', { exact: true }).fill('80')
@@ -31,7 +31,15 @@ test('guest recommendation becomes an owned plan after explicit rerun, anonymous
   await page.getByRole('button', { name: '查看对比结果（2）' }).click()
   await page.getByRole('button', { name: '创建同行计划', exact: true }).click()
   await page.getByRole('dialog').getByLabel('计划名称').fill('同行验收计划')
-  await page.getByRole('dialog').getByLabel('预计同行人数').fill('2')
+  const people = page.getByRole('dialog').getByLabel('预计同行人数')
+  await people.fill('')
+  await expect(people).toHaveValue('')
+  await people.fill('0')
+  await page.getByRole('button', { name: '确认创建' }).click()
+  const feedback = page.getByRole('dialog').getByRole('alert')
+  await expect(feedback).toHaveText('预计同行人数需为 1–100 的整数。')
+  expect(await feedback.evaluate(el => getComputedStyle(el).borderRadius)).toBe('24px')
+  await people.fill('2')
   await page.getByRole('button', { name: '确认创建' }).click()
   await expect(page.getByRole('heading', { name: '同行验收计划' })).toBeVisible()
   await expect(page.locator('.primary-nav .plan-status-link')).toBeVisible()
@@ -109,7 +117,7 @@ test('guest recommendation becomes an owned plan after explicit rerun, anonymous
     await page.goto('/history')
     await page.getByRole('button', { name: '更多历史操作' }).first().click()
     await page.getByRole('button', { name: '重新查询', exact: true }).click()
-    await expect(page).toHaveURL(/\/$/)
+    await expect(page).toHaveURL(/\/recommend$/)
     await expect(page.getByRole('region', { name: '当前查询条件' })).toContainText('苏州站')
     await expect(page.getByRole('group', { name: '选择候选进行对比' })).toBeVisible()
   } finally { await guestContext.close() }

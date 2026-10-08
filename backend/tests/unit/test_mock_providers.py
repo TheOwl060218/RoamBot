@@ -70,6 +70,21 @@ def make_item(destination: Destination) -> RecommendationItem:
     )
 
 
+def test_unrestricted_search_keeps_nearby_cross_city_poi(monkeypatch):
+    from roambot.providers import mock
+
+    cross_city = mock.DESTINATIONS[0].model_copy(update={
+        'provider_id': 'mock:cross-city', 'city': '杭州',
+        'province_adcode': '330000', 'city_adcode': '330100'})
+    monkeypatch.setattr(mock, 'DESTINATIONS', (cross_city,))
+    provider = mock.MockPlaceProvider()
+    assert provider.search(cross_city.coordinate, '苏州', (SceneryType.LAKE,), 50) == [cross_city]
+    assert provider.search(cross_city.coordinate, '苏州', (SceneryType.LAKE,), 50,
+                           ('320000',)) == []
+    assert provider.search(cross_city.coordinate, '苏州', (SceneryType.LAKE,), 50,
+                           ('320000', '330100')) == [cross_city]
+
+
 def test_mock_bundle_returns_suzhou_vertical_slice() -> None:
     providers = MockProviderBundle.default()
 
@@ -94,6 +109,17 @@ def test_mock_bundle_returns_suzhou_vertical_slice() -> None:
     assert found_places[0].name == "金鸡湖景区"
     assert found_places[0].rating == 4.8
     assert len(weather) == 3
+
+
+def test_demo_cross_province_regions_still_obey_radius():
+    provider = MockProviderBundle.default().places
+    center = Coordinate(longitude=120.617, latitude=31.335)
+    all_places = provider.search(center, '苏州', (SceneryType.LAKE,), 200)
+    assert {'320000', '330000', '340000'} <= {place.province_adcode for place in all_places}
+    selected = provider.search(center, '苏州', (SceneryType.LAKE,), 200, ('320000', '330100'))
+    assert {place.city_adcode for place in selected} == {'320500', '330100'}
+    nearby = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('330100',))
+    assert nearby == []
 
 
 def test_mock_providers_return_deterministic_ordered_data() -> None:

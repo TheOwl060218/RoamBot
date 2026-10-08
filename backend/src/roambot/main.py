@@ -21,6 +21,7 @@ from roambot.api.routes.places import router as places_router
 from roambot.api.routes.plans import public_router as public_plans_router
 from roambot.api.routes.plans import router as plans_router
 from roambot.api.routes.recommendations import router as recommendations_router
+from roambot.api.routes.regions import router as regions_router
 from roambot.api.routes.shares import router as shares_router
 from roambot.config import ProviderMode, Settings
 from roambot.persistence.cache import SessionCacheStore
@@ -84,6 +85,7 @@ def create_app(
         return error_response(status_code=exc.status, code=exc.code, message=exc.message)
 
     app.include_router(health_router, prefix="/api/v1")
+    app.include_router(regions_router, prefix="/api/v1")
     app.include_router(recommendations_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(favorites_router, prefix="/api/v1")

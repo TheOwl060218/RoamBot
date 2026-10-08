@@ -29,7 +29,7 @@ describe('personal and shared pages', () => {
       result: { items: [], source_state: { kind: 'demo', notices: [] }, generated_at: '2026-10-06', uncovered_scenery_types: [] }, snapshot: true } })
     render(<AuthContext.Provider value={{ user: { username: 'owner' }, initializing: false, login: vi.fn(), register: vi.fn(), logout: vi.fn() }}>
       <MemoryRouter initialEntries={['/history']}><Routes>
-        <Route path='/history' element={<HistoryPage />} /><Route path='/' element={<SearchPage />} />
+        <Route path='/history' element={<HistoryPage />} /><Route path='/recommend' element={<SearchPage />} />
         <Route path='/history/:id' element={<p>不应进入历史详情</p>} />
       </Routes></MemoryRouter></AuthContext.Provider>)
     await userEvent.click(await screen.findByRole('button', { name: '更多历史操作' }))
@@ -99,7 +99,7 @@ describe('personal and shared pages', () => {
       <MemoryRouter initialEntries={['/favorites']}>
         <Routes>
           <Route path="/favorites" element={<FavoritesPage />} />
-          <Route path="/" element={<ReevaluateTarget />} />
+          <Route path="/recommend" element={<ReevaluateTarget />} />
         </Routes>
       </MemoryRouter>,
     )

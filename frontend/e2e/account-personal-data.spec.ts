@@ -8,7 +8,7 @@ test('account keeps favorites and history through the main workflow', async ({ p
   await registerUser(page, testInfo.project.name.replaceAll('-', '_'))
   await expect(page.getByRole('heading', { name: '收藏', exact: true })).toBeVisible()
 
-  await page.goto('/')
+  await page.goto('/recommend')
   await submitRecommendation(page)
   await page.getByRole('button', { name: '收藏地点', exact: true }).click()
 
@@ -30,7 +30,7 @@ test('account keeps favorites and history through the main workflow', async ({ p
 
   await page.getByRole('button', { name: '更多历史操作', exact: true }).click()
   await page.getByRole('button', { name: '重新查询', exact: true }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/recommend$/)
   await expect(page.getByRole('region', { name: '当前查询条件' })).toBeVisible()
   // Rerun returns to the workspace; viewing the original snapshot remains separate.
   await page.goto(`/history/${share.history_id}`)

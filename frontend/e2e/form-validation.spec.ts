@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { registerUser } from './helpers'
 
 test('invalid recommendation announces errors above the form on desktop and mobile', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/recommend')
   let recommendationRequests = 0
   page.on('request', request => {
     if (request.method() === 'POST' && request.url().endsWith('/recommendations')) recommendationRequests++

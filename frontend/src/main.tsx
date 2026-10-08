@@ -9,6 +9,7 @@ import './styles/results.css'
 import './styles/auth.css'
 import './styles/personal.css'
 import './styles/plans.css'
+import './styles/home.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

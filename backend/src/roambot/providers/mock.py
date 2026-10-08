@@ -15,7 +15,8 @@ from roambot.domain.models import (
     RecommendationItem,
     SceneryType,
 )
-from roambot.providers.protocols import ProviderError
+from roambot.domain.regions import matches_destination_regions, missing_region_membership
+from roambot.providers.protocols import PlaceSearchResults, ProviderError
 
 
 def _normalize_text(value: str) -> str:
@@ -102,6 +103,25 @@ DESTINATIONS: tuple[Destination, ...] = (
         rating=4.6,
     ),
 )
+
+# Existing fixtures are explicitly Suzhou demonstrations, not live administrative lookups.
+DESTINATIONS = tuple(item.model_copy(update={
+    'province_adcode': '320000', 'city_adcode': '320500', 'adcode': '320500'
+}) for item in DESTINATIONS)
+
+# Fictional demonstration fixtures, deliberately outside the original 80 km slice.
+DESTINATIONS += tuple(Destination(
+    provider_id=f'mock:region-demo-{city_code}', name=f'{city}湖景（演示）',
+    address=f'{city}演示地点，不是真实景点', city=city,
+    coordinate=Coordinate(longitude=longitude, latitude=latitude),
+    type_name='湖景演示', type_code='lake', scenery_tags=frozenset({SceneryType.LAKE}),
+    popularity_rank=index + 5, rating=None, province_adcode=province_code,
+    city_adcode=city_code, adcode=city_code,
+) for index, (city, province_code, city_code, longitude, latitude) in enumerate((
+    ('杭州', '330000', '330100', 120.155, 30.274),
+    ('广德', '340000', '341800', 119.42, 30.90),
+    ('上海', '310000', '310000', 121.474, 31.230),
+)))
 
 WEATHER_BY_DATE: dict[date, DailyWeather] = {
     date(2026, 7, 20): DailyWeather(
@@ -205,23 +225,26 @@ class MockPlaceProvider:
         city: str,
         scenery_types: tuple[SceneryType, ...],
         radius_km: float,
+        destination_regions: tuple[str, ...] = (),
     ) -> list[Destination]:
-        normalized_city = _normalize_text(city)
+        del city
         if not scenery_types:
             return []
 
         results: list[Destination] = []
+        missing_metadata = False
         for scenery_type in scenery_types:
             for destination in DESTINATIONS:
-                if destination.city != normalized_city:
-                    continue
                 if scenery_type not in destination.scenery_tags:
                     continue
                 if _haversine_km(center, destination.coordinate) > radius_km:
                     continue
+                if not matches_destination_regions(destination, destination_regions):
+                    missing_metadata |= missing_region_membership(destination, destination_regions)
+                    continue
                 if destination not in results:
                     results.append(destination)
-        return results
+        return PlaceSearchResults(results, region_metadata_missing=missing_metadata)
 
     def resolve(self, name: str, city: str) -> Destination:
         normalized_name = _normalize_text(name)

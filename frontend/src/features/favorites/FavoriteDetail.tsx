@@ -31,7 +31,7 @@ export function FavoriteDetail({ favorite, onDelete }: FavoriteDetailProps) {
       <p className="privacy-note">地点资料保存自高德开放平台；重新评估后才会生成最新天气与出游建议。</p>
 
       <div className="favorite-detail-actions">
-        <Link className="icon-text-button link-button primary-action" to="/" state={{ evaluationTarget: place.name }}>
+        <Link className="icon-text-button link-button primary-action" to="/recommend" state={{ evaluationTarget: place.name }}>
           <RefreshCcw aria-hidden="true" size={16} />重新评估
         </Link>
         <button className="icon-text-button danger-action" type="button" aria-label={`删除 ${place.name}`} onClick={() => onDelete(favorite.id)}>

@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { registerUser, submitRecommendation } from './helpers'
 
 test('anonymous share omits account and origin details', async ({ browser, page }, testInfo) => {
-  await page.goto('/')
+  await page.goto('/recommend')
   const username = await registerUser(page, `share_${testInfo.project.name.replaceAll('-', '_')}`)
   await submitRecommendation(page)
   await page.goto('/history')

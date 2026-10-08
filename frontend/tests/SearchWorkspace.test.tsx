@@ -126,7 +126,7 @@ describe('SearchWorkspace', () => {
     expect(screen.queryByRole('heading', { name: '三步找到适合这次出行的地方' })).not.toBeInTheDocument()
   })
 
-  it('clicking the RoamBot brand resets to the initial recommendation state', async () => {
+  it('clicking the RoamBot brand preserves the recommendation state', async () => {
     const user = userEvent.setup()
     vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
     saveSearchResult(response)
@@ -143,9 +143,8 @@ describe('SearchWorkspace', () => {
 
     await user.click(screen.getByRole('link', { name: 'RoamBot' }))
 
-    await waitFor(() => expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty'))
-    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('主出发地')).toBeInTheDocument()
+    expect(container.querySelector('.search-workspace')).not.toHaveClass('search-workspace-empty')
+    expect(screen.getByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
   })
 
   it('clicking the 推荐 link resets to the initial recommendation state', async () => {
@@ -168,16 +167,16 @@ describe('SearchWorkspace', () => {
     expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
   })
 
-  it('navigating from /favorites via the brand lands on a clean empty workspace', async () => {
+  it('navigating from /favorites via the brand lands on home without clearing saved results', async () => {
     const user = userEvent.setup()
     vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
     saveSearchResult(response)
-    const { container } = render(
+    render(
       <AuthProvider>
         <MemoryRouter initialEntries={['/favorites']}>
           <AppShell>
             <Routes>
-              <Route path="/" element={<SearchWorkspace />} />
+              <Route path="/" element={<p>Photo home</p>} />
               <Route path="/favorites" element={<p>Favorites placeholder</p>} />
             </Routes>
           </AppShell>
@@ -190,9 +189,8 @@ describe('SearchWorkspace', () => {
 
     await user.click(screen.getByRole('link', { name: 'RoamBot' }))
 
-    await waitFor(() => expect(screen.getByLabelText('主出发地')).toBeInTheDocument())
-    expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty')
-    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
+    expect(screen.getByText('Photo home')).toBeInTheDocument()
+    expect(sessionStorage.getItem('roambot.session.search-result.v1')).not.toBeNull()
   })
 
   it('navigating from /favorites via the 推荐 link lands on a clean empty workspace', async () => {
@@ -204,7 +202,7 @@ describe('SearchWorkspace', () => {
         <MemoryRouter initialEntries={['/favorites']}>
           <AppShell>
             <Routes>
-              <Route path="/" element={<SearchWorkspace />} />
+              <Route path="/recommend" element={<SearchWorkspace />} />
               <Route path="/favorites" element={<p>Favorites placeholder</p>} />
             </Routes>
           </AppShell>
@@ -283,7 +281,8 @@ describe('SearchWorkspace', () => {
     expect(await screen.findByRole('button', { name: '重新查询' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
     expect(container.querySelector('.workspace-message-slot')).not.toHaveClass('workspace-message-slot-collapsed')
-    expect(container.querySelectorAll('.query-summary .query-facts svg')).toHaveLength(4)
+    expect(container.querySelectorAll('.query-summary .query-facts svg')).toHaveLength(5)
+    expect(screen.getByText('最大距离内不限省市')).toBeInTheDocument()
     expect(container.querySelectorAll('.place-detail')).toHaveLength(1)
   })
 

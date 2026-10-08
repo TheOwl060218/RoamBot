@@ -22,7 +22,7 @@ test('restores the rerun request rather than stale drafts and excludes fairness 
     companions: ['西湖'], mainOriginCoordinate: request.main_origin_coordinate,
     companionOriginCoordinates: [null], maxDistance: '35', startDate: request.start_date,
     endDate: request.end_date, sceneryTypes: ['museum'], matchMode: 'cover_all', targetPlace: '',
-    weights: { weather: 40, distance: 30, popularity: 30 } })
+    weights: { weather: 40, distance: 30, popularity: 30 }, destinationRegions: [] })
   expect(restored.result).toMatchObject({ history_id: 'new-history', history_owner: 'owner', query_request: request })
   expect(loadTravelDraft()).toEqual(restored.draft)
   expect(loadSearchResult()).toEqual(restored.result)
@@ -33,6 +33,12 @@ test('keeps evaluation targets and uses default weights for a zero sum', () => {
     request: { ...request, target_place: '西湖', weights: { weather: 0, distance: 0, popularity: 0, fairness: 100 } },
     result: { source_state: { kind: 'demo', notices: [] }, generated_at: '2026-10-06', item: null as never } }, 'owner')
   expect(restored.draft).toMatchObject({ mode: 'place_evaluation', targetPlace: '西湖', weights: { weather: 40, distance: 30, popularity: 30 } })
+})
+
+test('restores the submitted multi-region scope', () => {
+  const restored = restoreHistorySearch({ ...history, request: { ...request, destination_regions: ['320000', '330100'] } }, 'owner')
+  expect(restored.draft.destinationRegions).toEqual(['320000', '330100'])
+  expect(loadTravelDraft()?.destinationRegions).toEqual(['320000', '330100'])
 })
 
 test('returns in-memory data even when session storage is disabled', () => {

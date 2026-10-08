@@ -18,6 +18,12 @@
   backdrop-filter: blur(12px);
 }
 
+.brand-navigation { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.shell-home-link { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; color: var(--primary); background: var(--surface); font-size: .94rem; font-weight: 600; line-height: 20px; white-space: nowrap; text-decoration: none; transition: transform 140ms ease, background-color 140ms ease; }
+@media (hover: hover) and (pointer: fine) {
+  .shell-home-link:hover { transform: scale(1.01); background: var(--primary-soft); text-decoration: none; }
+}
+@media (prefers-reduced-motion: reduce) { .shell-home-link { transition: none; } }
 .brand {
   display: inline-flex;
   align-items: center;
@@ -131,6 +137,8 @@
 }
 
 @media (max-width: 600px) {
+  .brand-navigation { gap: 8px; }
+  .shell-home-link { padding-inline: 10px; }
   .shell-header {
     grid-template-columns: auto 1fr 40px;
     gap: 8px 12px;

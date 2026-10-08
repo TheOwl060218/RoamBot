@@ -22,6 +22,34 @@ from roambot.providers.trace import ProviderEvent, ProviderTrace
 NOW = datetime(2026, 7, 18, 8, 0, tzinfo=UTC)
 
 
+def test_region_search_cache_isolated_and_order_independent():
+    inner = CountingBundle()
+    provider = CachedPlaceProvider(inner, MemoryCache(), 'amap', lambda: NOW, ProviderTrace())
+    center = Coordinate(longitude=120.617, latitude=31.335)
+    first = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('320000', '330000'))
+    second = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('330000', '320000'))
+    assert first == second and len(first) == 1
+    assert inner.calls['search'] == 1
+    assert provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('320500',))
+    assert inner.calls['search'] == 2
+
+
+def test_missing_metadata_notice_is_not_lost_by_caching():
+    from roambot.providers.protocols import PlaceSearchResults
+
+    class MissingMetadataPlaces:
+        calls = 0
+        def search(self, *args):
+            self.calls += 1
+            return PlaceSearchResults([], region_metadata_missing=True)
+    inner = MissingMetadataPlaces()
+    provider = CachedPlaceProvider(inner, MemoryCache(), 'amap', lambda: NOW, ProviderTrace())
+    args = (Coordinate(longitude=120, latitude=31), '苏州', (SceneryType.LAKE,), 50, ('320500',))
+    assert provider.search(*args).region_metadata_missing
+    assert provider.search(*args).region_metadata_missing
+    assert inner.calls == 2
+
+
 class MemoryCache:
     def __init__(self) -> None:
         self.entries: dict[str, CacheEntry] = {}
@@ -66,9 +94,11 @@ class CountingBundle:
         self.calls["geocode"] += 1
         return self.bundle.geocoder.geocode(address, city)
 
-    def search(self, center, city, scenery_types, radius_km):
+    def search(self, center, city, scenery_types, radius_km, destination_regions=()):
         self.calls["search"] += 1
-        return self.bundle.places.search(center, city, scenery_types, radius_km)
+        return self.bundle.places.search(
+            center, city, scenery_types, radius_km, destination_regions)
+
 
     def resolve(self, name: str, city: str):
         self.calls["resolve"] += 1
@@ -150,7 +180,7 @@ def test_place_search_and_resolve_use_typed_seven_day_cache_entries() -> None:
     assert all(entry.expires_at == NOW + CACHE_TTLS["poi_search"] for entry in entries)
 
 
-def test_empty_place_search_cache_is_refreshed_instead_of_reused() -> None:
+def test_old_empty_place_search_cache_is_not_reused_by_new_algorithm() -> None:
     inner = CountingBundle()
     cache = MemoryCache()
     trace = ProviderTrace()
@@ -180,8 +210,9 @@ def test_empty_place_search_cache_is_refreshed_instead_of_reused() -> None:
 
     assert results
     assert inner.calls["search"] == 1
-    assert cache.deleted == [key]
-    assert json.loads(cache.entries[key].payload_json)["value"]
+    assert cache.deleted == []  # Old algorithm keys are ignored, not cleanup targets.
+    assert json.loads(cache.entries[key].payload_json)['value'] == []
+    assert len(cache.entries) == 2  # New version stores its own non-empty result.
 
 
 def test_distance_and_weather_caches_preserve_order_and_exact_ttls() -> None:

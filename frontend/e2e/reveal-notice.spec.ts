@@ -31,7 +31,7 @@ test('second candidate announces offscreen comparison without repeating for a th
   await page.addInitScript(data => sessionStorage.setItem('roambot.session.search-result.v1', JSON.stringify(data)), response)
   await page.route('**/api/v1/**', route => route.fulfill({ json: { user: null } }))
   await page.setViewportSize({ width: page.viewportSize()!.width, height: 650 })
-  await page.goto('/')
+  await page.goto('/recommend')
   const choices = page.getByRole('group', { name: '选择候选进行对比' }).getByRole('checkbox')
   const bubble = page.getByRole('status').filter({ hasText: '对比已准备好' })
   await choices.nth(0).check()

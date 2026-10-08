@@ -23,6 +23,7 @@ import { PlaceInput } from './PlaceInput'
 import { ScenerySelector } from './ScenerySelector'
 import { WeightSegments } from './WeightSegments'
 import { ValidationBubble } from './ValidationBubble'
+import { RegionInput } from './RegionInput'
 
 type TravelFormProps = {
   initialMode?: SearchMode
@@ -35,9 +36,10 @@ type TravelFormProps = {
 
 function serverFieldMessage(path: string, message: string) {
   const labels: Record<string, string> = {
-    main_origin: '主出发地', city: '城市', max_distance_km: '最大距离',
+    main_origin: '主出发地', city: '出发城市', max_distance_km: '最大距离',
     start_date: '开始日期', end_date: '结束日期', scenery_types: '风景类型',
     target_place: '目标地点', weights: '偏好权重',
+    destination_regions: '目的地城市范围',
   }
   const companion = path.match(/^companion_origins\[(\d+)\]/)
   const label = companion ? `同行人 ${Number(companion[1]) + 1} 出发地` : labels[path] ?? '填写内容'
@@ -68,6 +70,8 @@ export function TravelForm({
     restored?.companionOriginCoordinates ?? restored?.companions.map(() => null) ?? [],
   )
   const [maxDistance, setMaxDistance] = useState(restored?.maxDistance ?? '50')
+  const [destinationRegions, setDestinationRegions] = useState(restored?.destinationRegions ?? [])
+  const [regionQuery, setRegionQuery] = useState('')
   const [startDate, setStartDate] = useState(restored?.startDate ?? chinaDate(1))
   const [endDate, setEndDate] = useState(restored?.endDate ?? chinaDate(1))
   const [sceneryTypes, setSceneryTypes] = useState<SceneryType[]>(restored?.sceneryTypes ?? [])
@@ -94,6 +98,7 @@ export function TravelForm({
       mainOriginCoordinate,
       companionOriginCoordinates,
       maxDistance,
+      destinationRegions,
       startDate,
       endDate,
       sceneryTypes,
@@ -101,7 +106,7 @@ export function TravelForm({
       targetPlace,
       weights,
     })
-  }, [city, companionOriginCoordinates, companions, endDate, mainOrigin, mainOriginCoordinate, matchMode, maxDistance, mode, sceneryTypes, startDate, targetPlace, weights])
+  }, [city, companionOriginCoordinates, companions, endDate, mainOrigin, mainOriginCoordinate, matchMode, maxDistance, mode, sceneryTypes, startDate, targetPlace, weights, destinationRegions])
 
   function changeCompanions(next: string[]) {
     setCompanions(next)
@@ -174,6 +179,9 @@ export function TravelForm({
     if (mode === 'recommendation' && sceneryTypes.length === 0) {
       next.scenery_types = '请至少选择一种风景类型'
     }
+    if (mode === 'recommendation' && regionQuery.trim()) {
+      next.destination_regions = '请从候选中选择省市，或清空未选择的输入'
+    }
     if (mode === 'place_evaluation' && !targetPlace.trim()) {
       next.target_place = '请输入目标地点'
     }
@@ -197,7 +205,7 @@ export function TravelForm({
       weights: toRankingWeights(weights, originCount),
     }
     if (mode === 'recommendation') {
-      await onSubmit({ ...common, scenery_types: sceneryTypes, scenery_match_mode: matchMode })
+      await onSubmit({ ...common, scenery_types: sceneryTypes, scenery_match_mode: matchMode, destination_regions: destinationRegions })
     } else {
       await onSubmit({ ...common, target_place: targetPlace.trim() })
     }
@@ -238,22 +246,52 @@ export function TravelForm({
       </div>
 
       <div className="form-grid">
-        <label className="field">
-          <span>城市</span>
+        <label className="field form-city-field">
+          <span>出发城市</span>
           <input value={city} onChange={(event) => setCity(event.target.value)} />
           <span className="field-message" />
         </label>
+        <div className="form-origins-field">
+          <OriginFields
+            city={city}
+            mainOrigin={mainOrigin}
+            companions={companions}
+            errors={errors}
+            onMainChange={changeMainOrigin}
+            onMainSelect={selectMainOrigin}
+            onCompanionChange={changeCompanion}
+            onCompanionSelect={selectCompanion}
+            onAddCompanion={addCompanion}
+            onRemoveCompanion={removeCompanion}
+          />
+        </div>
         <label className="field">
           <span>最大距离（km）</span>
           <input
             type="number"
+            aria-label="最大距离（km）"
             min="1"
             max="500"
             value={maxDistance}
-            onChange={(event) => setMaxDistance(event.target.value.replace(/^0+(?=\d)/, ''))}
+            onChange={(event) => {
+              const value = event.target.value.replace(/^0+(?=\d)/, '')
+              setMaxDistance(value)
+              if (value !== '' && Number(value) > 0 && Number(value) <= 500) {
+                setLocalErrors(current => {
+                  const next = { ...current }
+                  delete next.max_distance_km
+                  return next
+                })
+              }
+            }}
           />
           <span className="field-message">{errors.max_distance_km && <small className="field-error">{errors.max_distance_km}</small>}</span>
         </label>
+        {mode === 'recommendation' && <div className="field">
+          <span>目的地城市范围</span>
+          <RegionInput value={destinationRegions} onChange={setDestinationRegions} query={regionQuery} onQueryChange={setRegionQuery} />
+          <span className="field-message">{errors.destination_regions && <small className="field-error">{errors.destination_regions}</small>}</span>
+        </div>}
         <label className="field">
           <span>开始日期</span>
           <input
@@ -277,19 +315,6 @@ export function TravelForm({
           <span className="field-message">{errors.end_date && <small className="field-error">{errors.end_date}</small>}</span>
         </label>
       </div>
-
-      <OriginFields
-        city={city}
-        mainOrigin={mainOrigin}
-        companions={companions}
-        errors={errors}
-        onMainChange={changeMainOrigin}
-        onMainSelect={selectMainOrigin}
-        onCompanionChange={changeCompanion}
-        onCompanionSelect={selectCompanion}
-        onAddCompanion={addCompanion}
-        onRemoveCompanion={removeCompanion}
-      />
 
       {mode === 'recommendation' ? (
         <>

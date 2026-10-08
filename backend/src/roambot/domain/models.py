@@ -12,6 +12,8 @@ from pydantic import (
     model_validator,
 )
 
+from roambot.domain.regions import normalize_destination_regions
+
 
 class DomainModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
@@ -149,6 +151,12 @@ class TravelRequestBase(DomainModel):
 class RecommendationRequest(TravelRequestBase):
     scenery_types: list[SceneryType] = Field(min_length=1)
     scenery_match_mode: SceneryMatchMode = SceneryMatchMode.ANY
+    destination_regions: list[str] = Field(default_factory=list)
+
+    @field_validator('destination_regions')
+    @classmethod
+    def normalize_regions(cls, values: list[str]) -> list[str]:
+        return normalize_destination_regions(values)
 
 
 class ExplanationContext(DomainModel):
@@ -186,6 +194,9 @@ class Destination(DomainModel):
     scenery_tags: frozenset[SceneryType] = frozenset()
     popularity_rank: int = Field(ge=1)
     rating: float | None = Field(default=None, ge=0, le=5)
+    province_adcode: str | None = None
+    city_adcode: str | None = None
+    adcode: str | None = None
 
 
 class DailyWeather(DomainModel):

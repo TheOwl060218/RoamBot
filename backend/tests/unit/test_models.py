@@ -19,6 +19,17 @@ def valid_dates() -> tuple[date, date]:
     return start, start + timedelta(days=2)
 
 
+def test_recommendation_regions_default_and_normalization():
+    start, end = valid_dates()
+    values = dict(main_origin='苏州站', max_distance_km=200,
+                  start_date=start, end_date=end, scenery_types=[SceneryType.LAKE])
+    assert RecommendationRequest(**values).destination_regions == []
+    request = RecommendationRequest(**values, destination_regions=['320500', '320000'])
+    assert request.destination_regions == ['320000']
+    with pytest.raises(ValidationError):
+        RecommendationRequest(**values, destination_regions=['000000'])
+
+
 def test_destination_accepts_optional_five_point_rating() -> None:
     values = {
         "provider_id": "amap:test",

@@ -1,4 +1,4 @@
-import type { Coordinate, RankingWeights, SceneryType, SearchMode } from '../../api/types'
+import type { Coordinate, RankingWeights, SceneryType, SearchMode, RecommendationRequest, PlaceEvaluationRequest } from '../../api/types'
 
 const STORAGE_KEY = 'roambot.ui.display-weights.v2'
 const DRAFT_KEY = 'roambot.session.search-draft.v1'
@@ -29,6 +29,24 @@ export type TravelFormDraft = {
   matchMode: 'any' | 'cover_all'
   targetPlace: string
   weights?: DisplayWeights
+  destinationRegions?: string[]
+}
+
+export function draftFromRequest(request: RecommendationRequest | PlaceEvaluationRequest): TravelFormDraft {
+  const sum = request.weights.weather + request.weights.distance + request.weights.popularity
+  const weather = sum > 0 ? Math.round(request.weights.weather / sum * 100) : defaultDisplayWeights.weather
+  const distance = sum > 0 ? Math.min(100 - weather, Math.round(request.weights.distance / sum * 100)) : defaultDisplayWeights.distance
+  return {
+    mode: 'target_place' in request ? 'place_evaluation' : 'recommendation', city: request.city,
+    mainOrigin: request.main_origin, companions: request.companion_origins,
+    mainOriginCoordinate: request.main_origin_coordinate, companionOriginCoordinates: request.companion_origin_coordinates,
+    maxDistance: String(request.max_distance_km), startDate: request.start_date, endDate: request.end_date,
+    sceneryTypes: 'scenery_types' in request ? request.scenery_types : [],
+    matchMode: 'scenery_match_mode' in request ? request.scenery_match_mode : 'any',
+    targetPlace: 'target_place' in request ? request.target_place : '',
+    destinationRegions: 'scenery_types' in request ? request.destination_regions ?? [] : [],
+    weights: { weather, distance, popularity: Math.max(0, 100 - weather - distance) },
+  }
 }
 
 export function loadTravelDraft() {

@@ -8,7 +8,7 @@ test('guest receives a demo recommendation without writing history', async ({ pa
     if (new URL(request.url()).pathname.startsWith('/api/v1/history')) historyRequests += 1
   })
 
-  await page.goto('/')
+  await page.goto('/recommend')
 
   const submit = page.getByRole('button', { name: '开始推荐' })
   await expect(submit).toHaveCSS('border-radius', '999px')
