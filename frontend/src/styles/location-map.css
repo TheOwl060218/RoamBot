@@ -1,0 +1,24 @@
+.dialog-backdrop.location-backdrop { z-index: 160; padding: 20px; }
+.location-dialog { width: min(920px, 100%); max-height: calc(100dvh - 40px); overflow: auto; background: var(--surface, #fff); border: 1px solid var(--border); border-radius: 24px; padding: 24px; box-shadow: 0 24px 80px #142c3840; }
+.location-heading, .location-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.location-heading h2 { margin: 0 0 6px; }
+.location-heading p, .location-footer p, .location-disclaimer { margin: 0; color: var(--muted, #7d8e95); font-size: 13px; line-height: 1.6; }
+.location-candidates { display: flex; gap: 8px; overflow-x: auto; padding: 16px 0; }
+.location-candidates button { white-space: nowrap; flex-shrink: 0; }
+.location-candidates button[aria-pressed="true"] { color: var(--primary); background: #e8f3f6; border-color: var(--primary); }
+.location-map-wrap { position: relative; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: #f3f7f8; }
+.location-map { height: clamp(240px, 48dvh, 440px); width: 100%; }
+.location-map-status { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; padding: 20px; text-align: center; background: #f3f7f8ed; }
+.location-map-status p { margin: 0; }
+.location-footer { padding: 16px 0 10px; }
+.location-footer > div { min-width: 0; }
+.location-footer strong, .location-footer p { overflow-wrap: anywhere; }
+.location-footer a { flex-shrink: 0; }
+.location-marker { padding: 6px 10px; background: white; color: #166e86; border: 1px solid #166e86; border-radius: 12px; white-space: nowrap; font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px #142c3826; }
+.location-marker.is-selected { background: #166e86; color: white; }
+@media (max-width: 600px) {
+  .dialog-backdrop.location-backdrop { padding: 12px; }
+  .location-dialog { padding: 16px; border-radius: 20px; max-height: calc(100dvh - 24px); }
+  .location-heading h2 { font-size: 20px; }
+  .location-footer { align-items: flex-start; }
+}

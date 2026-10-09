@@ -97,6 +97,8 @@ export function ResultList({
                 <div ref={topRef} />
                 <PlaceDetail
                   item={selectedItem}
+                  mapItems={items}
+                  onMapSelect={select}
                   onFavorite={onFavorite}
                   isFavorite={favoriteIds.has(selectedItem.destination.provider_id)}
                   favoritePending={favoritePendingIds.has(selectedItem.destination.provider_id)}

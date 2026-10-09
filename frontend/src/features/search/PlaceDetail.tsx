@@ -1,4 +1,6 @@
 import { Clock3, ExternalLink, MapPin, Star } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { LocationMapDialog } from './LocationMapDialog'
 import { amapPlaceUrl, amapSearchUrl } from './amapLink'
 
 import type { RecommendationItem } from '../../api/types'
@@ -30,9 +32,13 @@ type PlaceDetailProps = {
   onFavorite?: (item: RecommendationItem) => void
   isFavorite?: boolean
   favoritePending?: boolean
+  mapItems?: RecommendationItem[]
+  onMapSelect?: (item: RecommendationItem) => void
 }
 
-export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePending = false }: PlaceDetailProps) {
+export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePending = false, mapItems, onMapSelect }: PlaceDetailProps) {
+  const [mapOpen, setMapOpen] = useState(false)
+  const candidates = useMemo(() => mapItems ?? [item], [mapItems, item])
   const { destination, score } = item
   const index = tripMatchIndex(score.total)
   const isGroup = item.distances.length > 1
@@ -46,14 +52,10 @@ export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePend
           </div>
           <h2>{destination.name}</h2>
           <p className="destination-address"><MapPin aria-hidden="true" size={16} />{destination.address}</p>
-          {mapUrl && <div className="place-map-actions">
-            <a className="text-button place-map-link" href={mapUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink aria-hidden="true" size={15} />在高德查看
-            </a>
-            <a className="text-button place-map-link" href={amapSearchUrl(destination.name, destination.city)} target="_blank" rel="noopener noreferrer">
-              按名称搜索
-            </a>
-          </div>}
+          <div className="place-map-actions">
+            <button className="text-button place-map-link" type="button" onClick={() => setMapOpen(true)} title="在本页查看景点位置"><MapPin aria-hidden="true" size={15} />查看位置</button>
+            {mapUrl && <a className="text-button place-map-link" href={amapSearchUrl(destination.name, destination.city)} target="_blank" rel="noopener noreferrer" title="前往高德查看详情与评价，可能需要登录"><ExternalLink aria-hidden="true" size={15} />打开高德</a>}
+          </div>
         </div>
         <div className="match-index" aria-label={`出游匹配指数 ${index}`}>
           <strong>{index}</strong>
@@ -108,6 +110,7 @@ export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePend
           {isFavorite ? '取消收藏' : '收藏地点'}
         </button>
       )}
+      {mapOpen && <LocationMapDialog items={candidates} selectedId={destination.provider_id} onSelect={onMapSelect} onClose={() => setMapOpen(false)} />}
     </article>
   )
 }

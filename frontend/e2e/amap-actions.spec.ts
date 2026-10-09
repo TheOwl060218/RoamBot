@@ -13,19 +13,15 @@ test('real POI fixture offers detail and name search without overflowing the hea
   await page.goto('/recommend')
   await submitRecommendation(page)
   const detail = page.locator('.place-detail')
-  const primary = detail.getByRole('link', { name: '在高德查看', exact: true })
-  const fallback = detail.getByRole('link', { name: '按名称搜索', exact: true })
+  const primary = detail.getByRole('button', { name: '查看位置', exact: true })
+  const fallback = detail.getByRole('link', { name: '打开高德', exact: true })
   await expect(primary).toBeVisible()
   await expect(fallback).toBeVisible()
-  const detailUrl = new URL((await primary.getAttribute('href'))!)
-  expect(detailUrl.hostname).toBe('uri.amap.com')
-  expect(detailUrl.pathname).toBe('/poidetail')
-  expect(detailUrl.searchParams.get('poiid')).toBe('B02000ICGL')
   const searchUrl = new URL((await fallback.getAttribute('href'))!)
   expect(searchUrl.pathname).toBe('/search')
   expect(searchUrl.searchParams.get('keyword')).toBe(await detail.locator('h2').innerText())
   expect(searchUrl.searchParams.get('city')).toBe('苏州')
-  for (const link of [primary, fallback]) {
+  for (const link of [fallback]) {
     await expect(link).toHaveAttribute('target', '_blank')
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   }

@@ -2,7 +2,7 @@ from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import AnyHttpUrl, Field, field_validator, model_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     provider_mode: ProviderMode = ProviderMode.MOCK
     demo_mode: bool = True
     amap_base_url: AnyHttpUrl = AnyHttpUrl("https://restapi.amap.com")
+    amap_js_key: SecretStr = Field(default=SecretStr(""), repr=False)
+    amap_js_security_code: SecretStr = Field(default=SecretStr(""), repr=False)
     qweather_api_host: AnyHttpUrl | None = None
     llm_base_url: AnyHttpUrl | None = None
     llm_model: str | None = None

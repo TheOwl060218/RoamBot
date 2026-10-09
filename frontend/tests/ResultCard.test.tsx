@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import type { RecommendationItem } from '../src/api/types'
@@ -67,19 +67,29 @@ describe('PlaceDetail', () => {
     const item = recommendationItem()
     item.destination.provider_id = 'amap:B01234'
     const view = render(<PlaceDetail item={item} />)
-    const link = screen.getByRole('link', { name: '在高德查看' })
+    const link = screen.getByRole('link', { name: '打开高德' })
     expect(link.closest('header')).not.toBeNull()
     expect(link).toHaveAttribute('target', '_blank')
-    expect(new URL(link.getAttribute('href')!).searchParams.get('poiid')).toBe('B01234')
-    const search = screen.getByRole('link', { name: '按名称搜索' })
-    const searchUrl = new URL(search.getAttribute('href')!)
+    const searchUrl = new URL(link.getAttribute('href')!)
     expect(searchUrl.pathname).toBe('/search')
     expect(searchUrl.searchParams.get('keyword')).toBe('金鸡湖景区')
     expect(searchUrl.searchParams.get('city')).toBe('苏州')
-    expect(search).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.getByRole('button', { name: '查看位置' })).toBeInTheDocument()
     view.rerender(<PlaceDetail item={recommendationItem()} />)
-    expect(screen.queryByRole('link', { name: '在高德查看' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '按名称搜索' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '打开高德' })).not.toBeInTheDocument()
+  })
+  it('opens the location dialog locally and Escape restores focus', () => {
+    render(<PlaceDetail item={recommendationItem()} />)
+    const trigger = screen.getByRole('button', { name: '查看位置' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    const dialog = screen.getByRole('dialog', { name: '景点位置' })
+    expect(dialog).toBeVisible()
+    expect(screen.getByText('本页查看位置，无需登录高德')).toBeVisible()
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
   it('keeps every weather row without adding filler to empty reminder cells', () => {
     const item = recommendationItem()

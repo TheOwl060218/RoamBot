@@ -59,3 +59,5 @@
 - 自动验收仅8010/5180、独立map-rain数据及HTTP fixture，无真实Provider、账户或生产数据库操作。生产维持SQLite单副本。
 
 发布后人工测试：真实景点先点击「在高德查看」，空白/详情缺失则「按名称搜索」；检查城市与景点一致。查询含小雨转晴/多云日期，雨具提示应只在连续区间首次出现；无影响日无占位文案。如果AI仍降级，提供Railway Deploy Logs中的固定错误类别及llm HTTP状态，不提供密钥、原始模型请求或账户信息。
+
+本轮发布确认：b24886a已推送，远端SHA核实一致；线上首页/资源HTTP200及health ready，新JS index-C5pzYQbP.js包含poidetail和备用搜索文字，CSS index-BJJXkcvw.css。未调用真实Provider或修改Railway配置。Mock测试8010/5180已关闭、无监听。该发布后确认本地留存待下次文档同步。

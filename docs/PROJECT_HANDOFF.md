@@ -1,6 +1,14 @@
 # RoamBot 当前项目交接
 
+## 2026-10-09 页面内位置地图发布准备
+
+- 用户确认「查看位置」打开本页地图弹窗，「打开高德」新页面按景点名称＋城市搜索评价；不嵌入评论或承诺免登录评价。地图按需加载、候选/标记同步、失败重试、手机适配与关闭恢复焦点。公开JS Key与仅服务端securityJsCode区分，运行时配置与限制路径安全代理已实现；无新依赖、数据库或评分变更。
+- 用户已自行在Railway添加ROAMBOT_AMAP_JS_KEY和ROAMBOT_AMAP_JS_SECURITY_CODE，未读取/展示其值。实现轮最终后端363通过、前端203通过、Ruff/TypeScript/ESLint/build通过；Edge Mock专项10通过。手机遮挡和重试后Esc回归已修正，SDK fixture截图目视确认；未使用真实高德或真实Provider自动测试。
+- 本轮继续此前直接部署后用户验收流程，仅competition/experiment/ui-clean-a。发布前重验与线上资源/config enabled/health核实后追加状态，不能用fixture冒充真实地图验证。配置、安全边界及人工用例见docs/competition/LOCATION_MAP_PROGRESS.md。
+
 ## 2026-10-09 高德入口、小雨提醒与AI降级诊断修正
+
+- 发布确认：提交 `b24886a240fc557af30673022c55e0e65dc3afd8` 已推送competition，远端SHA一致。线上首页/新JS HTTP200，资源为 `index-C5pzYQbP.js` / `index-BJJXkcvw.css`，含poidetail与“按名称搜索”；health status=ready。真实地图、AI及小雨效果仍由用户人工测试；未发起真实推荐。隔离测试服务已关闭，8010/5180无监听。发布后确认记录仅本地待下次文档同步，不触发第二次构建。
 
 - 用户线上复现后批准修改。高德主入口改为官方 `uri.amap.com/poidetail`，增加按景点名称及城市搜索的备用入口；只显示真实amap POI，不读取定位或凭据，不承诺绕过高德登录或恢复已失效POI。官方依据：高德URI地点详情与搜索文档。
 - 0–1mm非零降水及天气文字含雨但数值为0均可触发雨具/湿滑提示；连续相同影响仅首日合并日期范围，普通日不填占位，评分不变。AI失败只记录白名单错误类别、尝试次数、候选数量；不记录错误正文、密钥、地点或坐标，原重试及降级策略保持。实际AI失败根因尚未取得线上日志，不声称已恢复真实AI。
