@@ -111,7 +111,6 @@ class StaticPlaceProvider:
         self.search_calls.append((center, city, scenery_types, radius_km))
         return self.destinations
 
-
     def resolve(self, name: str, city: str) -> Destination:
         self.resolve_calls.append((name, city))
         if self.resolved is not None:
@@ -203,9 +202,7 @@ def service(
         | ({resolved.provider_id: weather_range()} if resolved is not None else {}),
         coordinate_ids,
     )
-    explanations = explanation_provider or CountingExplanationProvider(
-        fail=explanations_fail
-    )
+    explanations = explanation_provider or CountingExplanationProvider(fail=explanations_fail)
     recommendation_service = RecommendationService(
         geocoder=geocoder,
         places=places,
@@ -235,22 +232,30 @@ def request(**changes: object) -> RecommendationRequest:
 
 def test_selected_regions_are_or_and_override_geo_and_route_distance():
     tags = frozenset({SceneryType.LAKE})
-    js = destination('js', '江苏湖', tags).model_copy(update={
-        'province_adcode': '320000', 'city_adcode': '320500'})
-    hz = destination('hz', '杭州湖', tags).model_copy(update={
-        'province_adcode': '330000', 'city_adcode': '330100'})
-    other = destination('other', '其他湖', tags).model_copy(update={
-        'province_adcode': '330000', 'city_adcode': '330200'})
-    far = destination('far', '路程过远湖', tags).model_copy(update={
-        'province_adcode': '320000', 'city_adcode': '320500',
-        'coordinate': Coordinate(longitude=110, latitude=30)})
-    unknown = destination('unknown', '地区未知湖', tags)
-    instance, *_ = service(destinations=[js, hz, other, far, unknown],
-                           distances={'js': [2], 'hz': [3], 'other': [4],
-                                      'far': [1200], 'unknown': [1]})
-    response = instance.recommend(request(destination_regions=['320000', '330100']))
-    assert {item.destination.provider_id for item in response.items} == {'js', 'hz', 'far'}
-    assert 'region_metadata_missing' in response.source_state.notices
+    js = destination("js", "江苏湖", tags).model_copy(
+        update={"province_adcode": "320000", "city_adcode": "320500"}
+    )
+    hz = destination("hz", "杭州湖", tags).model_copy(
+        update={"province_adcode": "330000", "city_adcode": "330100"}
+    )
+    other = destination("other", "其他湖", tags).model_copy(
+        update={"province_adcode": "330000", "city_adcode": "330200"}
+    )
+    far = destination("far", "路程过远湖", tags).model_copy(
+        update={
+            "province_adcode": "320000",
+            "city_adcode": "320500",
+            "coordinate": Coordinate(longitude=110, latitude=30),
+        }
+    )
+    unknown = destination("unknown", "地区未知湖", tags)
+    instance, *_ = service(
+        destinations=[js, hz, other, far, unknown],
+        distances={"js": [2], "hz": [3], "other": [4], "far": [1200], "unknown": [1]},
+    )
+    response = instance.recommend(request(destination_regions=["320000", "330100"]))
+    assert {item.destination.provider_id for item in response.items} == {"js", "hz", "far"}
+    assert "region_metadata_missing" in response.source_state.notices
 
 
 def evaluation_request(**changes: object) -> PlaceEvaluationRequest:
@@ -392,9 +397,7 @@ def test_cover_all_with_six_types_can_return_seven_results() -> None:
 def test_bad_weather_keeps_outdoor_representative_with_warning() -> None:
     museum = destination("museum", "Museum", frozenset({SceneryType.MUSEUM}), rating=4.9)
     lake = destination("lake", "Lake", frozenset({SceneryType.LAKE}), rating=4.2)
-    storm = [
-        day.model_copy(update={"precipitation_mm": 20}) for day in weather_range()
-    ]
+    storm = [day.model_copy(update={"precipitation_mm": 20}) for day in weather_range()]
     recommendation_service, *_ = service(
         destinations=[museum, lake],
         distances={"museum": [10], "lake": [10]},
@@ -484,6 +487,35 @@ def test_explanation_failure_uses_template_without_changing_score() -> None:
     assert len(degraded_explanations.calls) == 2
 
 
+@pytest.mark.parametrize("error_code", ["timeout", "bad_response", "rate_limited", "secret-code"])
+def test_ai_fallback_logs_only_safe_error_metadata(caplog, error_code):
+    import logging
+
+    class FailedExplanation(CountingExplanationProvider):
+        def explain(self, items, context):
+            raise ProviderError(error_code, "private-error-body-with-key-and-origin")
+
+    alpha = destination("alpha", "Alpha", frozenset({SceneryType.LAKE}), rank=1)
+    subject, *_ = service(
+        destinations=[alpha], distances={"alpha": [10]}, explanation_provider=FailedExplanation()
+    )
+    with caplog.at_level(logging.WARNING, logger="roambot.services.recommendations"):
+        result = subject.recommend(request())
+    messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "roambot.services.recommendations"
+    ]
+    assert len(messages) == 2
+    expected_code = error_code if error_code != "secret-code" else "unknown"
+    assert all(f"code={expected_code}" in message for message in messages)
+    assert "attempt=1" in messages[0] and "attempt=2" in messages[1]
+    assert all("item_count=1" in message for message in messages)
+    assert "private-error-body" not in caplog.text
+    assert "secret-code" not in caplog.text
+    assert result.source_state.notices == ["explanation_degraded"]
+
+
 class GroupedExplanationProvider(CountingExplanationProvider):
     def __init__(self, failing_call: int) -> None:
         super().__init__()
@@ -494,10 +526,7 @@ class GroupedExplanationProvider(CountingExplanationProvider):
         self.calls.append(items)
         if len(self.calls) == self.failing_call:
             raise ProviderError("llm_unavailable", "group unavailable")
-        return [
-            f"润色结果：{item.destination.name}符合本次出行条件。"
-            for item in items
-        ]
+        return [f"润色结果：{item.destination.name}符合本次出行条件。" for item in items]
 
 
 def test_failed_explanation_group_retries_once_without_discarding_other_groups() -> None:
@@ -553,9 +582,7 @@ def test_multi_origin_fairness_combines_route_duration_and_distance_ratios() -> 
             ]
 
     recommendation_service.distance = TimedDistanceProvider()
-    result = recommendation_service.recommend(
-        request(companion_origins=["friend"])
-    )
+    result = recommendation_service.recommend(request(companion_origins=["friend"]))
 
     assert result.items[0].score.fairness == 58
 

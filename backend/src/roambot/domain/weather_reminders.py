@@ -14,6 +14,8 @@ def interval_reminders(weather: list[DailyWeather], tags: frozenset[SceneryType]
         result = {}
         if day.precipitation_mm > 1:
             result["rain"] = "heavy" if day.precipitation_mm > 10 else "rain"
+        elif day.precipitation_mm > 0 or "雨" in day.condition:
+            result["rain"] = "light"
         if day.wind_speed_kmh > 20:
             result["wind"] = (
                 "severe"
@@ -64,6 +66,12 @@ def interval_reminders(weather: list[DailyWeather], tags: frozenset[SceneryType]
                         "往返途中降水较多，考虑调整日期" if indoor else "降水较多，优先考虑其他日期"
                     )
                 text = f"{change}，{impact}"
+                if severity == "light":
+                    text = (
+                        "预报含降雨，往返途中携带雨具"
+                        if indoor
+                        else "预报含降雨，随身携带雨具并留意湿滑路面"
+                    )
             elif kind == "wind":
                 setting = (
                     "海边"

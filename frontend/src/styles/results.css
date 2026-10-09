@@ -85,7 +85,8 @@
 .weather-temperature span { color: var(--muted); font-size: 0.72rem; }
 .weather-advice { display: grid; gap: 2px; }
 .weather-summary { margin: 0; color: var(--muted); font-size: 0.73rem; line-height: 1.48; overflow-wrap: anywhere; }
-.place-map-link { display: inline-flex; width: fit-content; margin-top: 8px; color: var(--primary); text-decoration: none; }
+.place-map-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.place-map-link { display: inline-flex; width: fit-content; color: var(--primary); text-decoration: none; }
 .place-map-link:hover { transform: scale(1.01); text-decoration: none; }
 .weather-list-multi .weather-facts { padding-top: 0; border-top: 0; }
 .weather-list-multi .weather-summary { font-size: 0.78rem; }

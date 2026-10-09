@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Mapping
 from datetime import date, datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
@@ -51,6 +52,19 @@ from roambot.providers.protocols import (
     WeatherProvider,
 )
 from roambot.providers.trace import ProviderEvent, ProviderTrace
+
+logger = logging.getLogger(__name__)
+_SAFE_EXPLANATION_ERRORS = frozenset(
+    {
+        "timeout",
+        "rate_limited",
+        "unavailable",
+        "bad_response",
+        "budget_exceeded",
+        "llm_unavailable",
+        "bad_request",
+    }
+)
 
 SINGLE_ORIGIN_DEFAULT_WEIGHTS = RankingWeights(
     weather=40,
@@ -125,17 +139,22 @@ class RecommendationService:
             city=request.city,
             scenery_types=tuple(request.scenery_types),
             radius_km=request.max_distance_km,
-            **({'destination_regions': tuple(request.destination_regions)}
-               if request.destination_regions else {}),
+            **(
+                {"destination_regions": tuple(request.destination_regions)}
+                if request.destination_regions
+                else {}
+            ),
         )
 
         matching_destinations = [
             destination
             for destination in destinations
             if destination.scenery_tags & frozenset(request.scenery_types)
-            and (request.destination_regions or
-                 self._haversine_km(origins[0].coordinate, destination.coordinate)
-                 <= request.max_distance_km)
+            and (
+                request.destination_regions
+                or self._haversine_km(origins[0].coordinate, destination.coordinate)
+                <= request.max_distance_km
+            )
             and matches_destination_regions(destination, tuple(request.destination_regions))
         ]
         target_count = self._target_count(request)
@@ -147,11 +166,11 @@ class RecommendationService:
         )
 
         notices: list[str] = []
-        if getattr(destinations, 'region_metadata_missing', False) or any(
+        if getattr(destinations, "region_metadata_missing", False) or any(
             missing_region_membership(item, tuple(request.destination_regions))
             for item in destinations
         ):
-            notices.append('region_metadata_missing')
+            notices.append("region_metadata_missing")
             self._mark(ProviderEvent.REGION_METADATA_MISSING)
         otherwise_eligible_count = 0
         items: list[RecommendationItem] = []
@@ -295,9 +314,7 @@ class RecommendationService:
                 (
                     f"companion_origins[{index}]",
                     address,
-                    companion_coordinates[index]
-                    if index < len(companion_coordinates)
-                    else None,
+                    companion_coordinates[index] if index < len(companion_coordinates) else None,
                 )
                 for index, address in enumerate(companion_origins)
             ),
@@ -395,9 +412,7 @@ class RecommendationService:
         if request.scenery_match_mode != SceneryMatchMode.COVER_ALL:
             return []
         covered = (
-            set().union(*(item.destination.scenery_tags for item in items))
-            if items
-            else set()
+            set().union(*(item.destination.scenery_tags for item in items)) if items else set()
         )
         return [
             scenery_type
@@ -422,9 +437,7 @@ class RecommendationService:
         if weather is None:
             return None
 
-        daily_suitability = [
-            score_daily_weather(day, destination.scenery_tags) for day in weather
-        ]
+        daily_suitability = [score_daily_weather(day, destination.scenery_tags) for day in weather]
         reminders = interval_reminders(weather, destination.scenery_tags)
         daily_suitability = [
             day.model_copy(update={"summary": reminder})
@@ -543,7 +556,14 @@ class RecommendationService:
                     budget.consume(ProviderOperation.LLM)
                     polished = self.explanations.explain(group, context)
                     break
-                except (ProviderError, ProviderBudgetExceeded):
+                except (ProviderError, ProviderBudgetExceeded) as error:
+                    code = error.code if error.code in _SAFE_EXPLANATION_ERRORS else "unknown"
+                    logger.warning(
+                        "explanation_attempt_failed code=%s attempt=%d item_count=%d",
+                        code,
+                        _attempt + 1,
+                        len(group),
+                    )
                     continue
             if polished is None:
                 degraded = True
@@ -580,9 +600,7 @@ class RecommendationService:
         matched_text = "、".join(matched) or "风景类型"
         advice = {
             OverallAdviceStatus.SUITABLE: "所选日期均适合前往",
-            OverallAdviceStatus.SOME_DATES_CAUTION: (
-                "部分日期天气条件一般，建议关注逐日提示"
-            ),
+            OverallAdviceStatus.SOME_DATES_CAUTION: ("部分日期天气条件一般，建议关注逐日提示"),
             OverallAdviceStatus.SOME_DATES_NOT_RECOMMENDED: (
                 "部分日期不建议前往，请根据逐日提示调整日期"
             ),
@@ -610,11 +628,7 @@ class RecommendationService:
         representatives: set[str] = set()
         for scenery_type in context.requested_scenery_types:
             representative = next(
-                (
-                    item
-                    for item in items
-                    if scenery_type in item.destination.scenery_tags
-                ),
+                (item for item in items if scenery_type in item.destination.scenery_tags),
                 None,
             )
             if representative is not None:

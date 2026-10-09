@@ -1,5 +1,5 @@
 import { Clock3, ExternalLink, MapPin, Star } from 'lucide-react'
-import { amapPlaceUrl } from './amapLink'
+import { amapPlaceUrl, amapSearchUrl } from './amapLink'
 
 import type { RecommendationItem } from '../../api/types'
 import { DailyWeatherList } from './DailyWeatherList'
@@ -46,9 +46,14 @@ export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePend
           </div>
           <h2>{destination.name}</h2>
           <p className="destination-address"><MapPin aria-hidden="true" size={16} />{destination.address}</p>
-          {mapUrl && <a className="text-button place-map-link" href={mapUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink aria-hidden="true" size={15} />在高德查看
-          </a>}
+          {mapUrl && <div className="place-map-actions">
+            <a className="text-button place-map-link" href={mapUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink aria-hidden="true" size={15} />在高德查看
+            </a>
+            <a className="text-button place-map-link" href={amapSearchUrl(destination.name, destination.city)} target="_blank" rel="noopener noreferrer">
+              按名称搜索
+            </a>
+          </div>}
         </div>
         <div className="match-index" aria-label={`出游匹配指数 ${index}`}>
           <strong>{index}</strong>

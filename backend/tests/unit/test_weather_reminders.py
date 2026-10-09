@@ -25,6 +25,22 @@ def test_stable_days_have_no_filler():
     assert interval_reminders(days({}, {}, {}), frozenset({SceneryType.LAKE})) == ["", "", ""]
 
 
+def test_light_rain_has_one_continuous_range_and_keeps_a_dry_day_empty():
+    notes = interval_reminders(
+        days({}, {"precipitation_mm": 0.2}, {"precipitation_mm": 1}),
+        frozenset({SceneryType.PARK}),
+    )
+    assert notes[0] == notes[2] == ""
+    assert "10月11日–10月12日" in notes[1]
+    assert "雨具" in notes[1]
+
+
+def test_rain_condition_with_zero_rounded_amount_still_warns_without_inventing_amount():
+    notes = interval_reminders(days({"condition": "小雨转多云"}), frozenset({SceneryType.PARK}))
+    assert "雨具" in notes[0]
+    assert "毫米" not in notes[0]
+
+
 def test_continuous_wind_is_one_range_with_place_specific_impact():
     notes = interval_reminders(
         days({"wind_speed_kmh": 32}, {"wind_speed_kmh": 34}, {}), frozenset({SceneryType.LAKE})

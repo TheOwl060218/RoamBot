@@ -4,6 +4,7 @@ import { amapPlaceUrl } from '../src/features/search/amapLink'
 it('uses real POI ids without exposing credentials', () => {
   const url = new URL(amapPlaceUrl('amap:B01234')!)
   expect(url.hostname).toBe('uri.amap.com')
+  expect(url.pathname).toBe('/poidetail')
   expect(url.searchParams.get('poiid')).toBe('B01234')
   expect(url.searchParams.has('key')).toBe(false)
 })
