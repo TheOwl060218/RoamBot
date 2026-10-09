@@ -60,7 +60,7 @@ export function TravelForm({
   const [restored] = useState(() => initialDraft ?? loadTravelDraft())
   const restoredMode = initialTarget ? 'place_evaluation' : restored?.mode ?? initialMode
   const [mode, setMode] = useState<SearchMode>(restoredMode)
-  const [city, setCity] = useState(restored?.city ?? '苏州')
+  const city = ''
   const [mainOrigin, setMainOrigin] = useState(restored?.mainOrigin ?? '')
   const [companions, setCompanions] = useState<string[]>(restored?.companions ?? [])
   const [mainOriginCoordinate, setMainOriginCoordinate] = useState(
@@ -88,6 +88,7 @@ export function TravelForm({
   const errors = { ...localErrors, ...fieldErrors }
   const originCount = (companions.length + 1) as 1 | 2 | 3
   const maxDistanceKm = Number(maxDistance)
+  const regionDistanceOverride = mode === 'recommendation' && destinationRegions.length > 0
 
   useEffect(() => {
     saveTravelDraft({
@@ -169,7 +170,7 @@ export function TravelForm({
     companions.forEach((origin, index) => {
       if (!origin.trim()) next[`companion_origins[${index}]`] = '请输入同行人出发地'
     })
-    if (maxDistance === '' || maxDistanceKm <= 0 || maxDistanceKm > 500) {
+    if (!regionDistanceOverride && (maxDistance === '' || maxDistanceKm <= 0 || maxDistanceKm > 500)) {
       next.max_distance_km = '最大距离必须在 0 到 500 km 之间'
     }
     if (startDate < chinaDate(0) || endDate > chinaDate(6)) {
@@ -194,12 +195,12 @@ export function TravelForm({
     event.preventDefault()
     if (!validate()) return
     const common = {
-      city: city.trim() || '苏州',
+      city,
       main_origin: mainOrigin.trim(),
       companion_origins: companions.map((origin) => origin.trim()),
       main_origin_coordinate: mainOriginCoordinate,
       companion_origin_coordinates: companionOriginCoordinates,
-      max_distance_km: maxDistanceKm,
+      max_distance_km: regionDistanceOverride && (!Number.isFinite(maxDistanceKm) || maxDistanceKm <= 0 || maxDistanceKm > 500) ? 50 : maxDistanceKm,
       start_date: startDate,
       end_date: endDate,
       weights: toRankingWeights(weights, originCount),
@@ -246,11 +247,6 @@ export function TravelForm({
       </div>
 
       <div className="form-grid">
-        <label className="field form-city-field">
-          <span>出发城市</span>
-          <input value={city} onChange={(event) => setCity(event.target.value)} />
-          <span className="field-message" />
-        </label>
         <div className="form-origins-field">
           <OriginFields
             city={city}
@@ -268,11 +264,12 @@ export function TravelForm({
         <label className="field">
           <span>最大距离（km）</span>
           <input
-            type="number"
+            type={regionDistanceOverride ? 'text' : 'number'}
             aria-label="最大距离（km）"
+            disabled={regionDistanceOverride}
             min="1"
             max="500"
-            value={maxDistance}
+            value={regionDistanceOverride ? '已按目的地范围筛选' : maxDistance}
             onChange={(event) => {
               const value = event.target.value.replace(/^0+(?=\d)/, '')
               setMaxDistance(value)
@@ -285,7 +282,7 @@ export function TravelForm({
               }
             }}
           />
-          <span className="field-message">{errors.max_distance_km && <small className="field-error">{errors.max_distance_km}</small>}</span>
+          <span className="field-message">{!regionDistanceOverride && errors.max_distance_km && <small className="field-error">{errors.max_distance_km}</small>}</span>
         </label>
         {mode === 'recommendation' && <div className="field">
           <span>目的地城市范围</span>

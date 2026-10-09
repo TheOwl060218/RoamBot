@@ -34,7 +34,7 @@ describe('personal and shared pages', () => {
       </Routes></MemoryRouter></AuthContext.Provider>)
     await userEvent.click(await screen.findByRole('button', { name: '更多历史操作' }))
     await userEvent.click(screen.getByRole('button', { name: '重新查询' }))
-    expect(await screen.findByRole('region', { name: '当前查询条件' })).toHaveTextContent('杭州 · 杭州东站')
+    expect(await screen.findByRole('region', { name: '当前查询条件' })).toHaveTextContent('杭州东站')
     expect(document.querySelector('.search-workspace-with-result')).toBeInTheDocument()
     expect(post).toHaveBeenCalledTimes(1)
     expect(post).toHaveBeenCalledWith('/history/old/rerun')

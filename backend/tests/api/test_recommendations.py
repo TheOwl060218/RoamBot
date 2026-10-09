@@ -53,7 +53,7 @@ def test_guest_recommendation_returns_ranked_items() -> None:
         "caution",
         "not_recommended",
     }
-    assert body["items"][0]["daily_suitability"][0]["summary"]
+    assert isinstance(body["items"][0]["daily_suitability"][0]["summary"], str)
     assert body["items"][0]["overall_advice"] in {
         "suitable",
         "some_dates_caution",

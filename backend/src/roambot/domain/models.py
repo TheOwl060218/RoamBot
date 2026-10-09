@@ -102,7 +102,7 @@ class TravelRequestBase(DomainModel):
     @field_validator("city")
     @classmethod
     def default_blank_city(cls, value: str) -> str:
-        return value.strip() or "苏州"
+        return value.strip()
 
     @field_validator("main_origin")
     @classmethod

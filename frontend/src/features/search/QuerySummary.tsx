@@ -49,9 +49,10 @@ export function QuerySummary({ draft: storedDraft, request, onEdit }: QuerySumma
       </div>
       {draft ? (
         <div className="query-facts">
-          <span><MapPin aria-hidden="true" size={16} />{draft.city} · {draft.mainOrigin}</span>
+          <span><MapPin aria-hidden="true" size={16} />{draft.mainOrigin}</span>
           <span><CalendarDays aria-hidden="true" size={16} />{formatDateRange(draft.startDate, draft.endDate)}</span>
-          <span><Route aria-hidden="true" size={16} />{draft.maxDistance} km 内</span>
+          {!(draft.mode === 'recommendation' && request && draft.destinationRegions?.length) &&
+            <span><Route aria-hidden="true" size={16} />{draft.maxDistance} km 内</span>}
           {draft.mode === 'recommendation' && (request
             ? <RegionNames key={(draft.destinationRegions ?? []).join(',')} codes={draft.destinationRegions ?? []} />
             : <span>旧结果未记录目的地范围</span>)}

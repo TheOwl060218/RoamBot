@@ -98,15 +98,15 @@ test('form and results keep their intended responsive relationship', async ({ pa
   expect(weatherCondition).not.toBeNull()
   expect(weatherHeading).not.toBeNull()
   expect(weatherFacts).not.toBeNull()
-  expect(weatherSummary).not.toBeNull()
+  // Ordinary days deliberately have no filler reminder; keep testing the row layout.
   expect(weatherCondition!.x - weatherDate!.x - weatherDate!.width).toBeLessThanOrEqual(24)
 
   if (viewport!.width >= 1024) {
     expect(weatherFacts!.x).toBeGreaterThan(weatherHeading!.x + weatherHeading!.width - 2)
-    expect(weatherSummary!.x).toBeGreaterThan(weatherFacts!.x + weatherFacts!.width - 2)
+    if (weatherSummary) expect(weatherSummary.x).toBeGreaterThan(weatherFacts!.x + weatherFacts!.width - 2)
   } else {
     expect(weatherFacts!.y).toBeGreaterThanOrEqual(weatherHeading!.y + weatherHeading!.height)
-    expect(weatherSummary!.y).toBeGreaterThanOrEqual(weatherFacts!.y + weatherFacts!.height)
+    if (weatherSummary) expect(weatherSummary.y).toBeGreaterThanOrEqual(weatherFacts!.y + weatherFacts!.height)
   }
 
   await expect(page.locator('.candidate-row')).toHaveCount(2)

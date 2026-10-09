@@ -29,6 +29,7 @@ from roambot.services.recommendations import (
     PlaceNotFoundError,
     RecommendationService,
 )
+from roambot.services.snapshot_metadata import display_city
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -82,8 +83,7 @@ def list_history(
 ) -> HistoryListEnvelope:
     return HistoryListEnvelope(
         histories=[
-            _summary(snapshot)
-            for snapshot in service.list_histories(session.authenticated.user_id)
+            _summary(snapshot) for snapshot in service.list_histories(session.authenticated.user_id)
         ]
     )
 
@@ -159,7 +159,10 @@ def _summary(snapshot: HistorySnapshot) -> HistorySummaryResponse:
     return HistorySummaryResponse(
         id=snapshot.id,
         mode=snapshot.mode,
-        city=str(snapshot.request["city"]),
+        city=display_city(
+            snapshot.request,
+            result_items if isinstance(result_items, list) else [snapshot.result.get("item", {})],
+        ),
         start_date=str(snapshot.request["start_date"]),
         end_date=str(snapshot.request["end_date"]),
         item_count=item_count,

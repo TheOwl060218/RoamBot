@@ -10,12 +10,11 @@ export function RegionInput({ value, onChange, query, onQueryChange }: {
   const [catalog, setCatalog] = useState<RegionCatalog | null>(null)
   const [failed, setFailed] = useState(false)
   const [active, setActive] = useState(0)
-  const [visibleCount, setVisibleCount] = useState(0)
   const [position, setPosition] = useState({ top: 0, left: 12, width: 300, maxHeight: 320 })
   const anchor = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
-  const measure = useRef<HTMLDivElement>(null)
+  const visibleCount = Math.min(2, value.length)
   const composing = useRef(false)
   const alive = useRef(true)
   const listId = useId()
@@ -51,28 +50,6 @@ export function RegionInput({ value, onChange, query, onQueryChange }: {
     onQueryChange(''); setActive(0); setOpen(false); input.current?.focus()
   }
   useLayoutEffect(() => {
-    function resize() {
-      const width = anchor.current?.getBoundingClientRect().width ?? 0
-      const chips = [...(measure.current?.children ?? [])]
-      const widths = chips.map((chip) => chip.getBoundingClientRect().width + 6)
-      // Reserve the 44px choose target, typing space, padding and gaps; reserve
-      // the overflow badge only when all measured chips cannot fit.
-      const room = width - 119
-      const budget = widths.reduce((sum, item) => sum + item, 0) <= room ? room : room - 40
-      let occupied = 0, count = 0
-      for (const next of widths) {
-        if (occupied + next > budget) break
-        occupied += next; count++
-      }
-      setVisibleCount(count)
-    }
-    resize()
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize)
-    if (anchor.current) observer?.observe(anchor.current)
-    window.addEventListener('resize', resize)
-    return () => { observer?.disconnect(); window.removeEventListener('resize', resize) }
-  }, [value, catalog])
-  useLayoutEffect(() => {
     if (!open) return
     function place() {
       const rect = anchor.current?.getBoundingClientRect()
@@ -106,12 +83,12 @@ export function RegionInput({ value, onChange, query, onQueryChange }: {
   return <div className="region-field">
     <div ref={anchor} className="region-control">
       {selected.slice(0, visibleCount).map((row) => <button type="button" className="region-chip" key={row.adcode}
-        aria-label={`移除${row.name}`} onClick={() => onChange(value.filter((code) => code !== row.adcode))}>{row.name} ×</button>)}
+        title={row.name} aria-label={`移除${row.name}`} onClick={() => onChange(value.filter((code) => code !== row.adcode))}><span>{row.name}</span><span aria-hidden="true">×</span></button>)}
       {selected.length > visibleCount && <button type="button" className="region-chip" aria-label="查看全部已选地区" onClick={show}>+{selected.length - visibleCount}</button>}
       <input ref={input} role="combobox" aria-label="目的地城市范围" aria-expanded={open}
         aria-controls={open ? listId : undefined} aria-autocomplete="list"
         aria-activedescendant={open && available[active] ? `${listId}-${available[active].adcode}` : undefined}
-        placeholder={value.length ? '添加省市' : '距离内不限省市'} value={query}
+        placeholder={value.length ? '' : '距离内不限省市'} value={query}
         onChange={(event) => { onQueryChange(event.target.value); setActive(0); show() }}
         onCompositionStart={() => { composing.current = true }} onCompositionEnd={() => { composing.current = false }}
         onKeyDown={(event) => {
@@ -130,7 +107,6 @@ export function RegionInput({ value, onChange, query, onQueryChange }: {
       <button type="button" className="region-choose" aria-label="选择省市" aria-expanded={open}
         onClick={() => open ? setOpen(false) : show()}>选择</button>
     </div>
-    <div ref={measure} className="region-measure" aria-hidden="true">{selected.map((row) => <span className="region-chip" key={row.adcode}>{row.name} ×</span>)}</div>
     {open && createPortal(<div ref={panel} className="region-popover" role="dialog" aria-label="选择省市" style={{ position: 'fixed', ...position }}>
       <div className="region-popover-heading"><strong>选择省市 · 可多选</strong><button type="button" className="text-button region-reset" onClick={() => { onChange([]); onQueryChange('') }}>恢复不限</button></div>
       {selected.length > 0 && <div className="region-selected">{selected.map((row) => <button type="button" className="region-chip" key={row.adcode}

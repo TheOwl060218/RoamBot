@@ -17,6 +17,7 @@ it('summary_uses_submitted_request_not_edited_draft', async () => {
   render(<QuerySummary draft={null} request={request} onEdit={() => {}} />)
   expect(await screen.findByText(/杭州市/)).toBeInTheDocument()
   expect(screen.getByText(/已提交出发地/)).toBeInTheDocument()
+  expect(screen.queryByText('200 km 内')).not.toBeInTheDocument()
 })
 
 it('old_result_without_request_does_not_claim_an_edited_region_filter', () => {

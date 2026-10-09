@@ -26,6 +26,7 @@ from roambot.persistence.tables import (
 from roambot.providers.protocols import ProviderError
 from roambot.security.sessions import hash_token, new_token
 from roambot.services.personal_data import _origin_labels, _remove_private_strings
+from roambot.services.snapshot_metadata import display_city
 
 CHINA = timezone(timedelta(hours=8))
 
@@ -116,17 +117,18 @@ class PlanService:
             available = {i["destination"]["provider_id"]: i for i in result["items"]}
             if any(cid not in available for cid in body.candidate_ids):
                 raise PlanError("candidate_not_in_history", "所选候选不在本次历史中。")
+            city = display_city(request, [available[cid] for cid in body.candidate_ids])
             plan = TravelPlanTable(
                 id=str(uuid4()),
                 owner_user_id=user_id,
                 name=body.name
                 or plan_name(
-                    request["city"],
+                    city,
                     request["start_date"],
                     request["end_date"],
                     now.astimezone(CHINA).year,
                 ),
-                city=request["city"],
+                city=city,
                 start_date=request["start_date"],
                 end_date=request["end_date"],
                 expected_count=body.expected_count or 1 + len(request["companion_origins"]),

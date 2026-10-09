@@ -47,13 +47,13 @@ def test_large_radius_uses_polygon_without_city_limit_and_parses_v3():
                      location='121.1,31.85', adcode='330106', pcode='330000')
             ]})
     result = provider_for(handler).search(Coordinate(longitude=120, latitude=31),
-                                         '苏州', (SceneryType.LAKE,), 100, ('330100',))
+                                         '苏州', (SceneryType.LAKE,), 100)
     assert [item.provider_id for item in result] == ['amap:hz']
     assert result[0].rating == 4.7
     assert result[0].city_adcode == '330100'
 
 
-@pytest.mark.parametrize('regions', [(), ('320000',), ('320000', '330100', '310000')])
+@pytest.mark.parametrize('regions', [()])
 def test_each_scenery_type_makes_at_most_one_poi_request_even_when_empty(regions):
     calls = []
     def handler(request):
@@ -65,6 +65,25 @@ def test_each_scenery_type_makes_at_most_one_poi_request_even_when_empty(regions
     assert provider_for(handler).search(Coordinate(longitude=120, latitude=31),
                                        '苏州', tuple(SceneryType), 50, regions) == []
     assert len(calls) == 6
+
+
+def test_selected_regions_search_each_region_without_origin_radius():
+    calls = []
+    def handler(request):
+        calls.append(request)
+        assert request.url.path == '/v3/place/text'
+        assert request.url.params['city'] in {'310000', '350100'}
+        assert request.url.params['citylimit'] == 'true'
+        assert request.url.params['keywords'] == '湖泊景区|博物馆'
+        assert 'radius' not in request.url.params
+        assert 'polygon' not in request.url.params
+        return httpx.Response(200, json={'status': '1', 'infocode': '10000', 'count': '1',
+            'pois': [dict(id='fz', name='福州湖', type='湖泊景区', typecode='110000',
+                          location='119.3,26.1', cityname='福州市', adcode='350102')]})
+    result = provider_for(handler).search(Coordinate(longitude=120.6, latitude=31.3),
+        '苏州', (SceneryType.LAKE, SceneryType.MUSEUM), 50, ('310000', '350100'))
+    assert len(calls) == 2
+    assert [item.provider_id for item in result] == ['amap:fz']
 
 
 def test_unknown_region_does_not_use_origin_city_fallback():

@@ -105,23 +105,38 @@ DESTINATIONS: tuple[Destination, ...] = (
 )
 
 # Existing fixtures are explicitly Suzhou demonstrations, not live administrative lookups.
-DESTINATIONS = tuple(item.model_copy(update={
-    'province_adcode': '320000', 'city_adcode': '320500', 'adcode': '320500'
-}) for item in DESTINATIONS)
+DESTINATIONS = tuple(
+    item.model_copy(
+        update={"province_adcode": "320000", "city_adcode": "320500", "adcode": "320500"}
+    )
+    for item in DESTINATIONS
+)
 
 # Fictional demonstration fixtures, deliberately outside the original 80 km slice.
-DESTINATIONS += tuple(Destination(
-    provider_id=f'mock:region-demo-{city_code}', name=f'{city}湖景（演示）',
-    address=f'{city}演示地点，不是真实景点', city=city,
-    coordinate=Coordinate(longitude=longitude, latitude=latitude),
-    type_name='湖景演示', type_code='lake', scenery_tags=frozenset({SceneryType.LAKE}),
-    popularity_rank=index + 5, rating=None, province_adcode=province_code,
-    city_adcode=city_code, adcode=city_code,
-) for index, (city, province_code, city_code, longitude, latitude) in enumerate((
-    ('杭州', '330000', '330100', 120.155, 30.274),
-    ('广德', '340000', '341800', 119.42, 30.90),
-    ('上海', '310000', '310000', 121.474, 31.230),
-)))
+DESTINATIONS += tuple(
+    Destination(
+        provider_id=f"mock:region-demo-{city_code}",
+        name=f"{city}湖景（演示）",
+        address=f"{city}演示地点，不是真实景点",
+        city=city,
+        coordinate=Coordinate(longitude=longitude, latitude=latitude),
+        type_name="湖景演示",
+        type_code="lake",
+        scenery_tags=frozenset({SceneryType.LAKE}),
+        popularity_rank=index + 5,
+        rating=None,
+        province_adcode=province_code,
+        city_adcode=city_code,
+        adcode=city_code,
+    )
+    for index, (city, province_code, city_code, longitude, latitude) in enumerate(
+        (
+            ("杭州", "330000", "330100", 120.155, 30.274),
+            ("广德", "340000", "341800", 119.42, 30.90),
+            ("上海", "310000", "310000", 121.474, 31.230),
+        )
+    )
+)
 
 WEATHER_BY_DATE: dict[date, DailyWeather] = {
     date(2026, 7, 20): DailyWeather(
@@ -209,11 +224,13 @@ class MockPlaceProvider:
                 address=destination.address,
             )
             for destination in DESTINATIONS
-            if destination.city == normalized_city
+            if (not normalized_city or destination.city == normalized_city)
             and normalized_keywords in destination.name.lower()
         ]
         for (name, origin_city), origin in ORIGINS.items():
-            if origin_city == normalized_city and normalized_keywords in name.lower():
+            if (
+                not normalized_city or origin_city == normalized_city
+            ) and normalized_keywords in name.lower():
                 suggestions.append(
                     PlaceSuggestion(name=name, district=origin_city, address=origin.address)
                 )
@@ -237,7 +254,10 @@ class MockPlaceProvider:
             for destination in DESTINATIONS:
                 if scenery_type not in destination.scenery_tags:
                     continue
-                if _haversine_km(center, destination.coordinate) > radius_km:
+                if (
+                    not destination_regions
+                    and _haversine_km(center, destination.coordinate) > radius_km
+                ):
                     continue
                 if not matches_destination_regions(destination, destination_regions):
                     missing_metadata |= missing_region_membership(destination, destination_regions)
@@ -250,7 +270,9 @@ class MockPlaceProvider:
         normalized_name = _normalize_text(name)
         normalized_city = _normalize_text(city)
         for destination in DESTINATIONS:
-            if destination.city == normalized_city and destination.name == normalized_name:
+            if (
+                not normalized_city or destination.city == normalized_city
+            ) and destination.name == normalized_name:
                 return destination
         raise ProviderError("not_found", "未找到指定地点")
 

@@ -22,6 +22,13 @@ function Harness({ initial = [] }: { initial?: string[] }) {
     <output data-testid='selection'>{value.join(',')}</output></>
 }
 beforeEach(() => vi.mocked(loadRegionCatalog).mockResolvedValue(catalog))
+it('shows two selected names and summarizes extras without an add placeholder', async () => {
+  render(<Harness initial={['320500', '330100', '330000']} />)
+  expect(await screen.findByRole('button', { name: '移除苏州市' })).toBeVisible()
+  expect(screen.getByRole('button', { name: '移除杭州市' })).toBeVisible()
+  expect(screen.getByRole('button', { name: '查看全部已选地区' })).toHaveTextContent('+1')
+  expect(screen.getByRole('combobox')).toHaveAttribute('placeholder', '')
+})
 it.each(['Backspace', 'Delete'])('empty input %s removes only the last selected region and keeps focus', async (key) => {
   render(<Harness initial={['320500', '330100']} />)
   const input = screen.getByRole('combobox')
@@ -119,10 +126,10 @@ it('failed_catalog_can_retry', async () => {
 })
 
 it('overflow_can_open_all_selected_and_remove', async () => {
-  render(<Harness initial={['320500', '330100']} />)
+  render(<Harness initial={['320500', '330100', '330000']} />)
   fireEvent.click(screen.getByRole('button', { name: '查看全部已选地区' }))
   fireEvent.click(await screen.findByRole('button', { name: '取消选择杭州市' }))
-  expect(screen.getByTestId('selection')).toHaveTextContent(/^320500$/)
+  expect(screen.getByTestId('selection')).toHaveTextContent(/^320500,330000$/)
 })
 
 it('escape_and_outside_click_close_without_changing_selection', async () => {

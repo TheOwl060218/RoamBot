@@ -3,19 +3,17 @@ import { registerUser, tomorrowInChina } from './helpers'
 
 test('form rows have consistent spacing without blank error placeholders', async ({ page }, testInfo) => {
   await page.goto('/recommend')
-  const city = page.locator('.form-city-field')
   const origins = page.locator('.form-origins-field')
   const distance = page.getByLabel('最大距离（km）').locator('..')
   const regions = page.getByRole('combobox', { name: '目的地城市范围' }).locator('../../..')
   const date = page.getByLabel('开始日期').locator('..')
-  const gap = async (first: typeof city, second: typeof city) => {
+  const gap = async (first: typeof origins, second: typeof origins) => {
     const a = (await first.boundingBox())!, b = (await second.boundingBox())!
     return b.y - a.y - a.height
   }
-  expect(await gap(city, origins)).toBeCloseTo(24, 0)
   expect(await gap(origins, distance)).toBeCloseTo(24, 0)
   expect(await gap(testInfo.project.name === 'desktop-chromium' ? distance : regions, date)).toBeCloseTo(24, 0)
-  await expect(city.locator('.field-message')).toHaveCSS('display', 'none')
+  await expect(origins.locator('.field-message')).toHaveCSS('display', 'none')
   const origin = page.getByLabel('主出发地', { exact: true })
   const originBox = (await origin.boundingBox())!
   const addBox = (await page.getByRole('button', { name: '添加同行人' }).boundingBox())!
@@ -61,16 +59,13 @@ test('region reset is an outlined button and keeps the distance limit', async ({
 
 test('departure fields precede limits with balanced desktop columns and no mobile overflow', async ({ page }, testInfo) => {
   await page.goto('/recommend')
-  const city = page.getByLabel('出发城市', { exact: true })
   const origins = page.getByRole('group', { name: '从哪里出发' })
   const distance = page.getByLabel('最大距离（km）')
   const regions = page.getByRole('combobox', { name: '目的地城市范围' })
-  await expect(city).toBeVisible()
-  const cityBox = (await city.boundingBox())!
+  await expect(page.getByLabel('出发城市', { exact: true })).toHaveCount(0)
   const originsBox = (await origins.boundingBox())!
   const distanceBox = (await distance.boundingBox())!
   const regionBox = (await regions.locator('..').boundingBox())!
-  expect(originsBox.y).toBeGreaterThan(cityBox.y + cityBox.height)
   expect(distanceBox.y).toBeGreaterThan(originsBox.y + originsBox.height)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: `../evidence/search-layout-${testInfo.project.name}-20261008.png`, fullPage: true })
@@ -123,7 +118,7 @@ async function selectRegion(page: Page, text: string, option: string) {
 
 async function recommendRegions(page: Page) {
   await page.getByLabel('主出发地', { exact: true }).fill('苏州站')
-  await page.getByLabel('最大距离（km）').fill('200')
+  await expect(page.getByLabel('最大距离（km）')).toBeDisabled()
   await page.getByLabel('开始日期').fill(tomorrowInChina())
   await page.getByLabel('结束日期').fill(tomorrowInChina())
   await page.getByRole('checkbox', { name: '湖景', exact: true }).check()
@@ -142,14 +137,18 @@ test('guest multi-region request excludes other provinces and summary ignores la
   expect(payload.destination_regions).toEqual(['320000', '330100'])
   expect(new Set(result.items.map((item: { destination: { city_adcode: string } }) => item.destination.city_adcode)))
     .toEqual(new Set(['320500', '330100']))
-  for (const item of result.items) expect(item.distances[0].distance_km).toBeLessThanOrEqual(200)
+  expect(result.items.some((item: { distances: { distance_km: number }[] }) => item.distances[0].distance_km > 50)).toBe(true)
+  expect(payload.max_distance_km).toBe(50)
   expect(result.history_id ?? null).toBeNull()
   const summary = page.getByRole('region', { name: '当前查询条件' })
   await expect(summary).toContainText('江苏省、杭州市')
+  await expect(summary).not.toContainText('50 km 内')
   await page.getByRole('button', { name: '重新查询', exact: true }).click()
   await page.getByRole('button', { name: '选择省市', exact: true }).click()
   await page.getByRole('button', { name: '恢复不限', exact: true }).click()
   await page.getByRole('button', { name: '完成选择', exact: true }).click()
+  await expect(page.getByLabel('最大距离（km）')).toBeEnabled()
+  await expect(page.getByLabel('最大距离（km）')).toHaveValue('50')
   await expect(summary).toContainText('江苏省、杭州市')
 })
 

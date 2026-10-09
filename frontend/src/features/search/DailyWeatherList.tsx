@@ -42,7 +42,7 @@ export function DailyWeatherList({ weather, suitability, showSummary = true }: D
                 <strong>{advice ? adviceLabels[advice.status] : '暂无判断'}</strong>
               </div>
             </div>
-            {showSummary && advice && <p className="weather-summary">{advice.summary}</p>}
+            {showSummary && advice?.summary && <p className="weather-summary">{advice.summary}</p>}
           </article>
         )
       })}

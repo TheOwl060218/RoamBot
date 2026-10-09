@@ -6,6 +6,16 @@ import { apiClient } from '../src/api/client'
 import { TravelForm } from '../src/features/search/TravelForm'
 import { chinaDate, type TravelFormDraft } from '../src/features/search/formState'
 
+it('submits a nationwide origin without a separate or hidden city restriction', () => {
+  const onSubmit = vi.fn()
+  render(<TravelForm onSubmit={onSubmit} />)
+  expect(screen.queryByLabelText('出发城市')).not.toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('主出发地'), { target: { value: '上海站' } })
+  fireEvent.click(screen.getByLabelText('湖景'))
+  fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+  expect(onSubmit.mock.calls[0][0]).toMatchObject({ city: '', main_origin: '上海站' })
+})
+
 it('submits regions only in recommendation and preserves them through mode switching', () => {
   const onSubmit = vi.fn()
   const initialDraft: TravelFormDraft = { mode: 'recommendation', city: '苏州', mainOrigin: '苏州站',
@@ -13,9 +23,12 @@ it('submits regions only in recommendation and preserves them through mode switc
     startDate: chinaDate(1), endDate: chinaDate(1), sceneryTypes: ['lake'], matchMode: 'any',
     targetPlace: '金鸡湖', destinationRegions: ['330100'] }
   render(<TravelForm initialDraft={initialDraft} onSubmit={onSubmit} />)
+  expect(screen.getByLabelText('最大距离（km）')).toBeDisabled()
+  expect(screen.getByLabelText('最大距离（km）')).toHaveValue('已按目的地范围筛选')
   fireEvent.click(screen.getByRole('button', { name: '开始推荐' }))
   expect(onSubmit.mock.calls[0][0]).toMatchObject({ destination_regions: ['330100'] })
   fireEvent.click(screen.getByRole('radio', { name: '评估指定地点' }))
+  expect(screen.getByLabelText('最大距离（km）')).toHaveValue(200)
   expect(screen.queryByRole('combobox', { name: '目的地城市范围' })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: '评估这个地点' }))
   expect(onSubmit.mock.calls[1][0]).not.toHaveProperty('destination_regions')
@@ -43,14 +56,14 @@ describe('TravelForm', () => {
     fireEvent.change(distance, { target: { value: '50' } })
     expect(distance.closest('label')?.querySelector('.field-error')).toBeNull()
   })
-  it('places departure details between the departure city and destination limits', () => {
+  it('places departure details before destination limits without a redundant city input', () => {
     render(<TravelForm onSubmit={vi.fn()} />)
-    const city = screen.getByLabelText('出发城市')
+    expect(screen.queryByLabelText('出发城市')).not.toBeInTheDocument()
     const origins = screen.getByRole('group', { name: '从哪里出发' })
     const distance = screen.getByLabelText('最大距离（km）')
     const regions = screen.getByRole('combobox', { name: '目的地城市范围' })
     const date = screen.getByLabelText('开始日期')
-    for (const [first, second] of [[city, origins], [origins, distance], [distance, regions], [regions, date]]) {
+    for (const [first, second] of [[origins, distance], [distance, regions], [regions, date]]) {
       expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     }
   })
@@ -117,7 +130,7 @@ describe('TravelForm', () => {
     render(<TravelForm onSubmit={vi.fn()} />)
 
     expect(screen.getByRole('heading', { name: '想去哪里走走？' })).toBeInTheDocument()
-    expect(screen.getByLabelText('出发城市')).toHaveValue('苏州')
+    expect(screen.queryByLabelText('出发城市')).not.toBeInTheDocument()
     expect(screen.getByLabelText('最大距离（km）')).toHaveValue(50)
     expect(screen.getByText('风景类型')).toBeInTheDocument()
     expect(screen.queryByLabelText('目标地点')).not.toBeInTheDocument()
@@ -139,7 +152,7 @@ describe('TravelForm', () => {
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        city: '苏州',
+        city: '',
         main_origin: '苏州站',
         companion_origins: [],
         max_distance_km: 50,
@@ -177,7 +190,7 @@ describe('TravelForm', () => {
     }))
   })
 
-  it('does not reopen origin suggestions when only the city changes', async () => {
+  it('does not reopen selected origin suggestions when dates change', async () => {
     const user = userEvent.setup()
     const getSuggestions = vi.spyOn(apiClient, 'get').mockResolvedValue({
       suggestions: [{
@@ -192,8 +205,7 @@ describe('TravelForm', () => {
 
     await user.type(screen.getByLabelText('主出发地'), '南京大学')
     await user.click(await screen.findByRole('option', { name: /南京大学苏州校区东区/ }, { timeout: 1500 }))
-    await user.clear(screen.getByLabelText('出发城市'))
-    await user.type(screen.getByLabelText('出发城市'), '上海')
+    fireEvent.change(screen.getByLabelText('开始日期'), { target: { value: chinaDate(2) } })
     await new Promise((resolve) => setTimeout(resolve, 550))
 
     expect(screen.queryByRole('option')).not.toBeInTheDocument()
@@ -251,17 +263,15 @@ describe('TravelForm', () => {
     const user = userEvent.setup()
     const first = render(<TravelForm onSubmit={vi.fn()} />)
 
-    await user.clear(screen.getByLabelText('出发城市'))
-    await user.type(screen.getByLabelText('出发城市'), '上海')
-    await user.type(screen.getByLabelText('主出发地'), '人民广场')
+    await user.type(screen.getByLabelText('主出发地'), '上海人民广场')
     await user.click(screen.getByRole('radio', { name: '评估指定地点' }))
     await user.type(screen.getByLabelText('目标地点'), '上海博物馆')
     first.unmount()
 
     render(<TravelForm onSubmit={vi.fn()} />)
 
-    expect(screen.getByLabelText('出发城市')).toHaveValue('上海')
-    expect(screen.getByLabelText('主出发地')).toHaveValue('人民广场')
+    expect(screen.queryByLabelText('出发城市')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('主出发地')).toHaveValue('上海人民广场')
     expect(screen.getByLabelText('目标地点')).toHaveValue('上海博物馆')
   })
 

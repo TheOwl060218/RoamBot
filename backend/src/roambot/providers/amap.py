@@ -129,11 +129,23 @@ class AMapProvider:
         missing_metadata = False
         seen: set[str] = set()
         use_around = radius_km <= 50
-        for scenery_type in selected_types:
-            params = self._place_params(SEARCH_TERMS[scenery_type], city)
+        # v3 text supports OR keywords: one request per normalized region,
+        # rather than multiplying region count by every scenery type.
+        searches = ([(region, '|'.join(SEARCH_TERMS[kind] for kind in selected_types))
+                     for region in destination_regions] if destination_regions else
+                    [(None, SEARCH_TERMS[kind]) for kind in selected_types])
+        for region, keywords in searches:
+            params = self._place_params(keywords, city)
             params.pop('region')
             params.pop('city_limit')
-            if use_around:
+            if region:
+                path = '/v3/place/text'
+                params = {
+                    'key': self._api_key, 'keywords': keywords, 'city': region,
+                    'citylimit': 'true', 'offset': '25', 'page': '1',
+                    'extensions': 'all', 'output': 'json',
+                }
+            elif use_around:
                 params.update(
                     {
                         "location": _format_coordinate(center),
@@ -145,7 +157,7 @@ class AMapProvider:
             else:
                 path = '/v3/place/polygon'
                 params = {
-                    'key': self._api_key, 'keywords': SEARCH_TERMS[scenery_type],
+                    'key': self._api_key, 'keywords': keywords,
                     'polygon': _radius_rectangle(center, radius_km), 'offset': '25',
                     'page': '1', 'extensions': 'all', 'output': 'json',
                 }
@@ -158,11 +170,12 @@ class AMapProvider:
             candidates = [
                 candidate.model_copy(update={"popularity_rank": rank})
                 for rank, candidate in enumerate(
-                    self._parse_pois(payload, '', v3=not use_around), start=1)
+                    self._parse_pois(payload, '', v3=bool(region) or not use_around), start=1)
             ]
             group: list[Destination] = []
             for candidate in candidates:
-                if _haversine_km(center, candidate.coordinate) > radius_km:
+                if (not destination_regions
+                        and _haversine_km(center, candidate.coordinate) > radius_km):
                     continue
                 if not matches_destination_regions(candidate, destination_regions):
                     missing_metadata |= missing_region_membership(candidate, destination_regions)

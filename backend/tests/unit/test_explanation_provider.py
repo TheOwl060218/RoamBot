@@ -148,6 +148,10 @@ def test_one_call_uses_structured_request_and_reorders_output() -> None:
         assert '"address"' not in serialized
         assert '"coordinate"' not in serialized
         user_payload = json.loads(body["messages"][1]["content"])
+        forecast = user_payload["destinations"][0]["weather"][0]
+        assert forecast["wind_speed_kmh"] == 10
+        assert forecast["visibility_km"] == 20
+        assert forecast["uv_index"] == 7
         assert user_payload["preferences"]["requested_scenery_types"] == ["lake"]
         assert user_payload["preferences"]["scenery_match_mode"] == "cover_all"
         return response(

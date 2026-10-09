@@ -194,13 +194,14 @@ class CachedPlaceProvider(_CachedProvider):
         destination_regions = tuple(normalize_destination_regions(list(destination_regions)))
         params = {
             "query_kind": "search",
-            'search_version': 'destination-regions-v1',
+            'search_version': ('destination-regions-v2' if destination_regions
+                               else 'destination-regions-v1'),
             'region_catalog_version': region_catalog()['version'],
             'destination_regions': list(destination_regions),
             "center": _coordinate(center, 6),
             "city": city,
             "scenery_types": list(scenery_types),
-            "radius_km": f"{radius_km:.3f}",
+            "radius_km": 'unlimited' if destination_regions else f"{radius_km:.3f}",
         }
         key = make_cache_key(self._provider, "poi_search", params)
         cached = self._get(key, "DestinationList", _DESTINATIONS)

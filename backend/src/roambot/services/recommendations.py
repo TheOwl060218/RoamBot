@@ -36,6 +36,7 @@ from roambot.domain.scoring import (
     score_fairness,
     score_rating,
 )
+from roambot.domain.weather_reminders import interval_reminders
 from roambot.providers.budget import (
     ProviderBudget,
     ProviderBudgetExceeded,
@@ -132,8 +133,9 @@ class RecommendationService:
             destination
             for destination in destinations
             if destination.scenery_tags & frozenset(request.scenery_types)
-            and self._haversine_km(origins[0].coordinate, destination.coordinate)
-            <= request.max_distance_km
+            and (request.destination_regions or
+                 self._haversine_km(origins[0].coordinate, destination.coordinate)
+                 <= request.max_distance_km)
             and matches_destination_regions(destination, tuple(request.destination_regions))
         ]
         target_count = self._target_count(request)
@@ -163,7 +165,7 @@ class RecommendationService:
                 distances = self._straight_line_estimates(origins, destination)
                 self._mark(ProviderEvent.STRAIGHT_LINE)
             primary_distance = distances[0].distance_km
-            if primary_distance > request.max_distance_km:
+            if not request.destination_regions and primary_distance > request.max_distance_km:
                 continue
 
             otherwise_eligible_count += 1
@@ -171,7 +173,8 @@ class RecommendationService:
                 destination=destination,
                 origins=origins,
                 distances=distances,
-                max_distance_km=request.max_distance_km,
+                # Selected regions replace the cap; the remembered input must not affect ranking.
+                max_distance_km=500 if request.destination_regions else request.max_distance_km,
                 start_date=request.start_date,
                 end_date=request.end_date,
                 weights=weights,
@@ -421,6 +424,11 @@ class RecommendationService:
 
         daily_suitability = [
             score_daily_weather(day, destination.scenery_tags) for day in weather
+        ]
+        reminders = interval_reminders(weather, destination.scenery_tags)
+        daily_suitability = [
+            day.model_copy(update={"summary": reminder})
+            for day, reminder in zip(daily_suitability, reminders, strict=True)
         ]
         weather_score = aggregate_weather([day.score for day in daily_suitability])
         distance_values = [estimate.distance_km for estimate in distances]

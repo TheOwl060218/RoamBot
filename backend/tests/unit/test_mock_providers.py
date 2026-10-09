@@ -111,7 +111,7 @@ def test_mock_bundle_returns_suzhou_vertical_slice() -> None:
     assert len(weather) == 3
 
 
-def test_demo_cross_province_regions_still_obey_radius():
+def test_demo_cross_province_regions_override_radius():
     provider = MockProviderBundle.default().places
     center = Coordinate(longitude=120.617, latitude=31.335)
     all_places = provider.search(center, '苏州', (SceneryType.LAKE,), 200)
@@ -119,7 +119,7 @@ def test_demo_cross_province_regions_still_obey_radius():
     selected = provider.search(center, '苏州', (SceneryType.LAKE,), 200, ('320000', '330100'))
     assert {place.city_adcode for place in selected} == {'320500', '330100'}
     nearby = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('330100',))
-    assert nearby == []
+    assert {place.city_adcode for place in nearby} == {'330100'}
 
 
 def test_mock_providers_return_deterministic_ordered_data() -> None:
@@ -246,3 +246,9 @@ def test_mock_bundle_fields_match_protocol_surface() -> None:
     assert isinstance(providers.distance, DistanceProvider)
     assert isinstance(providers.weather, WeatherProvider)
     assert isinstance(providers.explanations, ExplanationProvider)
+def test_blank_city_supports_nationwide_suggestions_and_target_resolution():
+    from roambot.providers.mock import MockPlaceProvider
+
+    places = MockPlaceProvider()
+    assert any("苏州" in item.name for item in places.suggest("苏州", ""))
+    assert places.resolve("金鸡湖景区", "").name == "金鸡湖景区"

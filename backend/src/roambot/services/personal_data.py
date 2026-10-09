@@ -27,6 +27,7 @@ from roambot.persistence.repositories import (
 )
 from roambot.security.sessions import hash_token, new_token
 from roambot.services.recommendations import RecommendationService
+from roambot.services.snapshot_metadata import display_city
 
 
 class ResourceNotFoundError(RuntimeError):
@@ -160,10 +161,13 @@ class PersonalDataService:
     def delete_history(self, *, user_id: str, history_id: str) -> None:
         with self._session_factory.begin() as db:
             histories = HistoryRepository(db)
-            if histories.get_owned(
-                history_id=history_id,
-                user_id=user_id,
-            ) is None:
+            if (
+                histories.get_owned(
+                    history_id=history_id,
+                    user_id=user_id,
+                )
+                is None
+            ):
                 raise ResourceNotFoundError
             ShareRepository(db).revoke_for_history(history_id, self._now())
             if not histories.delete_owned(history_id=history_id, user_id=user_id):
@@ -181,10 +185,13 @@ class PersonalDataService:
     def create_share(self, *, user_id: str, history_id: str) -> ShareLink:
         now = self._now()
         with self._session_factory.begin() as db:
-            if HistoryRepository(db).get_owned(
-                history_id=history_id,
-                user_id=user_id,
-            ) is None:
+            if (
+                HistoryRepository(db).get_owned(
+                    history_id=history_id,
+                    user_id=user_id,
+                )
+                is None
+            ):
                 raise ResourceNotFoundError
             token = new_token()
             share = ShareRepository(db).create_replacing_active(
@@ -263,7 +270,8 @@ def _normalize_history_result(result: dict[str, object]) -> dict[str, object]:
             day = _mapping(raw_day)
             status = day.get("status") or _derive_legacy_daily_status(day)
             day["status"] = status
-            day["summary"] = day.get("summary") or _legacy_daily_summary(status)
+            if day.get("summary") is None:
+                day["summary"] = _legacy_daily_summary(status)
             normalized_suitability.append(day)
         item["overall_advice"] = item.get("overall_advice") or (
             _derive_legacy_overall_advice(normalized_suitability)
@@ -310,7 +318,7 @@ def _public_snapshot(record: PublicShareRecord) -> dict[str, object]:
         raise ValueError("history result items must be a list")
     snapshot: dict[str, object] = {
         "mode": history.mode,
-        "city": request["city"],
+        "city": display_city(request, [_mapping(item) for item in raw_items]),
         "companion_count": len(companions),
         "start_date": request["start_date"],
         "end_date": request["end_date"],
@@ -338,16 +346,10 @@ def _public_item(item: dict[str, object]) -> dict[str, object]:
     destination = _mapping(item["destination"])
     public_destination = _project(destination, _DESTINATION_FIELDS)
     public_destination["rating"] = destination.get("rating")
-    public_suitability = [
-        _public_suitability(_mapping(day))
-        for day in suitability
-    ]
+    public_suitability = [_public_suitability(_mapping(day)) for day in suitability]
     return {
         "destination": public_destination,
-        "weather": [
-            _project(_mapping(day), _WEATHER_FIELDS)
-            for day in weather
-        ],
+        "weather": [_project(_mapping(day), _WEATHER_FIELDS) for day in weather],
         "daily_suitability": public_suitability,
         "score": _project(_mapping(item["score"]), _SCORE_FIELDS),
         "explanation": item["explanation"],
@@ -362,7 +364,9 @@ def _public_suitability(day: dict[str, object]) -> dict[str, object]:
     public = _project(day, _SUITABILITY_FIELDS)
     status = day.get("status") or _derive_legacy_daily_status(day)
     public["status"] = status
-    public["summary"] = day.get("summary") or _legacy_daily_summary(status)
+    public["summary"] = (
+        day.get("summary") if day.get("summary") is not None else _legacy_daily_summary(status)
+    )
     return public
 
 
@@ -400,9 +404,7 @@ def _derive_legacy_overall_advice(
 
 
 def _mapping(value: object) -> dict[str, object]:
-    if not isinstance(value, dict) or not all(
-        isinstance(key, str) for key in value
-    ):
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
         raise ValueError("history value must be an object")
     return value
 
@@ -438,8 +440,5 @@ def _remove_private_strings(value: object, private_strings: tuple[str, ...]) -> 
     if isinstance(value, list):
         return [_remove_private_strings(item, private_strings) for item in value]
     if isinstance(value, dict):
-        return {
-            key: _remove_private_strings(item, private_strings)
-            for key, item in value.items()
-        }
+        return {key: _remove_private_strings(item, private_strings) for key, item in value.items()}
     return value

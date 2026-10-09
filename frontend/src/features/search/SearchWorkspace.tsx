@@ -34,7 +34,10 @@ import {
   loadTravelDraft,
   saveSearchResult,
   saveSelectedPlaceId,
+  draftFromRequest,
+  saveTravelDraft,
 } from './formState'
+import type { TravelFormDraft } from './formState'
 
 export type SearchResult = (RecommendationResponse | PlaceEvaluationResponse) & {
   query_request?: RecommendationRequest | PlaceEvaluationRequest
@@ -57,6 +60,9 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
     ? ('items' in restoredSearch.result ? restoredSearch.result.items[0] : restoredSearch.result.item)?.destination.provider_id ?? null
     : loadSelectedPlaceId())
   const [submitting, setSubmitting] = useState(false)
+  const [pendingMessage, setPendingMessage] = useState('')
+  const [sceneDraft, setSceneDraft] = useState<TravelFormDraft>()
+  const [sceneVersion, setSceneVersion] = useState(0)
   const [progress, setProgress] = useState(0)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
@@ -137,6 +143,7 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
     if (submitLock.current) return
     submitLock.current = true
     setSubmitting(true)
+    setPendingMessage('target_place' in request ? '正在评估地点…' : '正在查询推荐地点…')
     setProgress(8)
     setError('')
     setFieldErrors({})
@@ -213,6 +220,15 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
     if (sidebar) {
       startSmoothScrollInContainer(sidebar, () => formRef.current)
     }
+  }
+
+  async function explore(request: RecommendationRequest) {
+    if (submitLock.current) return
+    const nextDraft = draftFromRequest(request)
+    saveTravelDraft(nextDraft)
+    setSceneDraft(nextDraft)
+    setSceneVersion(current => current + 1)
+    await submit(request)
   }
 
   function viewComparison() {
@@ -310,9 +326,10 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
           <div ref={formRef} className="search-form-anchor">
             <div className="search-controls">
               <TravelForm
-                initialDraft={restoredSearch?.draft}
+                key={sceneVersion}
+                initialDraft={sceneDraft ?? restoredSearch?.draft}
                 initialMode={initialMode}
-                initialTarget={initialTarget}
+                initialTarget={sceneDraft ? '' : initialTarget}
                 isSubmitting={submitting}
                 fieldErrors={fieldErrors}
                 onSubmit={async request => { await submit(request) }}
@@ -362,7 +379,7 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
                   historyId={result.history_id ?? null}
                   trusted={Boolean(user && result.history_owner === user.username && result.history_id)}
                   selectedIds={comparisonState.selectedIds}
-                  city={result.query_request.city}
+                  city={result.query_request.city || [...new Set(comparisonState.selectedItems.map(item => item.destination.city).filter(Boolean))].join('、')}
                   startDate={result.query_request.start_date}
                   endDate={result.query_request.end_date}
                   originCount={1 + result.query_request.companion_origins.length}
@@ -412,12 +429,12 @@ export function SearchWorkspace({ initialMode, initialTarget, restoredSearch }: 
               />
             </div>
           ) : (
-            <SampleScenes onExplore={async request => { await submit(request) }} />
+            <SampleScenes isSubmitting={submitting} onExplore={explore} />
           )}
         </div>
       </div>
       {status && <div className="app-toast" role="status">{status}</div>}
-      <RevealNotice notice={comparisonNotice} />
+      <RevealNotice notice={submitting ? { message: pendingMessage, serial: 0 } : comparisonNotice} />
     </div>
   )
 }

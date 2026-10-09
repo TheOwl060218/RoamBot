@@ -446,6 +446,8 @@ describe('SearchWorkspace', () => {
     const progress = screen.getByRole('progressbar', { name: '正在生成推荐' })
     expect(progress).toBeInTheDocument()
     expect(progress).toHaveTextContent('')
+    expect(screen.getByRole('status')).toHaveTextContent('正在查询推荐地点')
+    expect(screen.getByRole('button', { name: '短途近程' })).toBeDisabled()
 
     resolveRequest(response)
     expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
@@ -511,7 +513,21 @@ describe('SearchWorkspace', () => {
     await user.click(screen.getByRole('button', { name: '开始推荐' }))
 
     expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
+    expect(screen.queryByText('正在查询推荐地点…')).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: '选择候选进行对比' })).toBeInTheDocument()
+  })
+
+  it('reflects the chosen preset in the form while retaining the origin', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(response)
+    render(<AuthProvider><SearchWorkspace initialTarget="留园" /></AuthProvider>)
+    await user.type(screen.getByLabelText('主出发地'), '上海虹桥站')
+    await user.click(screen.getByRole('button', { name: '室内参观' }))
+    expect(screen.queryByLabelText('出发城市')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('主出发地')).toHaveValue('上海虹桥站')
+    expect(screen.getByLabelText('最大距离（km）')).toHaveValue(40)
+    expect(screen.getByRole('checkbox', { name: '博物馆' })).toBeChecked()
   })
 
   it('announces offscreen comparison only when the second candidate first makes it available', async () => {

@@ -13,6 +13,27 @@ from roambot.providers.protocols import ProviderError
 URL = "/api/v1/plans"
 
 
+def test_nationwide_query_plan_uses_selected_destination_city(auth_api_fixture):
+    client, _, _ = auth_api_fixture()
+    csrf = register(client, "nationwide_plan_owner")
+    headers = {"X-CSRF-Token": csrf}
+    payload = {
+        **recommendation_payload(),
+        "city": "",
+        "scenery_types": ["lake", "museum", "old_town"],
+    }
+    result = client.post("/api/v1/recommendations", json=payload, headers=headers).json()
+    ids = [item["destination"]["provider_id"] for item in result["items"]][:2]
+    assert len(ids) == 2
+    response = client.post(
+        URL, json={"history_id": result["history_id"], "candidate_ids": ids}, headers=headers
+    )
+    assert response.status_code == 201
+    plan = response.json()["plan"]
+    assert plan["city"] == "苏州"
+    assert "苏州" in plan["name"]
+
+
 def test_close_voting_preserves_votes_blocks_edits_and_reopens(auth_api_fixture):
     owner, _, _ = auth_api_fixture()
     csrf = register(owner, "close_owner")
@@ -428,8 +449,9 @@ def test_weather_check_cooldown_failure_retention_and_end_date(auth_api_fixture)
         == data["candidates"][0]["latest_weather"]["weather"]
     )
     assert failed["candidates"][0]["snapshot"] == snapshot
-    assert failed["candidates"][0]["latest_weather"]["daily_suitability"] == (
-        data["candidates"][0]["latest_weather"]["daily_suitability"]
+    assert (
+        failed["candidates"][0]["latest_weather"]["daily_suitability"]
+        == (data["candidates"][0]["latest_weather"]["daily_suitability"])
     )
     now += timedelta(days=10)
     assert owner.post(route, headers=headers).json()["error"]["code"] == "invalid_plan_transition"
@@ -460,9 +482,7 @@ def test_weather_check_recomputes_advice_without_changing_snapshot(auth_api_fixt
         mock.explanations,
         ProviderTrace(),
     )
-    result = owner.post(
-        f"{URL}/{plan['id']}/weather-checks", headers={"X-CSRF-Token": csrf}
-    )
+    result = owner.post(f"{URL}/{plan['id']}/weather-checks", headers={"X-CSRF-Token": csrf})
     assert result.status_code == 200
     checked = result.json()["plan"]
     for before, after in zip(plan["candidates"], checked["candidates"], strict=True):

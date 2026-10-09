@@ -28,7 +28,9 @@ def test_region_search_cache_isolated_and_order_independent():
     center = Coordinate(longitude=120.617, latitude=31.335)
     first = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('320000', '330000'))
     second = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('330000', '320000'))
-    assert first == second and len(first) == 1
+    assert first == second and len(first) == 2
+    assert inner.calls['search'] == 1
+    assert provider.search(center, '苏州', (SceneryType.LAKE,), 1, ('320000', '330000')) == first
     assert inner.calls['search'] == 1
     assert provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('320500',))
     assert inner.calls['search'] == 2
