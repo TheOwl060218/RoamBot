@@ -1,10 +1,15 @@
 import { defineConfig } from '@playwright/test'
 import path from 'node:path'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const frontend = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(frontend, '..')
-const python = path.resolve(root, '../../.venv/Scripts/python.exe')
+const executable = process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'
+const localPython = path.join(root, '.venv', executable)
+const sharedPython = path.resolve(root, '../../.venv', executable)
+const python = process.env.ROAMBOT_TEST_PYTHON ?? (existsSync(localPython) ? localPython :
+  existsSync(sharedPython) ? sharedPython : process.platform === 'win32' ? 'python' : 'python3')
 export default defineConfig({
   testDir: './e2e', testMatch: 'business-commands.spec.ts', fullyParallel: false, workers: 1,
   outputDir: '../test-results/commands-browser',

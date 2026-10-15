@@ -20,9 +20,10 @@
 | 最终检查 | 结果 | 本地证据 |
 | --- | --- | --- |
 | 后端完整 Mock 回归 | **774 通过，96.62 秒** | `test-results/backend-final-acceptance.xml` |
-| 前端完整单测 | **291 通过，56 文件** | `test-results/frontend-final-acceptance.json` |
-| 前端 TypeScript、ESLint、Vite 生产构建 | **通过** | CSS `index-fQg4r8lX.css`；JS `index-C5ALvksz.js` |
+| 前端完整单测 | **292 通过，56 文件** | `test-results/frontend-final-acceptance.json` |
+| 前端 TypeScript、ESLint、Vite 生产构建 | **通过** | CSS `index-fQg4r8lX.css`；JS `index-CbM0Ix6F.js` |
 | 新功能浏览器串联 | **3/3 通过，约1.3分钟** | `test-results/commands-browser.json`；desktop/mobile/reduced-motion |
+| 最终链接状态修复后桌面专项 | **1/1 通过，13.2秒** | `test-results/commands-browser-final-desktop/`；保留之前三配置报告 |
 | 真实模型 12 场景最后完整批次 | **10 通过、2 次 timeout** | `test-results/commands-live.json` |
 | 两个超时场景定向复验 | **2/2 通过** | `test-results/commands-live-focus.json` |
 | 新增 Python 文件及测试 Ruff | **通过** | 阶段命令输出；Git diff 空白检查通过 |
@@ -30,6 +31,8 @@
 真实模型为现有 `qwen3.7-plus`，关闭思考模式，未切换模型、未改生产变量。12 场景包含：收藏绑定、详情→地图、创建计划→邀请、改名并保留人数、本人投票、天气复查、结束投票→定案、重开投票、历史分享、两项计划下的歧义删除、追问后改名、修改湖景条件→真实条件解析→执行查询。后两项分别检查追问上下文和未提及条件保留。
 
 最后完整批次的超时发生在收藏和详情→地图，定向复验分别用时 5.80 秒、2.65 秒。保留原失败，不合并写成一次12/12全绿；网关延迟波动仍是实际边界。此前开发中还发现多步截断、0起始序号、额外复制动作，保留了相应合同与回归断言。
+
+收尾新增“生成邀请后同批复制”回归：先复现刚生成链接尚未被后续动作读取，再用同步更新链接引用修复，未放宽断言；前端完整回归升为292项。测试启动器支持仓库本地虚拟环境、已有共享工作树环境及 `ROAMBOT_TEST_PYTHON`，配置列出三项测试及 ESLint 通过。后端业务代码未因这次收尾改变，未重复整套后端测试。
 
 浏览器使用每次新建的 Vite 开发服务器和独立 Mock 后端（5191/8031，`reuseExistingServer:false`），验证当前源模块；生产构建独立完成，未把开发服务器截图当成已部署新 bundle 的证据。浏览器实际核对 URL、层级、页面异常、收藏 ID、计划数量和新名称、生成链接及浮层内可继续聊天；没有调用真实模型或地图 SDK。
 

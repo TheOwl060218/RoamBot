@@ -55,6 +55,10 @@ export function CommandRoot() {
       ...bridge.context() }
   }
   const owner = () => apiClient.authSession?.user.username ?? null
+  function rememberLink(link: string) {
+    latest.current = { ...latest.current, lastLink: link }
+    setLastLink(link)
+  }
   async function globalEffect(effect: CommandEffect) {
     const args = effect.arguments
     const pages: Record<string, string> = { home: '/', recommend: '/recommend', favorites: '/favorites',
@@ -105,8 +109,8 @@ export function CommandRoot() {
       const data = step.result
       const link = typeof data.url === 'string' ? data.url :
         (data.share as { url?: string } | undefined)?.url
-      if (link && /^\/(join|share)\//.test(link)) setLastLink(link)
-      if (step.tool === 'revoke_invite' || step.tool === 'revoke_share') setLastLink('')
+      if (link && /^\/(join|share)\//.test(link)) rememberLink(link)
+      if (step.tool === 'revoke_invite' || step.tool === 'revoke_share') rememberLink('')
       if (data.auth_changed) await apiClient.me()
       if (!unchanged) continue
       const marker = saved.proposal.proposal + ':' + index

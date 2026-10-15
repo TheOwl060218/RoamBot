@@ -33,6 +33,23 @@ async function input(message: string) {
 }
 
 describe('business chat execution', () => {
+  it('copies the link returned by an earlier step in the same confirmed command', async () => {
+    const copied = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(apiClient, 'post').mockImplementation(async path => {
+      if (path.endsWith('/proposals')) return { ...proposal(), actions: [
+        { tool: 'rotate_invite', arguments: {} }, { tool: 'copy_link', arguments: {} },
+      ] } as never
+      vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(copied)
+      return { status: 'completed', steps: [
+        { tool: 'rotate_invite', status: 'completed', result: { url: '/join/test-invite' } },
+        { tool: 'copy_link', status: 'completed', result: { effect: { tool: 'copy_link', arguments: {} } } },
+      ] } as never
+    })
+    mount()
+    await input('生成邀请并复制链接')
+    await waitFor(() => expect(copied).toHaveBeenCalledWith(new URL('/join/test-invite', location.origin).href))
+  })
+
   it('allows a new proposal after a known rejection without replaying any mutation', async () => {
     let proposals = 0
     const post = vi.spyOn(apiClient, 'post').mockImplementation(async path => {

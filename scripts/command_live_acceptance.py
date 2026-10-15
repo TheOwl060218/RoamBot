@@ -34,7 +34,12 @@ def main():
         return 2
     config = json.load(sys.stdin)
     focused_cases = set(config.get("cases", []))
-    vault = CredentialVault(ROOT.parents[1] / "data/local-live/credentials.vault")
+    local_vault = ROOT / "data/local-live/credentials.vault"
+    vault = CredentialVault(
+        local_vault
+        if local_vault.is_file()
+        else ROOT.parents[1] / "data/local-live/credentials.vault"
+    )
     credentials = vault.unlock(config.pop("master"))
     key = credentials.pop("llm_api_key")
     credentials.clear()
