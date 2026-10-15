@@ -143,6 +143,7 @@ async def propose(
                 "explain_result",
                 "run_recommendation",
                 "join_plan",
+                "describe_capabilities",
             }
             guest_vote = action.tool == "submit_vote" and body.context.invite_token
             if (

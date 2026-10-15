@@ -23,6 +23,14 @@ class ResourceTarget(Parameters):
     target: Reference | None = None
 
 
+class PlanScope(Parameters):
+    plan: Reference | None = None
+
+
+class PlanPlaceTarget(PlaceTarget, PlanScope):
+    pass
+
+
 class Selection(Parameters):
     places: list[Reference] = Field(max_length=3)
 
@@ -38,7 +46,7 @@ class UpdatePlanArgs(ResourceTarget):
     expected_count: int | None = Field(default=None, ge=1, le=100)
 
 
-class VoteArgs(Parameters):
+class VoteArgs(PlanScope):
     preferred: Reference | None = None
     acceptable: list[Reference] | None = Field(default=None, max_length=3)
 
@@ -59,6 +67,18 @@ class EditArgs(Parameters):
     field: Literal[
         "mainOrigin", "companions", "dates", "sceneryTypes", "range", "targetPlace", "weights"
     ]
+
+
+class ScrollArgs(Parameters):
+    direction: Literal["up", "down", "left", "right", "top", "bottom"]
+
+
+class MapViewArgs(Parameters):
+    action: Literal["zoom_in", "zoom_out", "left", "right", "up", "down", "reset", "retry"]
+
+
+class AccountArgs(Parameters):
+    mode: Literal["login", "register"] = "login"
 
 
 @dataclass(frozen=True)
@@ -110,13 +130,17 @@ _TOOLS = [
     _tool(
         "remove_participant", "移除当前计划中明确指定的同行者。", ResourceTarget, destructive=True
     ),
-    _tool("rotate_invite", "生成或换新当前计划邀请，旧邀请失效。", destructive=True),
-    _tool("revoke_invite", "撤销当前计划的邀请。", destructive=True),
+    _tool(
+        "rotate_invite", "生成或换新当前或具名计划邀请，旧邀请失效。", PlanScope, destructive=True
+    ),
+    _tool("revoke_invite", "撤销当前或具名计划的邀请。", PlanScope, destructive=True),
     _tool("submit_vote", "提交自己的首选和可接受地点；不能代他人投票。", VoteArgs),
-    _tool("close_voting", "结束当前计划投票，进入待定案状态。", destructive=True),
-    _tool("decide_plan", "把当前计划中的一个候选定为目的地。", PlaceTarget, destructive=True),
-    _tool("reopen_voting", "重新开放当前计划投票。", destructive=True),
-    _tool("check_plan_weather", "检查当前计划剩余出行日期天气，遵守复查冷却。"),
+    _tool("close_voting", "结束当前或具名计划投票，进入待定案状态。", PlanScope, destructive=True),
+    _tool(
+        "decide_plan", "把当前或具名计划中的一个候选定为目的地。", PlanPlaceTarget, destructive=True
+    ),
+    _tool("reopen_voting", "重新开放当前或具名计划投票。", PlanScope, destructive=True),
+    _tool("check_plan_weather", "检查当前或具名计划剩余日期天气，遵守复查冷却。", PlanScope),
     _tool("join_plan", "通过当前邀请以给定昵称加入，不更换登录身份。", JoinArgs),
     _tool("navigate", "打开指定站内页面。", NavigateArgs, kind="ui"),
     _tool("open_detail", "打开当前结果中的地点详情。", PlaceTarget, kind="ui"),
@@ -140,10 +164,23 @@ _TOOLS = [
     _tool("start_new_query", "开始新查询，保留可撤销状态。", kind="ui"),
     _tool("undo_new_query", "撤销刚开始的新查询。", kind="ui"),
     _tool("clear_conversation", "清除当前聊天记录，不清除查询条件。", kind="ui"),
-    _tool("open_account", "打开登录或注册表单；不要通过对话索取密码。", kind="ui"),
+    _tool("open_account", "打开登录或注册表单；不要通过对话索取密码。", AccountArgs, kind="ui"),
     _tool("logout", "退出当前登录账户。"),
     _tool("copy_link", "复制最近生成的邀请或分享链接。", kind="ui"),
     _tool("open_external_map", "在高德中打开当前真实地点。", PlaceTarget, kind="ui"),
+    _tool("show_tools", "打开推荐页面更多功能。", kind="ui"),
+    _tool("show_preferences", "打开推荐页面其他偏好。", kind="ui"),
+    _tool("choose_favorite", "在推荐页面打开收藏选地点。", kind="ui"),
+    _tool("start_team_pick", "进入同行挑选模式，尚未选满时不立即创建计划。", kind="ui"),
+    _tool("scroll_view", "滚动当前内容或横向候选清单，上下左右或到顶到底。", ScrollArgs, kind="ui"),
+    _tool("refresh_page", "刷新当前页面的实际资源与状态。", kind="ui"),
+    _tool("open_generated_link", "在本页打开刚生成的真实邀请或分享链接。", kind="ui"),
+    _tool("describe_capabilities", "询问当前可执行功能和操作方式；返回真实工具清单。"),
+    _tool("end_team_pick", "结束同行挑选模式，保留现有条件和结果。", kind="ui"),
+    _tool(
+        "control_map", "缩放、平移、重置或重试当前地图，不需要鼠标拖拽。", MapViewArgs, kind="ui"
+    ),
+    _tool("scroll_chat", "查看更早或更近的聊天记录，可到顶到底。", ScrollArgs, kind="ui"),
 ]
 TOOL_CATALOG = {tool.name: tool for tool in _TOOLS}
 
@@ -169,6 +206,7 @@ class VisibleResources(Parameters):
 
 
 class CommandContext(Parameters):
+    page_loading: bool = False
     page: str = Field(default="/recommend", max_length=300)
     history_id: str | None = Field(default=None, max_length=100)
     plan_id: str | None = Field(default=None, max_length=100)

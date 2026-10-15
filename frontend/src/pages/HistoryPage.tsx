@@ -16,9 +16,9 @@ export function HistoryPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [histories, setHistories] = useState<HistorySummary[]>([])
-  useCommandTarget('history-list', () => ({ visible_resources: {
-    kind: 'history', ids: histories.slice(0, 100).map(item => item.id) } }), () => false)
   const [loading, setLoading] = useState(true)
+  useCommandTarget('history-list', () => ({ page_loading: loading, visible_resources: {
+    kind: 'history', ids: histories.slice(0, 100).map(item => item.id) } }), () => false)
   const [status, setStatus] = useState('')
   const [toast, setToast] = useState('')
   const [rerunningId, setRerunningId] = useState<string | null>(null)

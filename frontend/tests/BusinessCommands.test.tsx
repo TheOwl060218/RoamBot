@@ -26,13 +26,21 @@ function mount() {
 }
 async function input(message: string) {
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: '打开操作助手' }))
+  await user.keyboard('{Alt>}/{/Alt}')
+  await waitFor(() => expect(screen.getByRole('textbox', { name: '继续补充条件' })).toHaveFocus())
   await user.type(screen.getByRole('textbox', { name: '继续补充条件' }), message)
   await user.click(screen.getByRole('button', { name: '发送消息' }))
   return user
 }
 
 describe('business chat execution', () => {
+  it('opens a collapsed assistant with only the keyboard shortcut', async () => {
+    mount()
+    expect(screen.queryByRole('textbox', { name: '继续补充条件' })).not.toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.keyboard('{Alt>}/{/Alt}')
+    await waitFor(() => expect(screen.getByRole('textbox', { name: '继续补充条件' })).toHaveFocus())
+  })
   it('copies the link returned by an earlier step in the same confirmed command', async () => {
     const copied = vi.fn().mockResolvedValue(undefined)
     vi.spyOn(apiClient, 'post').mockImplementation(async path => {

@@ -1,7 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { LocationMapDialog } from '../src/features/search/LocationMapDialog'
 import type { RecommendationItem } from '../src/api/types'
+import { BusinessAssistantContext } from '../src/features/commands/commandContext'
+import { CommandBridge } from '../src/features/commands/commandBridge'
 
 function resultItem(): RecommendationItem {
   return {
@@ -17,6 +19,28 @@ function resultItem(): RecommendationItem {
 }
 
 afterEach(() => vi.unstubAllGlobals())
+
+it('routes zoom, pan and reset commands to the configured map instance', async () => {
+  const zoom = vi.fn(), fit = vi.fn()
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () =>
+    ({ enabled: true, key: 'fixture-map', service_host: '/fixture-proxy' }) }))
+  vi.stubGlobal('AMap', { Map: class {
+    add() {} destroy() {} setZoomAndCenter = zoom; setFitView = fit
+    on(_name: string, callback: () => void) { queueMicrotask(callback) }
+  }, Marker: class {} })
+  const bridge = new CommandBridge()
+  const item = resultItem()
+  render(<BusinessAssistantContext.Provider value={{ bridge, send: vi.fn(), busy: false }}>
+    <LocationMapDialog items={[item]} selectedId='first' onClose={() => {}} />
+  </BusinessAssistantContext.Provider>)
+  await waitFor(() => expect(zoom).toHaveBeenCalledWith(13, [120.7, 31.3]))
+  await act(() => bridge.perform({ tool: 'control_map', arguments: { action: 'zoom_in' } }))
+  expect(zoom).toHaveBeenLastCalledWith(14, [120.7, 31.3])
+  await act(() => bridge.perform({ tool: 'control_map', arguments: { action: 'left' } }))
+  expect(zoom.mock.calls.at(-1)?.[1][0]).toBeLessThan(120.7)
+  await act(() => bridge.perform({ tool: 'control_map', arguments: { action: 'reset' } }))
+  expect(fit).toHaveBeenCalledTimes(2)
+})
 
 it('reports missing configuration, keeps candidates usable and retries', async () => {
   const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ enabled: false }) })

@@ -66,7 +66,14 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
     measure()
     return () => { observer?.disconnect(); window.removeEventListener('resize', measure) }
   }, [])
-  const [state, dispatch] = useReducer(studioReducer, props, initialState)
+  const business = useBusinessAssistant()
+  const [state, dispatch] = useReducer(studioReducer, props, args => {
+    const restored = initialState(args)
+    if (restored.result) restored.selection = business?.recallSelection?.(
+      restored.result.historyId, restored.result.version)?.filter(id =>
+      restored.result?.items.some(item => item.destination.provider_id === id)) ?? []
+    return restored
+  })
   const [editor, setEditor] = useState<ConditionKey | null>(null)
   const deferredEditor = useRef<(() => void) | null>(null)
   const [comparing, setComparing] = useState(false)
@@ -78,7 +85,9 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
   const previousUser = useRef(user?.username ?? null)
   const incoming = useRef(props.restoredSearch ?? props.initialTarget)
   const legacyAi = useAssistant(state, dispatch)
-  const business = useBusinessAssistant()
+  useEffect(() => {
+    if (state.result) business?.rememberSelection?.(state.result.historyId, state.result.version, state.selection)
+  }, [state.result, state.selection, business])
   const sendAssistant = business?.send ?? legacyAi.send
   const search = useStudioSearch(state, dispatch, user?.username ?? null)
   const stage = useStudioStage(state, dispatch)
@@ -200,6 +209,12 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
         behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
         block: 'center' })
     } else if (effect.tool === 'edit_condition') setEditor(args.field as ConditionKey)
+    else if (effect.tool === 'show_preferences') setOtherOpen(true)
+    else if (effect.tool === 'choose_favorite') {
+      if (!user) requestAccountDialog()
+      else setFavoritesOpen(true)
+    } else if (effect.tool === 'start_team_pick') dispatch({ type: 'enterTeamPickMode' })
+    else if (effect.tool === 'end_team_pick') dispatch({ type: 'exitTeamPickMode' })
     else if (effect.tool === 'start_new_query') stage.startNewQuery()
     else if (effect.tool === 'undo_new_query') stage.undoNewQuery()
     else if (effect.tool === 'clear_conversation') dispatch({ type: 'clearConversation' })

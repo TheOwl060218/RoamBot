@@ -5,6 +5,7 @@ import type { RecommendationItem } from '../../api/types'
 import { amapPlaceUrl, amapSearchUrl } from './amapLink'
 import { useLayerExit } from '../studio/useLayerExit'
 import { useModalLayer } from '../studio/useModalLayer'
+import { useCommandTarget } from '../commands/commandContext'
 
 type Props = {
   items: RecommendationItem[]
@@ -78,6 +79,26 @@ export function LocationMapDialog({ items, selectedId, onSelect, onClose, childr
   const [ready, setReady] = useState(false)
   const selected = items.find(item => item.destination.provider_id === selectedId) ?? items[0]
   const markersRef = useRef<{ id: string; element: HTMLElement }[]>([])
+  const view = useRef({ zoom: 13, center: point(selected) })
+  useCommandTarget('map-view', () => ({ layer: 'map' }), effect => {
+    if (effect.tool !== 'control_map') return false
+    const action = String(effect.arguments.action)
+    if (action === 'retry') { setReady(false); setAttempt(value => value + 1); return true }
+    const map = mapRef.current
+    if (!map || !ready) throw new Error('地图还未加载完成，可说“重试地图”。')
+    if (action === 'reset') { map.setFitView(); view.current = { zoom: 13, center: point(selected) }; return true }
+    const next = { ...view.current, center: [...view.current.center] as Point }
+    if (action === 'zoom_in') next.zoom = Math.min(20, next.zoom + 1)
+    else if (action === 'zoom_out') next.zoom = Math.max(3, next.zoom - 1)
+    else {
+      const offset = 360 / 2 ** next.zoom * .5
+      next.center[0] = Math.max(-180, Math.min(180, next.center[0] + (action === 'left' ? -offset : action === 'right' ? offset : 0)))
+      next.center[1] = Math.max(-85, Math.min(85, next.center[1] + (action === 'up' ? offset : action === 'down' ? -offset : 0)))
+    }
+    view.current = next
+    map.setZoomAndCenter(next.zoom, next.center)
+    return true
+  })
 
   useEffect(() => { selectRef.current = onSelect; selectedRef.current = selectedId }, [onSelect, selectedId])
   useEffect(() => {
@@ -152,6 +173,7 @@ export function LocationMapDialog({ items, selectedId, onSelect, onClose, childr
   useEffect(() => {
     if (!ready || !selected) return
     mapRef.current?.setZoomAndCenter(13, point(selected))
+    view.current = { zoom: 13, center: point(selected) }
     for (const marker of markersRef.current) {
       marker.element.classList.toggle('is-selected', marker.id === selectedId)
     }

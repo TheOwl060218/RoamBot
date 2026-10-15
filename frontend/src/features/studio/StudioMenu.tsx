@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Grid2X2, MapPin, Heart, Users, SlidersHorizontal, ArrowLeft } from 'lucide-react'
 import { OverlayHost } from './OverlayHost'
 import type { ConditionKey } from './types'
+import { useBusinessAssistant, useCommandTarget } from '../commands/commandContext'
 
 const manualConditions: { key: ConditionKey; label: string }[] = [
   { key: 'mainOrigin', label: '出发地' }, { key: 'dates', label: '日期' },
@@ -12,8 +13,15 @@ const manualConditions: { key: ConditionKey; label: string }[] = [
 export function StudioMenu({ onEdit, onNew, onFavorites, onTeam }: { onEdit: (key: ConditionKey) => void; onNew: () => void; onClear: () => void; onFavorites?: () => void; onTeam?: () => void }) {
   const [open, setOpen] = useState(false)
   const [manual, setManual] = useState(false)
+  const business = useBusinessAssistant()
+  useCommandTarget('studio-menu', () => (open ? { layer: 'tools' } : {}), effect => {
+    if (effect.tool === 'show_tools') { setManual(false); setOpen(true) }
+    else if (effect.tool === 'close_layer' && open) setOpen(false)
+    else return false
+    return true
+  })
   return <div className='studio-tools'><button type='button' aria-expanded={open} aria-label='更多功能' title='更多功能' onClick={() => { setManual(false); setOpen(!open) }}><Grid2X2 size={20} /></button>
-    {open && <OverlayHost label={manual ? '填写条件' : '更多功能'} onClose={() => setOpen(false)} panelClassName='studio-feature-library glass-panel'>
+    {open && <OverlayHost label={manual ? '填写条件' : '更多功能'} onClose={() => setOpen(false)} panelClassName='studio-feature-library glass-panel' accessory={business?.chat}>
       {manual ? <>
         <button type='button' className='text-button' onClick={() => setManual(false)}><ArrowLeft size={18} />返回</button>
         {manualConditions.map(({ key, label }) => <button key={key} type='button' onClick={() => { setOpen(false); onEdit(key) }}>{label}</button>)}

@@ -1,16 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 async function chat(page: Page, message: string, confirm = false) {
-  if (new URL(page.url()).pathname === '/recommend') {
-    for (const label of ['打开地图对话', '打开详情对话', '打开比较对话']) {
-      const trigger = page.getByRole('button', { name: label, exact: true })
-      if (await trigger.isVisible()) await trigger.click()
-    }
-  } else {
-    const trigger = page.getByRole('button', { name: /^(打开|收起)操作助手$/ }).and(page.locator('.studio-chat-orb'))
-    await expect(trigger).toBeVisible()
-    if (await trigger.getAttribute('aria-expanded') === 'false') await trigger.click()
-  }
+  await page.keyboard.press('Alt+/')
+  await expect.poll(() => page.evaluate(() => document.activeElement?.hasAttribute('data-command-input'))).toBe(true)
   const input = new URL(page.url()).pathname === '/recommend'
     ? page.getByRole('textbox', { name: '继续补充条件' }).last()
     : page.getByRole('textbox', { name: '继续补充条件' })
@@ -32,6 +24,7 @@ async function chat(page: Page, message: string, confirm = false) {
   expect(response.ok(), await response.text()).toBeTruthy()
   const data = await response.json()
   expect(data.status, JSON.stringify(data)).toBe('completed')
+  await expect(page.locator('.studio-composer[data-busy="true"]:visible')).toHaveCount(0)
   return data
 }
 

@@ -68,6 +68,9 @@ def plan_business_actions(http, key, model, thinking, request, context):
         "最多6个有顺序的工具调用。用户明确提出多个步骤时，必须完整列出所有步骤，不能遗漏后半句。"
         "创建计划后生成邀请、结束投票后定案等依赖由执行器顺序绑定，无需捏造新对象ID。"
         "context已包含可用对象；为执行修改不必先打开页面或调用列表工具探测。"
+        "用户可从任意页面操作自己的具名收藏、历史和计划，不要求先导航。"
+        "plan参数可按具名计划绑定；不明确计划时先追问，不让用户用鼠标寻找。"
+        "想发起同行但没有两处候选时用start_team_pick；询问功能用describe_capabilities。"
         "不得补充用户未要求的动作：生成链接不等于复制链接，修改计划不等于打开计划页面。"
         "不要声称已执行，只有程序返回结果后才能说成功；调用工具时不要输出额外说明文字。"
         "使用plan_business_actions一次提交本轮所有步骤；有歧义时actions=[]，question填写追问。"
@@ -159,6 +162,14 @@ def mock_business_plan(request, _context):
         "查看第一个地点": ("open_detail", {"place": 1}),
         "把计划改名为周末出游": ("update_plan", {"name": "周末出游"}),
         "分享第一条历史": ("create_share", {"target": 1}),
+        "打开更多功能": ("show_tools", {}),
+        "打开推荐偏好": ("show_preferences", {}),
+        "打开注册": ("open_account", {"mode": "register"}),
+        "向下看": ("scroll_view", {"direction": "down"}),
+        "回到顶部": ("scroll_view", {"direction": "top"}),
+        "发起同行挑选": ("start_team_pick", {}),
+        "清空选择": ("select_candidates", {"places": []}),
+        "能做什么": ("describe_capabilities", {}),
     }
     tool, arguments = commands.get(request.message.strip(), ("update_search_conditions", {}))
     return {"actions": [{"tool": tool, "arguments": arguments}]}

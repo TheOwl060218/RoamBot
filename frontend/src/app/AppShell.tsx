@@ -8,6 +8,7 @@ import { ACCOUNT_DIALOG_REQUEST_EVENT } from './accountDialog'
 import { PlanNavigation } from '../features/plans/PlanNavigation'
 import { CoastalBackdrop } from './CoastalBackdrop'
 import { RouteTransitionFrame } from './RouteTransitionFrame'
+import { useCommandTarget } from '../features/commands/commandContext'
 
 const navigation = [
   { label: '推荐', to: '/recommend' },
@@ -17,11 +18,18 @@ const navigation = [
 
 export function AppShell({ children }: PropsWithChildren) {
   const [accountOpen, setAccountOpen] = useState(false)
+  const [accountMode, setAccountMode] = useState<'login' | 'register'>('login')
   const [accountTarget, setAccountTarget] = useState<'/plans' | null>(null)
   const [status, setStatus] = useState('')
   const main = useRef<HTMLElement>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
+  useCommandTarget('shell', () => ({}), effect => {
+    if (effect.tool !== 'open_account') return false
+    setAccountMode(effect.arguments.mode === 'register' ? 'register' : 'login')
+    setAccountTarget(null); setAccountOpen(true)
+    return true
+  })
 
   useEffect(() => {
     const onScroll = () => {
@@ -49,7 +57,8 @@ export function AppShell({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const openAccount = (event: Event) => {
-      const target = (event as CustomEvent<{ target?: string }>).detail?.target
+      const { target, mode } = (event as CustomEvent<{ target?: string; mode?: string }>).detail ?? {}
+      setAccountMode(mode === 'register' ? 'register' : 'login')
       setAccountTarget(target === '/plans' ? '/plans' : null)
       setAccountOpen(true)
     }
@@ -91,7 +100,7 @@ export function AppShell({ children }: PropsWithChildren) {
           type="button"
           aria-label="账户"
           title={user ? `账户：${user.username}` : '登录或创建账户'}
-          onClick={() => { setAccountTarget(null); setAccountOpen(true) }}
+          onClick={() => { setAccountTarget(null); setAccountMode('login'); setAccountOpen(true) }}
         >
           {user ? <span className="account-initial">{user.username.slice(0, 1).toUpperCase()}</span> : (
             <UserRound aria-hidden="true" size={20} strokeWidth={1.8} />
@@ -101,7 +110,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
       <main ref={main} className="shell-main"><RouteTransitionFrame>{children}</RouteTransitionFrame></main>
       {status && <div className="app-toast" role="status">{status}</div>}
-      <AuthDialog open={accountOpen} onClose={() => { setAccountOpen(false); setAccountTarget(null) }} onStatus={setStatus} onAuthenticated={() => {
+      <AuthDialog open={accountOpen} initialMode={accountMode} onClose={() => { setAccountOpen(false); setAccountTarget(null) }} onStatus={setStatus} onAuthenticated={() => {
         setAccountOpen(false)
         if (accountTarget) navigate(accountTarget)
         setAccountTarget(null)

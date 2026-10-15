@@ -6,6 +6,8 @@ export type BusinessAssistantValue = {
   send: (message: string) => Promise<void>
   busy: boolean
   chat?: ReactNode
+  recallSelection?: (history: string | null, version: number) => string[]
+  rememberSelection?: (history: string | null, version: number, ids: string[]) => void
 }
 export const BusinessAssistantContext = createContext<BusinessAssistantValue | null>(null)
 export function useBusinessAssistant() { return useContext(BusinessAssistantContext) }

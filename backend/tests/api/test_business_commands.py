@@ -15,6 +15,74 @@ from roambot.services.assistant_limits import AssistantLimiter
 BASE = "/api/v1/assistant/commands"
 
 
+def test_plan_explanation_uses_authorized_snapshot_instead_of_cached_query(auth_api_fixture):
+    client, _, _ = auth_api_fixture()
+    csrf = register(client, "explain_plan_snapshot")
+    context = history_context(client, csrf)
+    created = run(client, csrf, "create_plan_from_selection", context=context)
+    plan = created["plan"]
+    setup(client, [{"tool": "explain_result"}])
+    response = client.post(
+        BASE + "/proposals",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "request_id": str(uuid4()),
+            "message": "比较这两个地点的天气",
+            "context": {
+                "page": "/plans/" + plan["id"],
+                "plan_id": plan["id"],
+                "assistant_turn": {
+                    "revision": 0,
+                    "message": "旧条件",
+                    "draft": {"main_origin": "杭州"},
+                },
+            },
+        },
+    )
+    assert response.status_code == 200
+    result = execute(client, csrf, response.json()).json()
+    assert result["status"] == "completed", result
+    assistant = result["steps"][0]["result"]["assistant"]
+    assert not assistant.get("patch")
+    for candidate in plan["candidates"]:
+        assert candidate["snapshot"]["destination"]["name"] in assistant["reply"]
+
+
+def test_named_plan_can_be_operated_from_an_unrelated_page(auth_api_fixture):
+    client, _, _ = auth_api_fixture()
+    csrf = register(client, "cross_page_plan")
+    context = history_context(client, csrf)
+    created = run(client, csrf, "create_plan_from_selection", {"name": "湖边见"}, context)
+    plan_id = created["plan"]["id"]
+    visited = []
+
+    def planner(request, context):
+        visited.extend(context["plans"])
+        return {"actions": [{"tool": "rotate_invite", "arguments": {"plan": "湖边见"}}]}
+
+    client.app.dependency_overrides[get_business_planner] = lambda: planner
+    proposal = client.post(
+        BASE + "/proposals",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "request_id": str(uuid4()),
+            "message": "给湖边见计划生成邀请",
+            "context": {"page": "/favorites"},
+        },
+    )
+    assert proposal.status_code == 200
+    assert any(p["id"] == plan_id and p["name"] == "湖边见" for p in visited)
+    response = execute(client, csrf, proposal.json(), confirmed=True).json()
+    assert response["status"] == "completed"
+    assert response["steps"][0]["result"]["url"].startswith("/join/")
+    other, _, _ = auth_api_fixture()
+    other_csrf = register(other, "cross_page_other")
+    result = run(other, other_csrf, "describe_capabilities", context={"page": "/"})
+    assert "可以" in result["reply"]
+    p = propose(other, other_csrf, [{"tool": "rotate_invite", "arguments": {"plan": plan_id}}])
+    assert execute(other, other_csrf, p.json(), confirmed=True).json()["status"] == "failed"
+
+
 def test_history_ordinals_follow_visible_order_and_reject_unowned_ids(auth_api_fixture):
     client, _, _ = auth_api_fixture()
     csrf = register(client, "visible_history_order")

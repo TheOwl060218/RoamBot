@@ -39,3 +39,25 @@
 - 未实测真机、Safari；全部 49 项动作尚未逐项完成浏览器与真实模型的组合验收。
 - 操作记录当前一小时后不再允许开始执行，未实现后台历史记录清理；长时间运行需补充保留策略。
 - 未部署、未改生产变量，原 8026 未停止或重启。下一步先阅读验收文档，再扩充独立表达和辅助页面动作覆盖。
+
+## 2026-10-15 本地全 Live 体验服务
+
+用户要求本地真实非 Mock，明确不部署 Railway。已启动 `http://localhost:8033/recommend`，运行提交 `1c1aad5` 的生产构建（JS `index-CbM0Ix6F.js`、CSS `index-fQg4r8lX.css`），HTTP 资源与本地文件逐字节一致，catalog 返回49项。
+
+- 独立数据目录 `data/business-live`，不复制旧账户、历史或生产数据库。用 localhost 区分原127.0.0.1服务的浏览器会话；体验收藏/历史/计划时先注册本地账户并重新查询。
+- `provider_mode=live`、`demo_mode=false`。运行时确认 geocoder/places/distance 为 AMapProvider、weather 为 QWeatherProvider、assistant/explanations 为现有模型适配器；模型保持 `qwen3.7-plus`，地图配置 enabled。
+- 只读现有服务配置，凭据在内存解锁并通过 stdin 传递给无可见窗口的进程；不写凭据文件，不更改生产配置或部署。没有停止/重启8026。
+- 实际烟测：真模型选择 `run_recommendation`，真实评估金鸡湖景区完成；高德 geocode/poi_search/distance、和风 weather 都返回200，路程15.06 km、天气1天。理由模型两次格式校验失败，按现有逻辑回退本地模板，整体 source.kind=degraded，不能记成所有模型输出均成功。
+- 忽略目录 `test-results/local-business-live` 内保留启动辅助程序、无密钥的 runtime/smoke 报告和服务日志；实际服务 PID 以 runtime.json 为准。后台进程保持运行供用户体验，49项功能仍未逐项完成全 Live 浏览器验收。
+
+## 2026-10-15 无鼠标操作补充阶段
+
+用户将验收标准明确为“失去鼠标也能通过聊天操作”，不是按预先点击好的流程串联。本轮工具从49项补到60项，增加全站 Alt+/ 唤起/聚焦、滚动页面与聊天、地图控制、更多功能/偏好/同行模式及站内打开生成链接；补跨页对象摘要、选择恢复和最近对话使用，修复首页打开注册丢事件、初始鉴权/页面加载造成旧方案误拒绝、卸载后旧焦点任务干扰新页面。
+
+- 后端全量 Mock 776通过；后续上下文就绪与最近对话调整的相关41项通过。前端最终295通过，类型检查、ESLint与生产构建通过。
+- 浏览器两组场景×桌面/手机宽度/reduced-motion，共6项通过。其中新场景从空白会话开始，键盘注册、条件→查询→收藏/选择→详情/地图往返→跨页收藏后恢复选择→建计划→确认邀请，监听并断言pointerdown为0；不是由测试代点入口。
+- 真实模型浏览器专项1项通过（4个独立意图：能力询问、从首页打开更多功能、关闭窗口、打开注册），仅键盘且pointerdown为0；不能外推为60项全部Live验收。
+- 本阶段生产构建JS为`index-CFmV7P-p.js`，CSS为`index-fQg4r8lX.css`。本地8033使用该构建，独立数据目录保留；8026未动、无Railway部署。
+- 原按钮仍可操作；密码通过原安全表单键盘输入，不进入模型。真实SDK地图控制、所有原生中间表单内继续聊天、全部动作的独立开放表达以及真机/Safari仍未充分验收，不能宣布完整替代鼠标已全部完成。
+
+详细范围见[mouseless-control.md](mouseless-control.md)，机器报告位于忽略目录`test-results/frontend-mouseless.json`、`commands-browser.json`、`keyboard-live.json`、`backend-mouseless-final.xml`。

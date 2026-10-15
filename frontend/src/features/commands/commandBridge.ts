@@ -13,14 +13,33 @@ export function contextFingerprint(context: CommandContext) {
 export class CommandBridge {
   private targets = new Map<string, Target>()
   private waiting = new Map<string, Set<() => void>>()
+  private previousContexts = new Map<string, CommandContext>()
+  previousContext(name: string) { return this.previousContexts.get(name) }
   register(name: string, context: Target['context'], handle: Target['handle']) {
     const target = { context, handle }
     this.targets.set(name, target)
     this.waiting.get(name)?.forEach(resolve => resolve())
-    return () => { if (this.targets.get(name) === target) this.targets.delete(name) }
+    return () => {
+      if (this.targets.get(name) === target) {
+        this.previousContexts.set(name, target.context())
+        this.targets.delete(name)
+      }
+    }
   }
   context() {
     return Object.assign({}, ...[...this.targets.values()].map(target => target.context())) as CommandContext
+  }
+  whenReady(additionalReady = () => true) {
+    if (!this.context().page_loading && additionalReady()) return Promise.resolve()
+    return new Promise<void>((resolve, reject) => {
+      let frame = 0
+      const timer = setTimeout(() => { cancelAnimationFrame(frame); reject(new Error('页面数据还未加载完成，请稍后发送。')) }, 10000)
+      const check = () => {
+        if (!this.context().page_loading && additionalReady()) { clearTimeout(timer); resolve() }
+        else frame = requestAnimationFrame(check)
+      }
+      frame = requestAnimationFrame(check)
+    })
   }
   async dispatch(effect: CommandEffect) {
     for (const target of [...this.targets.values()].reverse()) {

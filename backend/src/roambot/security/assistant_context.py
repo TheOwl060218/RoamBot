@@ -78,8 +78,12 @@ class AssistantContextSigner:
                                    for d in item.daily_suitability],
                 group_accessibility=item.group_accessibility, score=item.score,
             ))
+        return self.issue_facts(candidates, result.source_state.kind)
+
+    def issue_facts(self, candidates: list[FactCandidate], source_state: SourceKind) -> str:
+        """Sign whitelisted facts from an already-authorized server snapshot."""
         now = self._clock()
-        facts = AssistantFacts(candidates=candidates, source_state=result.source_state.kind,
+        facts = AssistantFacts(candidates=candidates, source_state=source_state,
                                issued_at=now, expires_at=now + timedelta(minutes=30))
         raw = facts.model_dump_json().encode()
         if len(raw) > 32768:

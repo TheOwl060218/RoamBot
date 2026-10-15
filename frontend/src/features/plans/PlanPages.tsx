@@ -22,6 +22,7 @@ function usePlan(path: string) {
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
   useCommandTarget('loaded-plan', () => ({
+    page_loading: loaded?.path !== path,
     ...(loaded?.path === path ? { resource_version: loaded.data.plan.updated_at } : {}),
   }), async effect => {
     if (effect.tool !== 'plan_result') return false
@@ -60,7 +61,7 @@ export function PlansPage() {
     ({ closed: 0, voting: 1, decided: 2 }[a.status] - { closed: 0, voting: 1, decided: 2 }[b.status])) ?? []
   const archived = plans?.filter(p => p.ended) ?? []
   useCommandTarget('plan-list', () => ({ visible_resources: {
-    kind: 'plans', ids: [...active, ...archived].slice(0, 100).map(item => item.id) } }), () => false)
+    kind: 'plans', ids: [...active, ...archived].slice(0, 100).map(item => item.id) }, page_loading: plans === null }), () => false)
   const [error, setError] = useState('')
   useEffect(() => {
     let active = true

@@ -7,7 +7,13 @@ import httpx
 
 from roambot.domain.assistant import AssistantDraft, AssistantPatch, merge_assistant_patch
 from roambot.domain.business_tools import TOOL_CATALOG, resolve_reference
-from roambot.domain.models import PlaceEvaluationRequest, RecommendationRequest
+from roambot.domain.models import (
+    PlaceEvaluationRequest,
+    PlaceEvaluationResponse,
+    RecommendationRequest,
+    RecommendationResponse,
+)
+from roambot.security.assistant_context import FactCandidate, FactDestination, FactSuitability
 
 
 class BusinessFailure(ValueError):
@@ -145,19 +151,23 @@ class BusinessExecutor:
             if plan is not None:
                 out["plan"] = self.describe_plan(plan)
         page = self.context.get("page", "")
-        kind = {"/favorites": "favorites", "/history": "history", "/plans": "plans"}.get(page)
-        if kind:
+        current_kind = {"/favorites": "favorites", "/history": "history", "/plans": "plans"}.get(
+            page
+        )
+        for kind in ("favorites", "history", "plans"):
             try:
-                out[kind] = await self.resource_list(kind)
+                out[kind] = (await self.resource_list(kind))[:100]
             except BusinessFailure as exc:
                 if exc.status not in {401, 404}:
                     raise
                 out[kind], out["authentication_required"] = [], exc.status == 401
             except ValueError:
-                out[kind], out["stale_list"] = [], True
+                out[kind] = []
+                if kind == current_kind:
+                    out["stale_list"] = True
         turn = self.context.get("assistant_turn") or {}
         out["draft"] = turn.get("draft", {})
-        out["conversation"] = (turn.get("history") or self.context.get("conversation", []))[-6:]
+        out["conversation"] = (self.context.get("conversation") or turn.get("history", []))[-6:]
         return out
 
     def describe_plan(self, plan):
@@ -253,6 +263,12 @@ class BusinessExecutor:
         spec = TOOL_CATALOG[action.tool]
         args = action.validated_arguments().model_dump(exclude_none=True)
         name = action.tool
+        if name == "describe_capabilities":
+            return {
+                "reply": "可以直接修改条件并查询、查看详情和地图、选择或比较地点、管理收藏和历史，"
+                "以及创建和管理计划、邀请、本人投票、天气复查与定案。可随时说返回、刷新、"
+                "向下看、打开更多功能；Alt+/ 回到当前对话。登录密码在安全表单中输入。"
+            }
         if spec.kind == "ui":
             effect = {"tool": name, "arguments": args}
             if name in {"open_detail", "open_map", "open_external_map"}:
@@ -280,6 +296,62 @@ class BusinessExecutor:
             return {"effect": effect}
         if name in {"update_search_conditions", "explain_result"}:
             turn = self.context.get("assistant_turn")
+            if turn and self.context.get("conversation"):
+                turn["history"] = self.context["conversation"][-6:]
+            page = self.context.get("page", "")
+            if name == "explain_result" and page != "/recommend":
+                result = None
+                token = None
+                if self.context.get("plan_id") or self.context.get("invite_token"):
+                    plan = await self.plan()
+                    facts = []
+                    for candidate in plan["candidates"]:
+                        item = dict(candidate["snapshot"])
+                        check = candidate.get("latest_weather")
+                        if check:
+                            item["weather"] = check.get("weather") or []
+                            item["daily_suitability"] = check.get("daily_suitability") or []
+                        destination = item["destination"]
+                        facts.append(
+                            FactCandidate(
+                                candidate_id=candidate["id"],
+                                destination=FactDestination(
+                                    name=destination["name"],
+                                    city=destination["city"],
+                                    type_name="",
+                                    scenery_tags=sorted(destination["scenery_tags"]),
+                                    rating=destination.get("rating"),
+                                ),
+                                # Plans intentionally omit personal origin routes.
+                                distances=[],
+                                weather=item["weather"],
+                                daily_suitability=[
+                                    FactSuitability(
+                                        date=d["date"], score=d["score"], status=d["status"]
+                                    )
+                                    for d in item["daily_suitability"]
+                                ],
+                                group_accessibility=item["group_accessibility"],
+                                score=item["score"],
+                            )
+                        )
+                    token = self.request.app.state.assistant_context_signer.issue_facts(
+                        facts, plan["candidates"][0]["snapshot"]["source_state"]["kind"]
+                    )
+                elif page.startswith("/history/") and self.context.get("history_id"):
+                    raw = (await self.history())["result"]
+                    model = RecommendationResponse if "items" in raw else PlaceEvaluationResponse
+                    result = model.model_validate(raw)
+                if result is not None:
+                    token = self.request.app.state.assistant_context_signer.issue(result)
+                if token is not None:
+                    turn = {
+                        "message": message,
+                        "revision": 0,
+                        "draft": {},
+                        "history": self.context.get("conversation", []),
+                        "assistant_context": token,
+                    }
             if not turn:
                 return {"effect": {"tool": "continue_in_studio", "arguments": {"message": message}}}
             response = await self.call("POST", "/assistant/turns", {**turn, "message": message})
@@ -419,6 +491,14 @@ class BusinessExecutor:
         return {**result, "effect": {"tool": "open_history", "arguments": {"id": history_id}}}
 
     async def plan_action(self, name, args):
+        reference = args.pop("plan", None)
+        if reference is not None:
+            target = await self.resource("plans", reference)
+            if target["id"] != self.context.get("plan_id"):
+                self.context.pop("resource_version", None)
+                self.context.pop("invite_token", None)
+                self.context["visible_places"] = []
+            self.context["plan_id"] = target["id"]
         if name in {"open_plan", "update_plan", "delete_plan"}:
             plan = await self.resource("plans", args.pop("target", None))
             self.context["plan_id"] = plan["id"]

@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { MessageCircle, X } from 'lucide-react'
 import { Composer } from './Composer'
+import { FOCUS_CHAT, usable } from '../commands/chatFocus'
 
 export function LayerConversation({ label, focusedPlace, messages, status, busy, onSend, children }: {
   label: string; focusedPlace: string; messages: readonly { id: string; role: string; content: string }[]
@@ -15,6 +16,15 @@ export function LayerConversation({ label, focusedPlace, messages, status, busy,
   const skipClick = useRef(false)
   const id = useId(), panel = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null)
   const records = useRef<HTMLElement>(null), follow = useRef(true)
+  useEffect(() => {
+    const focus = () => {
+      if (!trigger.current || !usable(trigger.current)) return
+      setOpen(true)
+      requestAnimationFrame(() => panel.current?.querySelector('textarea')?.focus({ preventScroll: true }))
+    }
+    window.addEventListener(FOCUS_CHAT, focus)
+    return () => window.removeEventListener(FOCUS_CHAT, focus)
+  }, [])
   const panelWidth = Math.min(420, Math.max(200, viewport.width - 88))
   const clamp = (value: number, max: number) => Math.max(12, Math.min(value, Math.max(12, max)))
   const maxX = viewport.width - 64 - (open ? panelWidth + 12 : 0)

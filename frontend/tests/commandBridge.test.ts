@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { CommandBridge, contextFingerprint } from '../src/features/commands/commandBridge'
 
 describe('explicit command bridge', () => {
+  it('waits for initial page data without suppressing later version changes', async () => {
+    const bridge = new CommandBridge()
+    let loading = true
+    bridge.register('plan', () => ({ page_loading: loading, resource_version: loading ? null : 'loaded' }), () => false)
+    let ready = false
+    const waiting = bridge.whenReady().then(() => { ready = true })
+    await Promise.resolve()
+    expect(ready).toBe(false)
+    loading = false
+    await waiting
+    expect(ready).toBe(true)
+    expect(bridge.context().resource_version).toBe('loaded')
+  })
   it('routes registered actions and reports unsupported actions instead of claiming success', async () => {
     const bridge = new CommandBridge()
     let selected: string[] = []
@@ -15,6 +28,7 @@ describe('explicit command bridge', () => {
     expect(bridge.context().result_version).toBe(2)
     await expect(bridge.perform({ tool: 'unknown', arguments: {} })).rejects.toThrow()
     remove()
+    expect(bridge.previousContext('studio')).toEqual({ result_version: 2 })
     await expect(bridge.perform({ tool: 'select_candidates', arguments: {} })).rejects.toThrow()
   })
 

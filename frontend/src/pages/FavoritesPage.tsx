@@ -43,6 +43,7 @@ export function FavoritesPage() {
 
   const selected = favorites.find((favorite) => favorite.id === selectedId) ?? null
   useCommandTarget('favorites', () => ({ focused_id: selectedId,
+    page_loading: loading,
     visible_resources: { kind: 'favorites', ids: favorites.slice(0, 100).map(item => item.id) },
     layer: selected ? 'favorite-detail' : 'favorites' }), effect => {
     if (effect.tool === 'open_detail') {

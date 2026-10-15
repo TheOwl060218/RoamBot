@@ -11,7 +11,7 @@ const sharedPython = path.resolve(root, '../../.venv', executable)
 const python = process.env.ROAMBOT_TEST_PYTHON ?? (existsSync(localPython) ? localPython :
   existsSync(sharedPython) ? sharedPython : process.platform === 'win32' ? 'python' : 'python3')
 export default defineConfig({
-  testDir: './e2e', testMatch: 'business-commands.spec.ts', fullyParallel: false, workers: 1,
+  testDir: './e2e', testMatch: ['business-commands.spec.ts', 'mouseless-business.spec.ts'], fullyParallel: false, workers: 1,
   outputDir: '../test-results/commands-browser',
   reporter: [['line'], ['json', { outputFile: '../test-results/commands-browser.json' }]],
   use: { baseURL: 'http://127.0.0.1:5191', channel: 'msedge', trace: 'retain-on-failure' },

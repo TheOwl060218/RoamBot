@@ -16,11 +16,11 @@ export function Composer({ busy, onSend, focusedPlace, children }: {
     catch { /* Preserve the original message for an explicit retry. */ }
     finally { lock.current = false; setSending(false) }
   }
-  return <div className='studio-composer'>
+  return <div className='studio-composer' data-busy={busy || sending}>
     {focusedPlace && <p className='composer-focus'>正在聊：{focusedPlace}</p>}
     <form onSubmit={e => { e.preventDefault(); void send() }}>
       {children ?? <MessageCircle size={20} aria-hidden='true' />}
-      <textarea rows={1} aria-label='继续补充条件' placeholder='说说想去哪，或继续修改条件…' maxLength={2000}
+      <textarea rows={1} data-command-input aria-keyshortcuts='Alt+/' aria-label='继续补充条件' placeholder='说说想去哪，或继续修改条件…' maxLength={2000}
         value={text} onChange={e => setText(e.target.value)}
         onCompositionStart={() => { composing.current = true }} onCompositionEnd={() => { composing.current = false }}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !composing.current && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } }} />
