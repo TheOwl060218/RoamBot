@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { OverlayHost } from './OverlayHost'
 import type { TravelFormDraft } from '../search/formState'
 import { defaultDisplayWeights } from '../search/formState'
@@ -10,8 +10,9 @@ import { conditionLabels } from './conditionLabels'
 import { StudioPlaceField } from './StudioPlaceField'
 import { localSceneryTypes } from './localScenery'
 
-export function ConditionEditor({ conditionKey, draft, onSave, onClose }: {
+export function ConditionEditor({ conditionKey, draft, onSave, onClose, accessory }: {
   conditionKey: ConditionKey; draft: TravelFormDraft; onSave: (draft: TravelFormDraft) => void; onClose: () => void
+  accessory?: ReactNode
 }) {
   // Opening evaluation is a local edit; only Save commits its mode change.
   const [value, setValue] = useState(() => conditionKey === 'targetPlace'
@@ -19,7 +20,7 @@ export function ConditionEditor({ conditionKey, draft, onSave, onClose }: {
   const [query, setQuery] = useState('')
   const heading = useId()
   function update(part: Partial<TravelFormDraft>) { setValue(v => ({ ...v, ...part })) }
-  return <OverlayHost label={conditionLabels[conditionKey]} onClose={onClose} className='studio-editor-backdrop' panelClassName='studio-editor glass-panel'>
+  return <OverlayHost label={conditionLabels[conditionKey]} onClose={onClose} className='studio-editor-backdrop' panelClassName='studio-editor glass-panel' accessory={accessory}>
     <header><h2 id={heading}>{conditionLabels[conditionKey]}</h2><button type='button' onClick={onClose} aria-label='关闭条件编辑'>×</button></header>
     <form noValidate onSubmit={e => { e.preventDefault(); onSave(conditionKey === 'sceneryTypes' ? { ...value, sceneryTypes: localSceneryTypes(value.sceneryQuery ?? '') } : value) }}>
       {conditionKey === 'mainOrigin' && <StudioPlaceField label='主出发地' city='' value={value.mainOrigin} onChange={mainOrigin => update({ mainOrigin, mainOriginCoordinate: null })} onSelect={s => update({ mainOrigin: s.name, mainOriginCoordinate: s.coordinate })} />}

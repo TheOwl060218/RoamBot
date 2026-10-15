@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { apiClient } from '../../api/client'
 import type { Favorite, RecommendationItem, SourceState } from '../../api/types'
 import { requestAccountDialog } from '../../app/accountDialog'
+import { useBusinessRevision } from '../commands/commandEvents'
 export function useStudioFavorites(username: string | null, source?: SourceState) {
+  const businessRevision = useBusinessRevision()
   const [favorites, setFavorites] = useState<Record<string, Favorite>>({})
   const [pending, setPending] = useState<string[]>([])
   const [notice, setNotice] = useState('')
@@ -14,7 +16,7 @@ export function useStudioFavorites(username: string | null, source?: SourceState
       if (alive) setFavorites(Object.fromEntries(r.favorites.map(f => [f.place.provider_place_id, f])))
     }).catch(() => { if (alive) setFavorites({}) })
     return () => { alive = false }
-  }, [username])
+  }, [username, businessRevision])
   async function toggle(item: RecommendationItem) {
     if (!username) { requestAccountDialog(); return }
     const id = item.destination.provider_id, owner = username

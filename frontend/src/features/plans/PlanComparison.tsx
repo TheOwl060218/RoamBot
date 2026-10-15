@@ -5,6 +5,7 @@ import { DailyWeatherList } from '../search/DailyWeatherList'
 import { RevealNotice } from '../../components/RevealNotice'
 import { useRevealNotice } from '../../components/useRevealNotice'
 import { DayExplanationPopover } from './DayExplanationPopover'
+import { useCommandTarget } from '../commands/commandContext'
 
 type Props = { plan: TravelPlan; hideHeading?: boolean; decisionAction?: (candidate: PlanCandidate) => ReactNode; toolbarActions?: ReactNode }
 const sources: Record<string, string> = { demo: '演示数据', cache: '缓存数据', live: '实时数据' }
@@ -42,6 +43,25 @@ function ComparisonBody({ plan, hideHeading, decisionAction, toolbarActions }: P
     return () => window.cancelAnimationFrame(frame)
   }, [allDates, notify, clear])
   const candidates = [...plan.candidates].sort((a, b) => Number(b.id === plan.final_candidate_id) - Number(a.id === plan.final_candidate_id))
+  useCommandTarget('plan-comparison', () => ({ resource_version: plan.updated_at,
+    weather_date: currentDate, all_dates: allDates,
+    visible_places: candidates.map(candidate => ({ id: candidate.id, name: candidate.snapshot.destination.name })),
+  }), effect => {
+    if (effect.tool === 'set_weather_view') {
+      const date = String(effect.arguments.date)
+      if (date === 'all') setAllDates(true)
+      else {
+        if (!dates.includes(date)) throw new Error('日期不在当前行程中。')
+        setSelectedDate(date); setAllDates(false); closeExplanation()
+      }
+    } else if (effect.tool === 'show_day_explanation') {
+      const id = String(effect.arguments.id)
+      if (!candidates.some(c => c.id === id)) throw new Error('候选已变化。')
+      setExplanationId(id)
+    } else if (effect.tool === 'close_layer' && explanationId) closeExplanation()
+    else return false
+    return true
+  })
   return <section className='plan-comparison' aria-label='候选地点比较'>
     {!hideHeading && <div className='plan-comparison-toolbar'><div><h2>比较候选地点</h2><p className='muted'>同时看同一天，更容易比较差异。</p></div></div>}
     <div className='plan-date-toolbar'>

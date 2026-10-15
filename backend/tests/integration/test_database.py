@@ -15,6 +15,7 @@ from roambot.persistence.database import (
 from roambot.persistence.tables import Base
 
 BUSINESS_TABLES = {
+    "assistant_commands",
     "api_cache",
     "favorites",
     "histories",
@@ -36,6 +37,15 @@ PLAN_TABLES = {
 }
 
 EXPECTED_COLUMNS = {
+    "assistant_commands": {
+        "actor": ("VARCHAR(100)", False, True),
+        "request_id": ("VARCHAR(100)", False, True),
+        "proposal": ("VARCHAR(36)", False, False),
+        "digest": ("VARCHAR(64)", False, False),
+        "status": ("VARCHAR(20)", False, False),
+        "data_json": ("TEXT", False, False),
+        "created_at": ("DATETIME", False, False),
+    },
     "users": {
         "id": ("VARCHAR(36)", False, True),
         "username": ("VARCHAR(32)", False, False),
@@ -97,6 +107,7 @@ EXPECTED_COLUMNS = {
 }
 
 EXPECTED_UNIQUES = {
+    "assistant_commands": {("proposal",)},
     "users": {("username",)},
     "user_sessions": {("token_hash",)},
     "places": {("provider", "provider_place_id")},
@@ -107,6 +118,7 @@ EXPECTED_UNIQUES = {
 }
 
 EXPECTED_INDEXES = {
+    "assistant_commands": set(),
     "users": set(),
     "user_sessions": {("user_id",), ("expires_at",)},
     "places": set(),
@@ -117,6 +129,7 @@ EXPECTED_INDEXES = {
 }
 
 EXPECTED_FOREIGN_KEYS = {
+    "assistant_commands": set(),
     "users": set(),
     "user_sessions": {(("user_id",), "users", ("id",), "CASCADE")},
     "places": set(),
@@ -190,7 +203,7 @@ def test_upgrade_head_is_repeatable_and_creates_exact_schema(tmp_path: Path) -> 
             } == EXPECTED_FOREIGN_KEYS[table_name]
 
         with engine.connect() as connection:
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
     finally:
         engine.dispose()
 

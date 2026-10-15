@@ -8,11 +8,16 @@ import { ConfirmDialog } from '../app/ConfirmDialog'
 import { HistoryList } from '../features/history/HistoryList'
 import { restoreHistorySearch } from '../features/history/restoreHistorySearch'
 import { useAuth } from '../features/auth/authContext'
+import { useBusinessRevision } from '../features/commands/commandEvents'
+import { useCommandTarget } from '../features/commands/commandContext'
 
 export function HistoryPage() {
+  const businessRevision = useBusinessRevision()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [histories, setHistories] = useState<HistorySummary[]>([])
+  useCommandTarget('history-list', () => ({ visible_resources: {
+    kind: 'history', ids: histories.slice(0, 100).map(item => item.id) } }), () => false)
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
   const [toast, setToast] = useState('')
@@ -26,7 +31,7 @@ export function HistoryPage() {
       .then((response) => setHistories(response.histories))
       .catch(() => setStatus('历史加载失败，请稍后重试。'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [businessRevision])
 
   useEffect(() => () => {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)

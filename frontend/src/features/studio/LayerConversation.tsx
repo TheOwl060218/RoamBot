@@ -1,10 +1,11 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { MessageCircle, X } from 'lucide-react'
 import { Composer } from './Composer'
 
-export function LayerConversation({ label, focusedPlace, messages, status, busy, onSend }: {
+export function LayerConversation({ label, focusedPlace, messages, status, busy, onSend, children }: {
   label: string; focusedPlace: string; messages: readonly { id: string; role: string; content: string }[]
   status: string; busy: boolean; onSend: (message: string) => Promise<void>
+  children?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const [viewport, setViewport] = useState(() => ({ width: document.documentElement.clientWidth || innerWidth, height: innerHeight }))
@@ -84,6 +85,7 @@ export function LayerConversation({ label, focusedPlace, messages, status, busy,
         {status && <p role='status'>{status}</p>}
       </section>
       <Composer busy={busy} onSend={onSend} />
+      {children}
     </div>
     <button ref={trigger} className='studio-chat-orb' type='button' aria-label={open ? `收起${label}` : `打开${label}`} aria-expanded={open} aria-controls={id}
       onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag}

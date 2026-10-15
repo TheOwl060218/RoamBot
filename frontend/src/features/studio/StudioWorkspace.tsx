@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { useInRouterContext } from 'react-router-dom'
 import { CreatePlanControl } from '../plans/CreatePlanControl'
-import { createStudioState, studioReducer } from './studioState'
+import { createStudioState, studioReducer, toAssistantDraft } from './studioState'
 import { loadStudioState, saveStudioState } from './studioStorage'
 import { ConditionPuzzle } from './ConditionPuzzle'
 import { ConditionEditor } from './ConditionEditor'
@@ -32,6 +32,9 @@ import { projectConditionCards } from './conditionProjection'
 import { QueryNotice } from './QueryNotice'
 import { afterLayerExits } from './layerMotion'
 import { LayerConversation } from './LayerConversation'
+import { useBusinessAssistant, useCommandTarget } from '../commands/commandContext'
+import type { RecommendationResponse, PlaceEvaluationResponse, RecommendationRequest, PlaceEvaluationRequest } from '../../api/types'
+import type { AssistantTurnResponse } from './types'
 
 function candidateElement(id: string) { return [...document.querySelectorAll<HTMLElement>('[data-candidate-id]')].find(node => node.dataset.candidateId === id) ?? null }
 function detailElement(id: string) { return [...document.querySelectorAll<HTMLElement>('[data-detail-id]')].find(node => node.dataset.detailId === id) ?? null }
@@ -74,7 +77,9 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
   const inRouter = useInRouterContext()
   const previousUser = useRef(user?.username ?? null)
   const incoming = useRef(props.restoredSearch ?? props.initialTarget)
-  const ai = useAssistant(state, dispatch)
+  const legacyAi = useAssistant(state, dispatch)
+  const business = useBusinessAssistant()
+  const sendAssistant = business?.send ?? legacyAi.send
   const search = useStudioSearch(state, dispatch, user?.username ?? null)
   const stage = useStudioStage(state, dispatch)
   useEffect(() => () => deferredEditor.current?.(), [])
@@ -87,9 +92,9 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
   useEffect(() => { saveStudioState(state) }, [state])
   useEffect(() => {
     if (!pendingScenery) return
-    const timer = setTimeout(() => { setPendingScenery(''); void ai.send(`想找的地方：${pendingScenery}`).catch(() => undefined) }, 0)
+    const timer = setTimeout(() => { setPendingScenery(''); void sendAssistant(`想找的地方：${pendingScenery}`).catch(() => undefined) }, 0)
     return () => clearTimeout(timer)
-  }, [pendingScenery, ai])
+  }, [pendingScenery, sendAssistant])
   useEffect(() => {
     const next = props.restoredSearch ?? props.initialTarget
     if (next !== incoming.current && next) { incoming.current = next; dispatch({ type: 'restore', state: initialState(props) }) }
@@ -122,9 +127,97 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
     deferredEditor.current?.()
     deferredEditor.current = afterLayerExits(() => { deferredEditor.current = null; setEditor(key) })
   }
+  useCommandTarget('studio', () => ({
+    history_id: state.result?.historyId ?? null,
+    selected_ids: state.selection, focused_id: state.detailId,
+    visible_places: state.result?.items.map(item => ({ id: item.destination.provider_id, name: item.destination.name })) ?? [],
+    result_version: state.result?.version ?? null, dirty,
+    layer: layers.mapOpen ? 'map' : comparing ? 'comparison' : editor ? 'editor' : detail ? 'detail' : stage.phase,
+    assistant_turn: { message: '当前条件', revision: state.revision, draft: toAssistantDraft(state.draft),
+      conversation_state: state.conversationState,
+      history: state.messages.slice(-6).map(({ role, content }) => ({ role, content: content.slice(0, 1000) })),
+      ...(state.result?.assistantContext ? { assistant_context: state.result.assistantContext } : {}),
+      ...(state.detailId ? { focused_destination_id: state.detailId } : {}) },
+  }), async effect => {
+    const args = effect.arguments
+    const requestId = String(args.requestId ?? '')
+    if (effect.tool === 'chat_started') {
+      dispatch({ type: 'aiStarted', requestId, message: String(args.message) })
+    } else if (effect.tool === 'assistant_result') {
+      if (Object.keys((args.response as AssistantTurnResponse).patch ?? {}).length) setEditor(null)
+      dispatch({ type: 'applyAssistant', requestId, revision: state.revision,
+        resultVersion: state.result?.version ?? null, focusedId: state.detailId,
+        response: args.response as AssistantTurnResponse })
+    } else if (effect.tool === 'chat_reply') {
+      dispatch({ type: 'applyAssistant', requestId, revision: state.revision,
+        response: { revision: state.revision, reply: String(args.reply), source: 'live' } })
+    } else if (effect.tool === 'chat_failed') {
+      dispatch({ type: 'aiFailed', requestId, message: String(args.message) })
+    } else if (effect.tool === 'query_result') {
+      const response = args.query as RecommendationResponse | PlaceEvaluationResponse
+      const queryId = crypto.randomUUID()
+      dispatch({ type: 'queryStarted', requestId: queryId })
+      dispatch({ type: 'querySucceeded', requestId: queryId, revision: state.revision, result: {
+        version: (state.result?.version ?? 0) + 1, mode: 'items' in response ? 'recommendation' : 'place_evaluation',
+        items: 'items' in response ? response.items : [response.item],
+        source_state: response.source_state, generated_at: response.generated_at,
+        queryRequest: args.query_request as RecommendationRequest | PlaceEvaluationRequest,
+        submittedRevision: state.revision, historyId: 'history_id' in response ? response.history_id ?? null : null,
+        historyOwner: user?.username ?? null, assistantContext: response.assistant_context ?? undefined,
+      } })
+    } else if (effect.tool === 'select_candidates') {
+      const ids = args.ids as string[]
+      if (!ids.every(id => state.result?.items.some(i => i.destination.provider_id === id)))
+        throw new Error('候选已变化，请重新选择。')
+      for (const id of new Set([...state.selection, ...ids])) {
+        if (state.selection.includes(id) !== ids.includes(id)) dispatch({ type: 'toggleCandidate', id })
+      }
+    } else if (effect.tool === 'open_detail' || effect.tool === 'open_map') {
+      const id = String(args.id)
+      if (!state.result?.items.some(i => i.destination.provider_id === id))
+        throw new Error('地点不在当前结果中。')
+      if (state.detailId !== id) {
+        if (layers.mapOpen) throw new Error('请先关闭当前地图再切换地点。')
+        layers.open(id)
+        if (effect.tool === 'open_map') {
+          await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+          await business?.bridge.perform(effect)
+        }
+      } else if (effect.tool === 'open_map') layers.openMap()
+    } else if (effect.tool === 'close_layer') {
+      if (layers.mapOpen) layers.closeMap()
+      else if (comparing) setComparing(false)
+      else if (editor) setEditor(null)
+      else if (otherOpen) setOtherOpen(false)
+      else if (favoritesOpen) setFavoritesOpen(false)
+      else if (detail) closeDetail()
+      else return false
+    } else if (effect.tool === 'show_comparison') {
+      if (chosen.length < 2) throw new Error('请至少选择两个地点。')
+      setComparing(true)
+    } else if (effect.tool === 'show_candidates') {
+      workspace.current?.querySelector('.destination-grid')?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+        block: 'center' })
+    } else if (effect.tool === 'edit_condition') setEditor(args.field as ConditionKey)
+    else if (effect.tool === 'start_new_query') stage.startNewQuery()
+    else if (effect.tool === 'undo_new_query') stage.undoNewQuery()
+    else if (effect.tool === 'clear_conversation') dispatch({ type: 'clearConversation' })
+    else if (effect.tool === 'open_external_map') {
+      const item = state.result?.items.find(i => i.destination.provider_id === args.id)
+      if (!item) throw new Error('地点已变化。')
+      const c = item.destination.coordinate
+      const url = 'https://uri.amap.com/marker?position=' + c.longitude + ',' + c.latitude +
+        '&name=' + encodeURIComponent(item.destination.name) + '&coordinate=gaode&callnative=0'
+      const opened = window.open(url, '_blank')
+      if (opened) opened.opener = null
+      else throw new Error('浏览器拦截了新窗口，请使用详情中的高德入口。')
+    } else return false
+    return true
+  })
   const featureMenu = <StudioMenu onEdit={setEditor} onNew={stage.restartAll} onClear={() => undefined} onFavorites={() => user ? setFavoritesOpen(true) : requestAccountDialog()}
     onTeam={() => dispatch({ type: 'enterTeamPickMode' })} />
-  const composer = <Composer busy={!!state.aiRequestId} onSend={ai.send} focusedPlace={detail?.destination.name}>{featureMenu}</Composer>
+  const composer = <Composer busy={!!state.aiRequestId} onSend={sendAssistant} focusedPlace={detail?.destination.name}>{featureMenu}</Composer>
   const recentMessages = state.messages.slice(-2)
   const latestAssistant = [...state.messages].reverse().find(message => message.role === 'assistant' && message.resultVersion === state.result?.version)
   return <div ref={workspace} className={`studio-workspace spatial-workspace phase-${stage.phase}`} data-workspace-phase={stage.phase}>
@@ -151,7 +244,7 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
     <section className='studio-results' aria-label='推荐地点'>
       <SourceNotice source={state.result.source_state} />
       {detail && <OverlayHost label={`${detail.destination.name}详情`} onClose={closeDetail} className='destination-detail-layer' panelClassName='studio-detail-host'
-        accessory={<LayerConversation label='详情对话' focusedPlace={detail.destination.name} messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={ai.send} />}>
+        accessory={<LayerConversation label='详情对话' focusedPlace={detail.destination.name} messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />}>
         <DestinationDetail key={detail.destination.provider_id} item={detail} selected={state.selection.includes(detail.destination.provider_id)} full={state.selection.length >= 3}
           onClose={closeDetail} onMap={layers.openMap} onSelect={() => dispatch({ type: 'toggleCandidate', id: detail.destination.provider_id })}
           onFavorite={() => void favorite.toggle(detail)} isFavorite={!!favorite.favorites[detail.destination.provider_id]} favoritePending={favorite.pending.includes(detail.destination.provider_id)} allowCandidate={state.result.mode === 'recommendation'} teamMode={state.teamPick.active} />
@@ -164,7 +257,9 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
           dirty={dirty} selectedIds={state.selection} city={chosen[0]?.destination.city ?? ''} startDate={state.result.queryRequest?.start_date ?? state.draft.startDate} endDate={state.result.queryRequest?.end_date ?? state.draft.endDate}
           originCount={state.result.queryRequest ? 1 + state.result.queryRequest.companion_origins.length : 1} onRerun={search.submit} />}
       </CandidateDock>}
-      {comparing && chosen.length >= 2 && <OverlayHost label='候选对比' onClose={() => setComparing(false)} className='studio-comparison-layer' panelClassName='studio-detail-host'><ComparisonCards items={chosen} onClose={() => setComparing(false)} /></OverlayHost>}
+      {comparing && chosen.length >= 2 && <OverlayHost label='候选对比' onClose={() => setComparing(false)} className='studio-comparison-layer' panelClassName='studio-detail-host'
+        accessory={<LayerConversation label='比较对话' focusedPlace='候选比较' messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />}>
+        <ComparisonCards items={chosen} onClose={() => setComparing(false)} /></OverlayHost>}
     </section></ResultsStage>}
     {state.teamPick.active && <div className='studio-team-mode' role='status'>同行挑选中<button type='button' onClick={() => dispatch({ type: 'exitTeamPickMode' })}>结束挑选</button></div>}
     {state.newQuerySnapshot && stage.phase === 'query' && <div className='studio-undo-query' role='status'>已开始新查询 <button type='button' onClick={stage.undoNewQuery}>撤销</button></div>}
@@ -174,12 +269,15 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
       {!state.draft.sceneryTypes.length && !state.draft.destinationRegions?.length && <button type='button' onClick={() => setEditor('sceneryTypes')}>描述想找的地方</button>}
     </div>}</div>}
     {favorite.notice && <p role='status'>{favorite.notice}</p>}
-    {editor && <ConditionEditor key={editor} conditionKey={editor} draft={state.draft} onSave={draft => { dispatch({ type: 'edit', draft, keys: [editor] }); setEditor(null); if (editor === 'sceneryTypes' && draft.sceneryQuery?.trim()) setPendingScenery(draft.sceneryQuery) }} onClose={() => setEditor(null)} />}
-    {otherOpen && <OverlayHost label='其他偏好' onClose={() => setOtherOpen(false)} panelClassName='studio-feature-library glass-panel'>
+    {editor && <ConditionEditor key={editor} conditionKey={editor} draft={state.draft} onSave={draft => { dispatch({ type: 'edit', draft, keys: [editor] }); setEditor(null); if (editor === 'sceneryTypes' && draft.sceneryQuery?.trim()) setPendingScenery(draft.sceneryQuery) }} onClose={() => setEditor(null)}
+      accessory={<LayerConversation label='条件对话' focusedPlace='编辑条件' messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />} />}
+    {otherOpen && <OverlayHost label='其他偏好' onClose={() => setOtherOpen(false)} panelClassName='studio-feature-library glass-panel'
+      accessory={<LayerConversation label='偏好对话' focusedPlace='其他偏好' messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />}>
       <h2>其他偏好</h2>
       {projectConditionCards(state).filter(card => card.supplemental).map(card => <button type='button' key={card.id} onClick={() => editOtherPreference(card.key)}>{card.label}<small>{card.value}</small></button>)}
     </OverlayHost>}
-    {favoritesOpen && <OverlayHost label='从收藏中选择' onClose={() => setFavoritesOpen(false)} panelClassName='studio-feature-library glass-panel'>
+    {favoritesOpen && <OverlayHost label='从收藏中选择' onClose={() => setFavoritesOpen(false)} panelClassName='studio-feature-library glass-panel'
+      accessory={<LayerConversation label='收藏选择对话' focusedPlace='选择收藏' messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />}>
       <h2>从收藏中选择</h2>
       {Object.values(favorite.favorites).map(item => <button type='button' key={item.id} onClick={() => {
         dispatch({ type: 'edit', draft: { ...state.draft, mode: 'place_evaluation', targetPlace: item.place.name }, keys: ['targetPlace'] })
@@ -190,7 +288,7 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
     <div hidden={layers.mapOpen || !!detail} inert={layers.mapOpen || !!detail}>{composer}</div>
     {layers.mapOpen && detail && state.result && <LocationMapDialog items={state.result.items} selectedId={detail.destination.provider_id}
       onSelect={item => dispatch({ type: 'openDetail', id: item.destination.provider_id, resultVersion: state.result!.version })} onClose={layers.closeMap}>
-      <LayerConversation label='地图对话' focusedPlace={detail.destination.name} messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={ai.send} />
+      <LayerConversation label='地图对话' focusedPlace={detail.destination.name} messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />
     </LocationMapDialog>}
   </div>
 }

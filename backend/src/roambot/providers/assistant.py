@@ -228,6 +228,13 @@ def safe_validation_diagnostics(error: ValidationError) -> list[dict]:
 
 
 class OpenAICompatibleAssistantProvider:
+    def plan_business(self, request, context):
+        from roambot.providers.business_planner import plan_business_actions
+
+        return plan_business_actions(
+            self._http, self._key, self._model, self._enable_thinking, request, context
+        )
+
     def __init__(
         self,
         http: ProviderHttpClient,

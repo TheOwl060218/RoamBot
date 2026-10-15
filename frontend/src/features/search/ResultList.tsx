@@ -5,6 +5,7 @@ import { CandidateDrawer } from './CandidateDrawer'
 import { MobileCandidateSwitcher } from './MobileCandidateSwitcher'
 import { PlaceDetail } from './PlaceDetail'
 import { SourceNotice } from './SourceNotice'
+import { useBusinessAssistant, useCommandTarget } from '../commands/commandContext'
 
 type ResultListProps = {
   items: RecommendationItem[]
@@ -53,6 +54,25 @@ export function ResultList({
     setInternalSelectedId(item.destination.provider_id)
     onSelect?.(item)
   }
+  const business = useBusinessAssistant()
+  useCommandTarget('result-list', () => ({ focused_id: selectedItem?.destination.provider_id,
+    visible_places: items.map(item => ({ id: item.destination.provider_id, name: item.destination.name })),
+  }), async effect => {
+    if (effect.tool === 'show_candidates') setDrawerOpen(true)
+    else if (effect.tool === 'open_detail' || effect.tool === 'open_map') {
+      const item = items.find(i => i.destination.provider_id === effect.arguments.id)
+      if (!item) throw new Error('地点已变化。')
+      if (item !== selectedItem) {
+        select(item)
+        if (effect.tool === 'open_map') {
+          await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+          await business?.bridge.perform(effect)
+        }
+      } else if (effect.tool === 'open_map') return false
+    } else if (effect.tool === 'close_layer' && drawerOpen) setDrawerOpen(false)
+    else return false
+    return true
+  })
 
   useEffect(() => {
     const updateFromScroll = () => {

@@ -5,8 +5,12 @@ import { apiClient } from '../api/client'
 import type { Favorite } from '../api/types'
 import { FavoriteDetail } from '../features/favorites/FavoriteDetail'
 import { FavoriteList } from '../features/favorites/FavoriteList'
+import { useBusinessRevision } from '../features/commands/commandEvents'
+import { useBusinessAssistant, useCommandTarget } from '../features/commands/commandContext'
 
 export function FavoritesPage() {
+  const business = useBusinessAssistant()
+  const businessRevision = useBusinessRevision()
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -18,7 +22,7 @@ export function FavoritesPage() {
       .then((result) => setFavorites(result.favorites))
       .catch(() => setError('收藏加载失败，请稍后重试。'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [businessRevision])
 
   async function remove(id: string) {
     try {
@@ -38,6 +42,17 @@ export function FavoritesPage() {
   }, [toast])
 
   const selected = favorites.find((favorite) => favorite.id === selectedId) ?? null
+  useCommandTarget('favorites', () => ({ focused_id: selectedId,
+    visible_resources: { kind: 'favorites', ids: favorites.slice(0, 100).map(item => item.id) },
+    layer: selected ? 'favorite-detail' : 'favorites' }), effect => {
+    if (effect.tool === 'open_detail') {
+      const id = String(effect.arguments.id)
+      if (!favorites.some(f => f.id === id)) throw new Error('收藏已变化。')
+      setSelectedId(id)
+    } else if (effect.tool === 'close_layer' && selected) setSelectedId(null)
+    else return false
+    return true
+  })
 
   return (
     <section className="personal-page">
@@ -46,7 +61,7 @@ export function FavoritesPage() {
       {loading ? <p className="loading-state">正在加载收藏…</p> : favorites.length ? (
         <div className="favorites-workspace">
           <FavoriteList favorites={favorites} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
-          {selected && <OverlayHost label={`${selected.place.name}收藏详情`} onClose={() => setSelectedId(null)} className='favorite-detail-layer' panelClassName='favorite-detail-host'>
+          {selected && <OverlayHost label={`${selected.place.name}收藏详情`} onClose={() => setSelectedId(null)} className='favorite-detail-layer' panelClassName='favorite-detail-host' accessory={business?.chat}>
             <FavoriteDetail favorite={selected} onClose={() => setSelectedId(null)} onDelete={remove} />
           </OverlayHost>}
         </div>

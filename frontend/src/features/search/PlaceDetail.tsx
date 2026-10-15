@@ -5,6 +5,7 @@ import { amapPlaceUrl, amapSearchUrl } from './amapLink'
 
 import type { RecommendationItem } from '../../api/types'
 import { DailyWeatherList } from './DailyWeatherList'
+import { useBusinessAssistant, useCommandTarget } from '../commands/commandContext'
 import {
   distanceMatchLabel,
   fairnessMatchLabel,
@@ -37,12 +38,25 @@ type PlaceDetailProps = {
 }
 
 export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePending = false, mapItems, onMapSelect }: PlaceDetailProps) {
+  const business = useBusinessAssistant()
   const [mapOpen, setMapOpen] = useState(false)
   const candidates = useMemo(() => mapItems ?? [item], [mapItems, item])
   const { destination, score } = item
   const index = tripMatchIndex(score.total)
   const isGroup = item.distances.length > 1
   const mapUrl = amapPlaceUrl(destination.provider_id)
+  useCommandTarget('place-detail-' + destination.provider_id, () => ({
+    layer: mapOpen ? 'map' : 'detail',
+  }), effect => {
+    if (effect.tool === 'open_map' && effect.arguments.id === destination.provider_id) setMapOpen(true)
+    else if (effect.tool === 'close_layer' && mapOpen) setMapOpen(false)
+    else if (effect.tool === 'open_external_map' && effect.arguments.id === destination.provider_id) {
+      const opened = window.open(amapSearchUrl(destination.name, destination.city), '_blank')
+      if (opened) opened.opener = null
+      else throw new Error('浏览器拦截了新窗口。')
+    } else return false
+    return true
+  })
   return (
     <article className={`place-detail result-card result-card-${item.overall_advice}`}>
       <header className="result-header">
@@ -110,7 +124,7 @@ export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePend
           {isFavorite ? '取消收藏' : '收藏地点'}
         </button>
       )}
-      {mapOpen && <LocationMapDialog items={candidates} selectedId={destination.provider_id} onSelect={onMapSelect} onClose={() => setMapOpen(false)} />}
+      {mapOpen && <LocationMapDialog items={candidates} selectedId={destination.provider_id} onSelect={onMapSelect} onClose={() => setMapOpen(false)}>{business?.chat}</LocationMapDialog>}
     </article>
   )
 }

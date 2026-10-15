@@ -10,8 +10,9 @@ import { PublicSharePage } from '../features/shares/PublicSharePage'
 import { AppShell } from './AppShell'
 import { PlansPage, PlanDetailPage, JoinPlanPage } from '../features/plans/PlanPages'
 import { coordinateRouteTransitions } from './routeTransitionPolicy'
+import { CommandRoot } from '../features/commands/CommandRoot'
 
-const router = coordinateRouteTransitions(createBrowserRouter([
+const router = coordinateRouteTransitions(createBrowserRouter([{ element: <CommandRoot />, children: [
   { path: '/', element: <HomePage /> },
   {
     element: (
@@ -30,7 +31,7 @@ const router = coordinateRouteTransitions(createBrowserRouter([
       { path: 'join/:inviteToken', element: <JoinPlanPage /> },
     ],
   },
-]))
+]}]))
 
 export function AppRouter() {
   return <RouterProvider router={router} />

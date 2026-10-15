@@ -10,20 +10,34 @@ import { announcePlanChange, compactDates, planError, planProgress, planStatus }
 import { usePlanClock } from './usePlanClock'
 import { PlanComparison } from './PlanComparison'
 import { PlanVotePanel, type VoteBody } from './PlanVotePanel'
+import { useBusinessRevision } from '../commands/commandEvents'
+import { useBusinessAssistant, useCommandTarget } from '../commands/commandContext'
 
 type Envelope = { plan: TravelPlan; anonymous_csrf?: string | null }
 
 function usePlan(path: string) {
+  const businessRevision = useBusinessRevision()
   const [loaded, setLoaded] = useState<{ path: string; data: Envelope } | null>(null)
   const [failure, setFailure] = useState<{ path: string; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
+  useCommandTarget('loaded-plan', () => ({
+    ...(loaded?.path === path ? { resource_version: loaded.data.plan.updated_at } : {}),
+  }), async effect => {
+    if (effect.tool !== 'plan_result') return false
+    const plan = effect.arguments.plan as TravelPlan
+    if (loaded?.path === path && loaded.data.plan.id !== plan.id) return false
+    const data = path.startsWith('/public/')
+      ? await apiClient.get<Envelope>(path) : { plan }
+    setLoaded({ path, data })
+    return true
+  })
   useEffect(() => {
     let active = true
     void apiClient.get<Envelope>(path).then(response => { if (active) setLoaded({ path, data: response }) })
       .catch(caught => { if (active) setFailure({ path, message: planError(caught) }) })
     return () => { active = false }
-  }, [path])
+  }, [path, businessRevision])
   async function act(action: () => Promise<Envelope | void>) {
     if (lock.current) return
     lock.current = true
@@ -40,21 +54,27 @@ function usePlan(path: string) {
 }
 
 export function PlansPage() {
+  const businessRevision = useBusinessRevision()
   const [plans, setPlans] = useState<TravelPlan[] | null>(null)
+  const active = plans?.filter(p => !p.ended).sort((a, b) =>
+    ({ closed: 0, voting: 1, decided: 2 }[a.status] - { closed: 0, voting: 1, decided: 2 }[b.status])) ?? []
+  const archived = plans?.filter(p => p.ended) ?? []
+  useCommandTarget('plan-list', () => ({ visible_resources: {
+    kind: 'plans', ids: [...active, ...archived].slice(0, 100).map(item => item.id) } }), () => false)
   const [error, setError] = useState('')
   useEffect(() => {
     let active = true
     void apiClient.get<{ plans: TravelPlan[] }>('/plans').then(r => { if (active) setPlans(r.plans) })
       .catch(e => { if (active) setError(planError(e)) })
     return () => { active = false }
-  }, [])
+  }, [businessRevision])
   return <section className='plan-page'>
     <header className='plan-page-heading'><div><p className='eyebrow'>从候选到共同决定</p><h1>计划中心</h1><p>选 2–3 个地点，邀请同行者投票，共同决定目的地。</p></div><Link viewTransition className='primary-button plan-start' to='/recommend' state={{ startTeamPick: true }}>发起同行计划</Link></header>
     {error && <p role='alert' className='error-banner'>{error}</p>}
     {!plans && !error && <p className='loading-state'>正在加载计划…</p>}
     {plans && <>
-      <PlanCollection plans={plans.filter(p => !p.ended).sort((a, b) => ({ closed: 0, voting: 1, decided: 2 }[a.status] - { closed: 0, voting: 1, decided: 2 }[b.status]))} />
-      <PlanCollection plans={plans.filter(p => p.ended)} archived />
+      <PlanCollection plans={active} />
+      <PlanCollection plans={archived} archived />
     </>}
   </section>
 }
@@ -120,6 +140,18 @@ function PlanWorkbench({ plan, busy, error, onVote, management, ownerActions, co
   const trigger = useRef<HTMLButtonElement>(null)
   const canVote = plan.status === 'voting' && !plan.ended && Boolean(plan.me), visible = open && canVote
   const close = () => { setOpen(false); trigger.current?.focus({ preventScroll: true }) }
+  useCommandTarget('plan-workbench', () => ({ resource_version: plan.updated_at }), effect => {
+    if (effect.tool === 'show_vote_panel') {
+      if (!canVote) throw new Error('请先加入计划，并确认投票仍开放。')
+      setManaging(false); setStarted(true); setOpen(true)
+    } else if (effect.tool === 'show_plan_management') {
+      if (!management) throw new Error('只有发起者可以管理计划。')
+      setOpen(false); setManaging(true)
+    } else if (effect.tool === 'close_layer' && open) close()
+    else if (effect.tool === 'close_layer' && managing) setManaging(false)
+    else return false
+    return true
+  })
   return <>
     <PlanHeader plan={plan} owner={Boolean(management)} />
     <div className='plan-comparison-toolbar plan-workbench-toolbar'><div><h2>比较候选地点</h2><p className='muted'>同时看同一天，更容易比较差异。</p></div><div className='plan-workbench-actions'>
@@ -146,6 +178,7 @@ function VoteSummary({ plan }: { plan: TravelPlan }) {
 }
 
 export function PlanDetailPage() {
+  const business = useBusinessAssistant()
   const now = usePlanClock()
   const { planId = '' } = useParams()
   const path = `/plans/${planId}`
@@ -161,6 +194,13 @@ export function PlanDetailPage() {
   const [confirm, setConfirm] = useState<{ title: string; message: string; label: string; action: () => Promise<Envelope | void> } | null>(null)
   const navigate = useNavigate()
   const plan = data?.plan
+  useCommandTarget('plan-owner-page', () => ({}), async effect => {
+    if (effect.tool !== 'edit_plan') return false
+    if (!plan) throw new Error('计划尚未加载。')
+    await business?.bridge.perform({ tool: 'show_plan_management', arguments: {} })
+    setEditing(true)
+    return true
+  })
   async function rotate() {
     const result = await apiClient.post<{ url: string }>(`${path}/invite/rotate`)
     setInviteUrl(new URL(result.url, window.location.origin).href)
