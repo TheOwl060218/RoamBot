@@ -16,10 +16,7 @@ test('guest receives a demo recommendation without writing history', async ({ pa
 
   await submitRecommendation(page)
 
-  await expect(page.getByText('出游匹配指数', { exact: true })).toBeVisible()
-  await expect(page.getByText(
-    '天气数据来自和风天气；地点评分来自高德开放平台；距离与用时按查询时驾车路况估算；出游匹配指数仅用于比较本次候选地点。',
-    { exact: true },
-  )).toBeVisible()
+  await expect(page.locator('.destination-detail .detail-title-row')).toContainText('出游匹配指数')
+  await expect(page.locator('.studio-disclaimer')).toHaveCount(0)
   expect(historyRequests).toBe(0)
 })

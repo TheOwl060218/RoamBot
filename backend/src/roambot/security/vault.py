@@ -16,6 +16,8 @@ from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 _ASSOCIATED_DATA = b"roambot-vault-v1"
 _CREDENTIAL_NAMES = ("amap_api_key", "qweather_api_key", "llm_api_key")
+_OPTIONAL_CREDENTIAL_NAMES = ("amap_js_key", "amap_js_security_code")
+_ALLOWED_CREDENTIAL_NAMES = _CREDENTIAL_NAMES + _OPTIONAL_CREDENTIAL_NAMES
 _KDF_PARAMETERS = {"name": "scrypt", "n": 32768, "r": 8, "p": 1}
 _CIPHER_NAME = "aes-256-gcm"
 
@@ -58,15 +60,22 @@ class CredentialVault:
             raise VaultAuthenticationError("Unable to authenticate credential vault.") from None
 
     def update(self, master_password: str, credential_name: str, value: str) -> None:
+        self.update_many(master_password, {credential_name: value})
+
+    def update_many(self, master_password: str, values: Mapping[str, str]) -> None:
+        """Authenticate and atomically merge values, preserving existing credentials."""
         credentials = self.unlock(master_password)
-        if credential_name not in _CREDENTIAL_NAMES or not isinstance(value, str):
+        if not isinstance(values, Mapping) or any(
+            name not in _ALLOWED_CREDENTIAL_NAMES or not isinstance(value, str)
+            for name, value in values.items()
+        ):
             raise ValueError("Unsupported credential name or value.")
-        credentials[credential_name] = value
+        credentials.update(values)
         self._write(master_password, credentials)
 
     def clear(self, master_password: str, credential_name: str) -> None:
         credentials = self.unlock(master_password)
-        if credential_name not in _CREDENTIAL_NAMES:
+        if credential_name not in _ALLOWED_CREDENTIAL_NAMES:
             raise ValueError("Unsupported credential name.")
         credentials[credential_name] = None
         self._write(master_password, credentials)
@@ -84,9 +93,15 @@ class CredentialVault:
 
     @staticmethod
     def _normalize_credentials(credentials: Mapping[str, Any]) -> dict[str, str | None]:
-        if not isinstance(credentials, Mapping) or set(credentials) - set(_CREDENTIAL_NAMES):
+        if not isinstance(credentials, Mapping) or set(credentials) - set(
+            _ALLOWED_CREDENTIAL_NAMES
+        ):
             raise ValueError("Invalid credential vault.")
         normalized = {name: credentials.get(name) for name in _CREDENTIAL_NAMES}
+        # Old three-key vaults keep their original shape; map fields are optional.
+        normalized.update(
+            {name: credentials[name] for name in _OPTIONAL_CREDENTIAL_NAMES if name in credentials}
+        )
         if any(value is not None and not isinstance(value, str) for value in normalized.values()):
             raise ValueError("Invalid credential vault.")
         return normalized

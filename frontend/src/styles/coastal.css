@@ -1,0 +1,112 @@
+.coastal-shell, .studio-overlay-backdrop, .dialog-backdrop:has(> .auth-dialog) {
+  --coastal-ink: #173942;
+  --coastal-muted: #58747c;
+  --coastal-line: rgb(255 255 255 / 62%);
+  --coastal-glass: rgb(246 252 251 / 72%);
+  --coastal-glass-strong: rgb(249 253 252 / 96%);
+  --coastal-shadow: 0 24px 80px rgb(21 52 61 / 15%);
+  color: var(--coastal-ink);
+}
+
+.coastal-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  color: var(--coastal-ink);
+}
+
+.coastal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+  background: #c9dcdf;
+}
+
+.coastal-backdrop-image,
+.coastal-backdrop-wash,
+.coastal-backdrop-light {
+  position: absolute;
+  inset: -2px;
+}
+
+.coastal-backdrop-image {
+  background: url('../assets/fuzhou-home.jpg') center / cover no-repeat;
+  transform: scale(1.01);
+}
+
+.coastal-backdrop-wash {
+  background:
+    linear-gradient(110deg, rgb(219 237 236 / 84%) 0%, rgb(228 242 241 / 66%) 46%, rgb(211 229 231 / 58%) 100%),
+    linear-gradient(180deg, rgb(246 251 249 / 20%), rgb(133 168 173 / 18%));
+}
+
+.coastal-backdrop-light {
+  background: radial-gradient(circle at 72% 15%, rgb(255 255 242 / 55%), transparent 32%);
+}
+
+.coastal-shell .shell-header {
+  border-bottom: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.coastal-shell .brand,
+.coastal-shell .nav-link,
+.coastal-shell .shell-home-link,
+.coastal-shell .account-button {
+  color: var(--coastal-ink);
+}
+
+.coastal-shell .shell-home-link,
+.coastal-shell .account-button,
+.coastal-shell .nav-link.active,
+.coastal-shell .nav-link:hover {
+  border-color: var(--coastal-line);
+  background: rgb(248 253 252 / 62%);
+  box-shadow: 0 8px 30px rgb(27 62 72 / 7%);
+  backdrop-filter: blur(18px) saturate(112%);
+}
+
+.coastal-shell .brand-mark {
+  box-shadow: 0 10px 28px rgb(17 84 99 / 18%);
+}
+
+.coastal-shell .shell-main {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 600px) {
+  .coastal-backdrop-image { transform: none; }
+  .coastal-shell .shell-header { padding-top: 12px; }
+  .coastal-shell .shell-home-link,
+  .coastal-shell .account-button,
+  .coastal-shell .nav-link.active,
+  .coastal-shell .nav-link:hover { backdrop-filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coastal-backdrop-image { transform: none; }
+}
+
+/* The scenery and navigation stay still; only the content changes direction. */
+:root { view-transition-name: none; }
+.route-content { view-transition-name: coastal-content; }
+html.route-motion-fallback .route-content { animation: coastal-route-enter 480ms cubic-bezier(.22,.75,.18,1) both; }
+@keyframes coastal-route-enter { from { opacity: 0; transform: translate3d(var(--route-x, 0px), var(--route-y, 48px), 0); } to { opacity: 1; transform: none; } }
+@keyframes coastal-route-exit { to { opacity: 0; transform: translate3d(calc(var(--route-x, 0px) * -1), calc(var(--route-y, 48px) * -1), 0); } }
+::view-transition-old(coastal-content) { animation: coastal-route-exit 360ms cubic-bezier(.22,.75,.18,1) both; }
+::view-transition-new(coastal-content) { animation: coastal-route-enter 480ms cubic-bezier(.22,.75,.18,1) both; }
+html[data-route='recommend']::view-transition-new(coastal-content) { animation: coastal-route-enter 620ms cubic-bezier(.25,.8,.2,1) both; }
+html[data-route='recommend']::view-transition-old(coastal-content) { animation: coastal-route-exit 320ms cubic-bezier(.4,0,.2,1) both; }
+html.route-motion-fallback[data-route='recommend'] .route-content { animation: coastal-route-enter 620ms cubic-bezier(.25,.8,.2,1) both; }
+.coastal-shell { --surface: rgb(248 253 252 / 74%); --border: rgb(255 255 255 / 78%); --shadow-sm: 0 12px 40px rgb(27 62 72 / 6%); }
+.coastal-shell .personal-item, .coastal-shell .history-row, .coastal-shell .plan-card, .coastal-shell .plan-vote-panel,
+.coastal-shell .plan-page .plan-card, .coastal-shell .plan-page .plan-vote-panel { border-radius: 26px; border-color: var(--coastal-line); background: var(--coastal-glass); box-shadow: var(--coastal-shadow); }
+.coastal-shell .personal-page, .coastal-shell .plan-page { color: var(--coastal-ink); }
+.coastal-shell .plan-create-dialog { border: 1px solid var(--coastal-line); border-radius: 30px; background: var(--coastal-glass-strong); color: var(--coastal-ink); box-shadow: var(--coastal-shadow); }
+.coastal-shell .empty-state, .coastal-shell .loading-state { background: transparent; border: 0; color: var(--coastal-muted); }
+@media(prefers-reduced-motion:reduce) { html.route-motion-fallback .route-content, ::view-transition-old(coastal-content), ::view-transition-new(coastal-content), html[data-route='recommend']::view-transition-old(coastal-content), html[data-route='recommend']::view-transition-new(coastal-content), html.route-motion-fallback[data-route='recommend'] .route-content { animation: none !important; } }
+@media(prefers-reduced-motion:reduce) { .auth-dialog, .favorite-detail-layer, .favorite-detail { animation: none !important; } }

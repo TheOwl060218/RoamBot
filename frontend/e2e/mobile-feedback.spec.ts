@@ -13,26 +13,16 @@ test('mobile home group is centered without changing desktop alignment', async (
   await page.screenshot({ path: `../test-results/home-centered-${info.project.name}.png` })
 })
 
-test('mobile feedback floats without consuming form space and cancellation stays on query', async ({ page }, info) => {
-  await page.route('**/api/v1/auth/me', route => route.fulfill({ status: 401, json: { error: { code: 'unauthorized', message: '请登录' } } }))
+test('mobile feedback floats without changing puzzle geometry, auth cancel stays on query', async ({ page }) => {
   await page.goto('/recommend')
-  const distance = page.getByLabel('最大距离（km）', { exact: true })
-  await distance.fill('0')
-  const before = await page.locator('.travel-form').boundingBox()
-  await page.getByRole('button', { name: '开始推荐', exact: true }).click()
-  const bubble = page.getByRole('alert', { name: '请检查填写内容' })
-  await expect(bubble).toBeVisible()
-  if (info.project.name.startsWith('mobile')) {
-    expect((await page.locator('.travel-form').boundingBox())!.height).toBe(before!.height)
-    await expect.poll(async () => (await bubble.boundingBox())!.width).toBe(page.viewportSize()!.width - 24)
-    expect(await bubble.evaluate(el => getComputedStyle(el).paddingTop)).toBe('10px')
-  }
-  await page.screenshot({ path: `../test-results/mobile-validation-${info.project.name}.png` })
-  await distance.fill('50')
+  const puzzle = page.getByRole('region', { name: '当前出行条件' })
+  const before = (await puzzle.boundingBox())!
+  await page.getByRole('button', { name: '开始推荐' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  expect((await puzzle.boundingBox())!.height).toBe(before.height)
   await page.getByRole('link', { name: '计划中心', exact: true }).click()
-  await expect(page).toHaveURL(/\/recommend$/)
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page).toHaveURL(/\/recommend$/)
-  await expect(distance).toHaveValue('50')
-  await page.screenshot({ path: `../test-results/mobile-feedback-${info.project.name}.png` })
+  await expect(puzzle).toBeVisible()
+  await expect(page.getByRole('textbox', { name: '继续补充条件' })).toBeVisible()
 })

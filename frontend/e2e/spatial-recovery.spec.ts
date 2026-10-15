@@ -1,0 +1,27 @@
+import { test, expect } from '@playwright/test'
+import { registerUser } from './helpers'
+
+test('corrupt session and unavailable assistant still allow explicit condition editing', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('roambot.studio.session.v1', '{broken'))
+  await page.route('**/api/v1/assistant/turns', route => route.fulfill({ status: 429, json: { error: { code: 'assistant_busy', message: 'busy' } } }))
+  await page.goto('/recommend')
+  await registerUser(page, 'recover')
+  await page.getByRole('textbox', { name: '继续补充条件' }).fill('明天从苏州站出发，想去湖边')
+  await page.getByRole('button', { name: '发送消息' }).click()
+  await page.getByRole('button', { name: '补充出发地' }).click()
+  await page.getByRole('combobox', { name: '主出发地' }).fill('苏州站')
+  await page.getByRole('button', { name: '保存条件' }).click()
+  await page.getByRole('button', { name: '选择日期', exact: true }).click()
+  await page.getByRole('button', { name: '明天', exact: true }).click()
+  await page.getByRole('button', { name: '保存条件' }).click()
+  await page.getByRole('button', { name: '描述想找的地方', exact: true }).click()
+  await page.getByLabel('想找什么样的地方').fill('湖边')
+  await page.getByRole('button', { name: '保存条件' }).click()
+  await expect(page.getByRole('button', { name: '开始推荐', exact: true })).toBeEnabled()
+  await page.route('**/api/v1/recommendations', route => route.fulfill({ status: 503, json: { error: { code: 'unavailable', message: 'private-provider-detail' } } }))
+  await page.getByRole('button', { name: '开始推荐', exact: true }).click()
+  await expect(page.locator('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'query')
+  await expect(page.locator('.studio-query-notice')).toContainText('查询暂未完成')
+  await expect(page.locator('.studio-query-notice')).not.toContainText('private-provider-detail')
+  await expect(page.getByRole('button', { name: /编辑出发地/ })).toContainText('苏州站')
+})

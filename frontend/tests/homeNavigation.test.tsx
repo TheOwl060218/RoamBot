@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
-import { apiClient } from '../src/api/client'
+import { apiClient, ApiError } from '../src/api/client'
 import { FavoriteDetail } from '../src/features/favorites/FavoriteDetail'
 import { PlansPage } from '../src/features/plans/PlanPages'
 import { AuthContext } from '../src/features/auth/authContext'
@@ -10,6 +10,18 @@ import { HistoryPage } from '../src/pages/HistoryPage'
 
 function Destination() { const l = useLocation(); return <output aria-label="跳转结果">{JSON.stringify({ path: l.pathname, state: l.state })}</output> }
 afterEach(() => vi.restoreAllMocks())
+
+it('shows the date action returned for an expired history rerun', async () => {
+  vi.spyOn(apiClient, 'get').mockResolvedValue({ histories: [{ id: 'expired', mode: 'recommendation',
+    city: '苏州', start_date: '2026-01-01', end_date: '2026-01-02', item_count: 2,
+    created_at: '2026-01-01' }] })
+  vi.spyOn(apiClient, 'post').mockRejectedValue(new ApiError(422, 'history_dates_expired', '请选择新的出行日期。'))
+  render(<AuthContext.Provider value={{ user: { username: 'owner' }, initializing: false,
+    login: vi.fn(), register: vi.fn(), logout: vi.fn() }}><MemoryRouter><HistoryPage /></MemoryRouter></AuthContext.Provider>)
+  await userEvent.click(await screen.findByRole('button', { name: '更多历史操作' }))
+  await userEvent.click(screen.getByRole('button', { name: '重新查询', exact: true }))
+  expect(await screen.findByRole('status')).toHaveTextContent('请选择新的出行日期。')
+})
 
 it('sends a favorite evaluation to the query page while preserving its target', async () => {
   render(<MemoryRouter><FavoriteDetail favorite={{ id: 'favorite', created_at: '2026-10-08', place: {
@@ -24,8 +36,9 @@ it('sends a favorite evaluation to the query page while preserving its target', 
 it('starts a recommendation from plans without navigating to the photo homepage', async () => {
   vi.spyOn(apiClient, 'get').mockResolvedValue({ plans: [] })
   render(<MemoryRouter><PlansPage /><Destination /></MemoryRouter>)
-  await userEvent.setup().click(screen.getByRole('link', { name: '开始一次推荐' }))
+  await userEvent.setup().click(screen.getByRole('link', { name: '发起同行计划' }))
   expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"path":"/recommend"')
+  expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"startTeamPick":true')
 })
 
 it('returns a history rerun to the query page with its restored draft and result', async () => {

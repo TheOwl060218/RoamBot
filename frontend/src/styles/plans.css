@@ -1,7 +1,12 @@
 .plan-page { max-width: 1200px; margin: 0 auto; }
+.plan-page .plan-card, .plan-page .plan-vote-panel { background: rgb(255 255 255 / 94%); border-color: #dae8eb; border-radius: 26px; box-shadow: 0 12px 40px #234b580c; }
+.studio-workspace .create-plan-control { border: 0; padding: 0; background: transparent; }
+.studio-workspace .create-plan-control>div { display: none; }
+.plan-page button:focus-visible { outline: 3px solid #218498; outline-offset: 3px; }
 .plan-form-feedback { width: 100%; margin: 0; padding: 10px 16px; border: 1px solid var(--border-strong); border-radius: 24px; color: var(--primary); background: color-mix(in srgb, var(--primary-soft) 38%, var(--surface)); font-size: .9rem; font-weight: 500; }
 .plan-page-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 8px 0 28px; }
 .plan-page-heading h1 { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); overflow-wrap: anywhere; }
+.plan-start { flex-shrink: 0; text-decoration: none; text-align: center; }
 .plan-page-heading p { color: var(--muted); margin: 6px 0; }
 .plan-page-heading > .icon-text-button { color: var(--primary); font-weight: 600; }
 .plan-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -112,6 +117,10 @@
 .workspace-sidebar .create-plan-control > button { color: var(--primary); font-weight: 600; }
 .plan-create-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; border: 1px solid var(--border); border-radius: 22px; padding: 28px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow-popover); }
 .plan-create-dialog::backdrop { background: rgb(22 33 38 / 35%); backdrop-filter: blur(3px); }
+.plan-create-dialog[open] { animation: coastal-card-in 280ms cubic-bezier(.22,.75,.18,1) both; }
+.plan-create-dialog.is-closing::backdrop { animation: plan-backdrop-out 280ms ease-out both; }
+@keyframes plan-backdrop-out { to { opacity: 0; backdrop-filter: blur(0px); } }
+@media(prefers-reduced-motion:reduce) { .plan-create-dialog[open], .plan-create-dialog.is-closing::backdrop { animation: none !important; } }
 .plan-create-dialog form { display: grid; gap: 16px; }
 .plan-create-dialog h2 { margin: 0; }
 .plan-create-dialog p { line-height: 1.6; }

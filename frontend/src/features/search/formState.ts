@@ -26,6 +26,8 @@ export type TravelFormDraft = {
   startDate: string
   endDate: string
   sceneryTypes: SceneryType[]
+  sceneryQuery?: string
+  sceneryKeywords?: string[]
   matchMode: 'any' | 'cover_all'
   targetPlace: string
   weights?: DisplayWeights
@@ -42,6 +44,8 @@ export function draftFromRequest(request: RecommendationRequest | PlaceEvaluatio
     mainOriginCoordinate: request.main_origin_coordinate, companionOriginCoordinates: request.companion_origin_coordinates,
     maxDistance: String(request.max_distance_km), startDate: request.start_date, endDate: request.end_date,
     sceneryTypes: 'scenery_types' in request ? request.scenery_types : [],
+    sceneryQuery: 'scenery_query' in request ? request.scenery_query ?? '' : '',
+    sceneryKeywords: 'scenery_keywords' in request ? request.scenery_keywords ?? [] : [],
     matchMode: 'scenery_match_mode' in request ? request.scenery_match_mode : 'any',
     targetPlace: 'target_place' in request ? request.target_place : '',
     destinationRegions: 'scenery_types' in request ? request.destination_regions ?? [] : [],
@@ -77,7 +81,8 @@ export function loadSearchResult<T>() {
 
 export function saveSearchResult(value: unknown) {
   try {
-    sessionStorage.setItem(RESULT_KEY, JSON.stringify(value))
+    sessionStorage.setItem(RESULT_KEY, JSON.stringify(value, (key, item) =>
+      key === 'assistant_context' || key === 'assistantContext' ? undefined : item))
   } catch {
     // Results can still be used in-memory when storage is unavailable.
   }

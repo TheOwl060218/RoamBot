@@ -15,6 +15,20 @@ USERNAME = "alice_01"
 PASSWORD = "correct horse battery staple"
 
 
+def test_invalid_session_cookie_is_cleared_without_bypassing_auth(auth_api_fixture) -> None:
+    client, _, _ = auth_api_fixture()
+    client.cookies.set(
+        "roambot_session", "invalid-diagnostic-session", domain="testserver.local", path="/"
+    )
+    response = client.get(f"{AUTH_PREFIX}/me")
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "authentication_required"
+    assert "Max-Age=0" in response.headers["set-cookie"]
+    assert "HttpOnly" in response.headers["set-cookie"]
+    assert response.headers["cache-control"] == "no-store"
+    assert "roambot_session" not in client.cookies
+
+
 def credentials(
     username: str = USERNAME,
     password: str = PASSWORD,

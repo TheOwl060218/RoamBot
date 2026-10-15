@@ -1,8 +1,9 @@
 import { MoreHorizontal, RefreshCcw, Trash2, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 
 import { ShareActions } from './ShareActions'
+import { trackLayerExit } from '../studio/layerMotion'
 
 type HistoryActionsMenuProps = {
   historyId: string
@@ -26,12 +27,38 @@ export function HistoryActionsMenu({
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLButtonElement>(null)
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 })
-  const close = () => {
+  const close = useCallback(() => {
+    if (open && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      for (const source of [backdropRef.current, popoverRef.current]) {
+        if (!source || typeof source.animate !== 'function') continue
+        const bounds = source.getBoundingClientRect()
+        if (!bounds.width || !bounds.height) continue
+        // The live toolbar stays mounted for share state; only a non-interactive
+        // face remains visible once it becomes hidden.
+        const copy = source.cloneNode(true) as HTMLElement
+        const style = getComputedStyle(source)
+        Object.assign(copy.style, { position: 'fixed', left: `${bounds.x}px`, top: `${bounds.y}px`, right: 'auto', bottom: 'auto',
+          width: `${bounds.width}px`, height: `${bounds.height}px`, margin: '0', transform: 'none', translate: 'none', scale: '1',
+          animation: 'none', transition: 'none', opacity: style.opacity, pointerEvents: 'none' })
+        copy.dataset.exitSnapshot = 'true'
+        copy.setAttribute('aria-hidden', 'true')
+        copy.inert = true
+        copy.removeAttribute('id')
+        copy.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'))
+        document.body.append(copy)
+        const options = { duration: 280, easing: 'cubic-bezier(.22,.75,.18,1)', fill: 'forwards' as const }
+        const fade = copy.animate([{ opacity: style.opacity }, { opacity: 0 }], options)
+        const clear = style.backdropFilter && style.backdropFilter !== 'none'
+          ? copy.animate([{ backdropFilter: style.backdropFilter }, { backdropFilter: 'blur(0px)' }], options) : null
+        trackLayerExit(Promise.allSettled([fade.finished, clear?.finished]).finally(() => copy.remove()))
+      }
+    }
     setOpen(false)
     setMoreOpen(false)
-    triggerRef.current?.focus()
-  }
+    triggerRef.current?.focus({ preventScroll: true })
+  }, [open])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -59,16 +86,13 @@ export function HistoryActionsMenu({
     function closeOnOutsideClick(event: MouseEvent) {
       const target = event.target as Node
       if (!rootRef.current?.contains(target) && !popoverRef.current?.contains(target)) {
-        setOpen(false)
-        setMoreOpen(false)
+        close()
       }
     }
 
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        setOpen(false)
-        setMoreOpen(false)
-        triggerRef.current?.focus()
+        close()
       }
     }
 
@@ -78,7 +102,7 @@ export function HistoryActionsMenu({
       document.removeEventListener('mousedown', closeOnOutsideClick)
       document.removeEventListener('keydown', closeOnEscape)
     }
-  }, [open])
+  }, [open, close])
 
   return (
     <div className="history-actions-menu" ref={rootRef}>
@@ -99,6 +123,7 @@ export function HistoryActionsMenu({
           {open && (
             <button
               className="history-menu-backdrop"
+              ref={backdropRef}
               type="button"
               aria-label="关闭历史操作"
               onClick={close}
@@ -138,7 +163,7 @@ export function HistoryActionsMenu({
               <RefreshCcw aria-hidden="true" size={16} />
               {rerunning ? '正在查询…' : '重新查询'}
             </button>
-            <ShareActions historyId={historyId} onStatus={onStatus} onCreated={close} />
+            <ShareActions historyId={historyId} onStatus={onStatus} onCopied={close} />
             <button
               className="history-menu-action"
               type="button"

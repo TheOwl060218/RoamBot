@@ -12,7 +12,7 @@ from roambot.api.dependencies import (
     require_csrf,
     require_session,
 )
-from roambot.api.errors import error_response
+from roambot.api.errors import ErrorField, error_response
 from roambot.api.routes.recommendations import (
     _origin_not_found,
     _place_not_found,
@@ -20,6 +20,7 @@ from roambot.api.routes.recommendations import (
 )
 from roambot.providers.protocols import ProviderError
 from roambot.services.personal_data import (
+    HistoryDatesExpiredError,
     HistorySnapshot,
     PersonalDataService,
     ResourceNotFoundError,
@@ -125,6 +126,14 @@ def rerun_history(
             user_id=session.authenticated.user_id,
             history_id=history_id,
             recommendation_service=recommendation_service,
+        )
+    except HistoryDatesExpiredError:
+        return error_response(
+            status_code=422,
+            code="history_dates_expired",
+            message="请选择新的出行日期。",
+            fields=[ErrorField(path=key, message="请选择未来7天内的日期。")
+                    for key in ("start_date", "end_date")],
         )
     except ResourceNotFoundError:
         return _resource_not_found()

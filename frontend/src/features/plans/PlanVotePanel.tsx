@@ -47,7 +47,6 @@ function VotePanelBody({ plan, open, busy, error, onClose, onVote }: Props) {
             <label><input type='checkbox' checked={selected === candidate.id || acceptable.includes(candidate.id)} disabled={disabled || selected === candidate.id} aria-label={`可接受 ${candidate.snapshot.destination.name}`} onChange={event => setAcceptable(current => event.target.checked ? [...current, candidate.id] : current.filter(id => id !== candidate.id))} /></label>
           </div>)}
         </fieldset>
-        <p className='plan-vote-tip'>首选自动计入可接受人数。收起不会丢失未提交的选择。</p>
         <button className='primary-button' type='submit' disabled={disabled || !selected}>{disabled ? '正在保存…' : plan.me?.preferred_id ? '保存修改' : '提交投票'}</button>
       </form>
     </section>

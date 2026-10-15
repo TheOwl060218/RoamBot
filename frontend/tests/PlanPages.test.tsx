@@ -1,4 +1,5 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest'
@@ -37,6 +38,38 @@ function wrap(children: React.ReactNode, path = '/') {
 }
 
 afterEach(() => vi.restoreAllMocks())
+
+test('dirty results cannot open a new plan', async () => {
+  const post = vi.spyOn(apiClient, 'post')
+  const props = { historyId: 'h1', trusted: true, selectedIds: ['a', 'b'], city: '苏州', startDate: '2026-10-11', endDate: '2026-10-11', originCount: 1, onRerun: vi.fn() }
+  const view = wrap(<CreatePlanControl {...props} dirty />)
+  expect(screen.getByRole('button', { name: '发起同行计划' })).toBeDisabled()
+  expect(post).not.toHaveBeenCalled()
+  view.unmount()
+})
+
+test('plan creation closes only when press and release are both outside its card', async () => {
+  wrap(<CreatePlanControl historyId='h1' trusted selectedIds={['a', 'b']} city='苏州' startDate='2026-10-11' endDate='2026-10-11' originCount={1} onRerun={vi.fn()} />)
+  await userEvent.click(screen.getByRole('button', { name: '发起同行计划' }))
+  const dialog = screen.getByRole('dialog')
+  fireEvent.pointerDown(dialog, { clientX: -1, clientY: -1 })
+  fireEvent.pointerUp(dialog, { clientX: -1, clientY: -1 })
+  expect(screen.queryByRole('button', { name: '确认创建' })).toBeNull()
+})
+
+test('a dialog opened on a clean result cannot submit after conditions change', async () => {
+  const post = vi.spyOn(apiClient, 'post')
+  function Example() {
+    const [dirty, setDirty] = useState(false)
+    return <><button onClick={() => setDirty(true)}>模拟条件修改</button><CreatePlanControl historyId='h1' trusted selectedIds={['a', 'b']} city='苏州' startDate='2026-10-11' endDate='2026-10-11' originCount={1} onRerun={vi.fn()} dirty={dirty} /></>
+  }
+  wrap(<Example />)
+  await userEvent.click(screen.getByRole('button', { name: '发起同行计划' }))
+  await userEvent.click(screen.getByRole('button', { name: '模拟条件修改' }))
+  expect(screen.getByRole('button', { name: '确认创建' })).toBeDisabled()
+  fireEvent.submit(screen.getByRole('dialog').querySelector('form')!)
+  expect(post).not.toHaveBeenCalled()
+})
 
 test('header reports votes against joined members rather than expected guests', async () => {
   vi.spyOn(apiClient, 'get').mockResolvedValue({ plan: { ...plan, expected_count: 5, summary: { ...plan.summary, voted_count: 2, joined_count: 3 } } })
@@ -284,10 +317,10 @@ test('guest results require explicit rerun even after login before creating', as
   const rerun = vi.fn()
   wrap(<CreatePlanControl historyId={null} trusted={false} selectedIds={['a', 'b']} city='苏州'
     startDate='2026-10-10' endDate='2026-10-10' originCount={2} onRerun={rerun} />)
-  await userEvent.click(screen.getByRole('button', { name: '创建同行计划' }))
+  await userEvent.click(screen.getByRole('button', { name: '发起同行计划' }))
   expect(rerun).not.toHaveBeenCalled()
-  expect(screen.getByText(/更新一下推荐/)).toBeInTheDocument()
-  await userEvent.click(screen.getByRole('button', { name: '更新推荐' }))
+  expect(screen.getByText('请更新推荐后创建计划。')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: '更新推荐并继续' }))
   expect(rerun).toHaveBeenCalledTimes(1)
 })
 

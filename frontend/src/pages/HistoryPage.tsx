@@ -2,7 +2,7 @@ import { Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { apiClient } from '../api/client'
+import { apiClient, ApiError } from '../api/client'
 import type { HistoryDetail, HistorySummary } from '../api/types'
 import { ConfirmDialog } from '../app/ConfirmDialog'
 import { HistoryList } from '../features/history/HistoryList'
@@ -46,8 +46,9 @@ export function HistoryPage() {
       const response = await apiClient.post<{ history: HistoryDetail }>(`/history/${id}/rerun`)
       const restoredSearch = restoreHistorySearch(response.history, user?.username ?? null)
       navigate('/recommend', { state: { restoredSearch } })
-    } catch {
-      setStatus('重新查询失败。')
+    } catch (error) {
+      setStatus(error instanceof ApiError && error.code === 'history_dates_expired'
+        ? error.message : '重新查询失败。')
     } finally {
       rerunLock.current = false
       setRerunningId(null)

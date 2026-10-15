@@ -64,6 +64,27 @@ def test_map_proxy_sanitizes_transport_failure():
     assert "test-secret" not in response.text
 
 
+def test_map_proxy_supports_sdk_initialization_log_without_forwarding_client_credentials():
+    app = create_app(Settings(amap_js_key="test-browser-key", amap_js_security_code="test-secret"))
+
+    def upstream(request):
+        assert request.url.host == "restapi.amap.com"
+        assert request.url.path == "/v3/log/init"
+        assert request.url.params["key"] == "test-browser-key"
+        assert request.url.params["jscode"] == "test-secret"
+        assert request.headers.get("cookie") is None
+        return httpx.Response(200, json={"status": "1"})
+
+    app.state.map_transport = httpx.MockTransport(upstream)
+    response = TestClient(app).get(
+        "/api/v1/maps/_AMapService/v3/log/init?key=attacker&jscode=attacker",
+        headers={"Cookie": "session=private"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"status": "1"}
+    assert "test-secret" not in response.text
+
+
 def test_map_proxy_limits_calls_and_never_follows_redirects():
     app = create_app(Settings(amap_js_key="test-browser-key", amap_js_security_code="test-secret"))
     app.state.map_transport = httpx.MockTransport(

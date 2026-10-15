@@ -34,8 +34,8 @@ describe('personal and shared pages', () => {
       </Routes></MemoryRouter></AuthContext.Provider>)
     await userEvent.click(await screen.findByRole('button', { name: '更多历史操作' }))
     await userEvent.click(screen.getByRole('button', { name: '重新查询' }))
-    expect(await screen.findByRole('region', { name: '当前查询条件' })).toHaveTextContent('杭州东站')
-    expect(document.querySelector('.search-workspace-with-result')).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '当前出行条件' })).toHaveTextContent('杭州东站')
+    expect(document.querySelector('.studio-results')).toBeInTheDocument()
     expect(post).toHaveBeenCalledTimes(1)
     expect(post).toHaveBeenCalledWith('/history/old/rerun')
     sessionStorage.clear()
@@ -104,9 +104,9 @@ describe('personal and shared pages', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
-    expect(screen.getAllByText('苏州 · 湖景')).toHaveLength(2)
-    expect(screen.getByRole('button', { name: '查看 金鸡湖景区' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: '查看 金鸡湖景区' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('苏州 · 湖景')).toHaveLength(1)
     await userEvent.click(screen.getByRole('button', { name: '查看 苏州博物馆' }))
     expect(screen.getByRole('heading', { name: '苏州博物馆' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '查看 苏州博物馆' })).toHaveAttribute('aria-pressed', 'true')
@@ -137,6 +137,7 @@ describe('personal and shared pages', () => {
     vi.spyOn(apiClient, 'delete').mockResolvedValueOnce(undefined)
 
     render(<MemoryRouter><FavoritesPage /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: '查看 金鸡湖景区' }))
     await user.click(await screen.findByRole('button', { name: '删除 金鸡湖景区' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('已取消收藏金鸡湖景区')
@@ -196,7 +197,8 @@ describe('personal and shared pages', () => {
     )
     expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
     expect(screen.getByText('出游匹配指数')).toBeInTheDocument()
-    expect(screen.getAllByText(/地点评分数据来源：高德开放平台；出游匹配指数仅用于比较本次候选地点/)).toHaveLength(1)
+    expect(document.querySelector('.public-share-page .result-method-note')).not.toBeInTheDocument()
+    expect(document.querySelector('.public-share-page .privacy-note')).not.toBeInTheDocument()
     expect(screen.queryByText('88.0')).not.toBeInTheDocument()
     expect(screen.queryByText(/主出发地|同行人出发地/)).not.toBeInTheDocument()
   })
@@ -253,7 +255,7 @@ describe('personal and shared pages', () => {
     await user.click(await screen.findByRole('button', { name: '更多历史操作' }))
     await user.click(await screen.findByRole('button', { name: '创建分享' }))
 
-    expect(screen.queryByRole('button', { name: '复制分享链接' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '复制分享链接' })).toBeVisible()
     expect(document.querySelector('.app-toast')).toHaveTextContent('分享链接已创建')
   })
 

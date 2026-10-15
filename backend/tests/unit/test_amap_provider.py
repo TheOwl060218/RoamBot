@@ -13,6 +13,21 @@ FIXTURES = Path(__file__).parents[1] / "fixtures" / "amap"
 FAKE_KEY = "amap-test-secret"
 
 
+def test_semantic_keywords_extend_search_without_extra_calls():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        assert request.url.params['keywords'] == '湖泊景区|湿地'
+        return httpx.Response(200, json={'status': '1', 'infocode': '10000',
+                                       'count': '0', 'pois': []})
+
+    provider_for(handler).search(Coordinate(longitude=120, latitude=31),
+                                '苏州', (SceneryType.LAKE,), 50,
+                                scenery_keywords=('湿地', '湿地'))
+    assert len(calls) == 1
+
+
 def fixture(name: str) -> dict[str, object]:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
@@ -242,6 +257,36 @@ def test_resolve_uses_text_search_and_prefers_exact_normalized_name() -> None:
     result = provider_for(handler).resolve(" 同里古镇 ", "苏州")
     assert result.provider_id == "amap:B002"
     assert SceneryType.OLD_TOWN in result.scenery_tags
+
+
+@pytest.mark.parametrize("city", ["", "   "])
+def test_resolve_without_city_searches_nationwide(city: str) -> None:
+    payload = fixture("poi_text_success.json")
+    payload["pois"] = [payload["pois"][1], payload["pois"][0]]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v5/place/text"
+        assert "region" not in request.url.params
+        assert request.url.params["city_limit"] == "false"
+        assert request.url.params["keywords"] == "同里古镇"
+        return httpx.Response(200, json=payload)
+
+    result = provider_for(handler).resolve(" 同里古镇 ", city)
+    assert result.provider_id == "amap:B002"
+    assert SceneryType.OLD_TOWN in result.scenery_tags
+
+
+def test_resolve_without_city_preserves_real_not_found() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "region" not in request.url.params
+        assert request.url.params["city_limit"] == "false"
+        return httpx.Response(200, json={
+            "status": "1", "infocode": "10000", "count": "0", "pois": [],
+        })
+
+    with pytest.raises(ProviderError) as error:
+        provider_for(handler).resolve("不存在的景点", "")
+    assert error.value.code == "not_found"
 
 
 def test_search_preserves_type_then_provider_order_and_deduplicates() -> None:

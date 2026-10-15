@@ -13,6 +13,7 @@ test('account keeps favorites and history through the main workflow', async ({ p
   await page.getByRole('button', { name: '收藏地点', exact: true }).click()
 
   await page.goto('/favorites')
+  await page.getByRole('button', { name: '查看 金鸡湖景区', exact: true }).click()
   await expect(page.getByRole('heading', { name: '金鸡湖景区', exact: true })).toBeVisible()
 
   await page.goto('/history')
@@ -31,7 +32,7 @@ test('account keeps favorites and history through the main workflow', async ({ p
   await page.getByRole('button', { name: '更多历史操作', exact: true }).click()
   await page.getByRole('button', { name: '重新查询', exact: true }).click()
   await expect(page).toHaveURL(/\/recommend$/)
-  await expect(page.getByRole('region', { name: '当前查询条件' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '当前出行条件' })).toBeVisible()
   // Rerun returns to the workspace; viewing the original snapshot remains separate.
   await page.goto(`/history/${share.history_id}`)
   await expect(page.getByRole('heading', { name: '历史快照', exact: true })).toBeVisible()
@@ -51,8 +52,10 @@ test('account keeps favorites and history through the main workflow', async ({ p
   await expect(page.getByText('分享链接不可用或已撤销', { exact: true })).toBeVisible()
 
   await page.goto('/favorites')
+  await page.getByRole('button', { name: '查看 金鸡湖景区', exact: true }).click()
   await expect(page.getByRole('heading', { name: '金鸡湖景区', exact: true })).toBeVisible()
   await page.getByRole('link', { name: '重新评估', exact: true }).click()
-  await expect(page.getByRole('radio', { name: '评估指定地点', exact: true })).toBeChecked()
+  await page.getByRole('button', { name: /编辑评估地点/ }).click()
+  await expect(page.getByLabel('查询方式')).toHaveValue('place_evaluation')
   await expect(page.getByLabel('目标地点', { exact: true })).toHaveValue('金鸡湖景区')
 })

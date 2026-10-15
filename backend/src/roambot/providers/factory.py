@@ -9,6 +9,12 @@ import httpx
 
 from roambot.config import ProviderMode, Settings
 from roambot.providers.amap import AMapProvider
+from roambot.providers.assistant import (
+    AssistantProvider,
+    MockAssistantProvider,
+    OpenAICompatibleAssistantProvider,
+    UnavailableAssistantProvider,
+)
 from roambot.providers.cached import (
     CachedDistanceProvider,
     CachedGeocoder,
@@ -42,6 +48,7 @@ class ProviderBundle:
     weather: WeatherProvider
     explanations: ExplanationProvider
     trace: ProviderTrace
+    assistant: AssistantProvider | None = None
 
 
 class AdapterBundle(Protocol):
@@ -59,6 +66,7 @@ class LiveAdapterBundle:
     distance: DistanceProvider
     weather: WeatherProvider
     explanations: ExplanationProvider
+    assistant: AssistantProvider | None = None
 
 
 class ProviderRuntime:
@@ -106,6 +114,9 @@ class ProviderRuntime:
             weather=weather,
             explanations=self._adapters.explanations,
             trace=trace,
+            assistant=getattr(self._adapters, "assistant", None) or (
+                MockAssistantProvider(lambda: datetime.now(timezone(timedelta(hours=8))).date())
+                if self._demo else UnavailableAssistantProvider()),
         )
 
     def close(self) -> None:
@@ -207,6 +218,7 @@ def _build_live_adapters(
         ),
         llm_key,
         settings.llm_model,
+        enable_thinking=settings.llm_enable_thinking,
     )
     return LiveAdapterBundle(
         geocoder=amap,
@@ -214,4 +226,10 @@ def _build_live_adapters(
         distance=amap,
         weather=weather,
         explanations=explanations,
+        assistant=OpenAICompatibleAssistantProvider(
+            ProviderHttpClient(client, provider="llm", base_url=str(settings.llm_base_url),
+                               timeout=settings.assistant_timeout_seconds,
+                               secrets=(llm_key,)),
+            llm_key, settings.llm_model, today=china_today,
+            enable_thinking=settings.llm_enable_thinking),
     )

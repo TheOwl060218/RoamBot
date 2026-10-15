@@ -21,7 +21,7 @@ test('restores the rerun request rather than stale drafts and excludes fairness 
   expect(restored.draft).toEqual({ mode: 'recommendation', city: '杭州', mainOrigin: '杭州东站',
     companions: ['西湖'], mainOriginCoordinate: request.main_origin_coordinate,
     companionOriginCoordinates: [null], maxDistance: '35', startDate: request.start_date,
-    endDate: request.end_date, sceneryTypes: ['museum'], matchMode: 'cover_all', targetPlace: '',
+    endDate: request.end_date, sceneryTypes: ['museum'], sceneryQuery: '', sceneryKeywords: [], matchMode: 'cover_all', targetPlace: '',
     weights: { weather: 40, distance: 30, popularity: 30 }, destinationRegions: [] })
   expect(restored.result).toMatchObject({ history_id: 'new-history', history_owner: 'owner', query_request: request })
   expect(loadTravelDraft()).toEqual(restored.draft)

@@ -1,577 +1,154 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const scrollMocks = vi.hoisted(() => ({
-  startSmoothScrollInContainer: vi.fn(),
-  startSmoothScrollTo: vi.fn(),
-}))
-
-vi.mock('../src/features/search/scrolling', () => ({
-  startSmoothScrollInContainer: scrollMocks.startSmoothScrollInContainer,
-  startSmoothScrollTo: scrollMocks.startSmoothScrollTo,
-}))
-
-import { ApiError, apiClient } from '../src/api/client'
+import { apiClient, ApiError } from '../src/api/client'
 import { AppShell } from '../src/app/AppShell'
-import type { RecommendationResponse } from '../src/api/types'
-import { AuthProvider } from '../src/features/auth/AuthProvider'
-import { AuthContext } from '../src/features/auth/authContext'
+import { AuthContext, type AuthContextValue } from '../src/features/auth/authContext'
 import { SearchWorkspace } from '../src/features/search/SearchWorkspace'
-import { ResultList } from '../src/features/search/ResultList'
-import { saveSearchResult } from '../src/features/search/formState'
-
-const response: RecommendationResponse = {
-  generated_at: '2026-07-17T08:00:00Z',
-  source_state: { kind: 'demo', notices: ['苏州内置演示数据'] },
-  items: [
-    {
-      destination: {
-        provider_id: 'jinji-lake',
-        name: '金鸡湖景区',
-        address: '苏州工业园区',
-        city: '苏州',
-        coordinate: { longitude: 120.7, latitude: 31.3, system: 'gcj02' },
-        type_name: '风景名胜',
-        type_code: '110000',
-        scenery_tags: ['lake', 'park'],
-        popularity_rank: 1,
-        rating: 4.8,
-      },
-      distances: [
-        { origin_label: '主出发地', distance_km: 12.34, duration_minutes: 25, estimated: false },
-      ],
-      group_accessibility: {
-        average_distance_km: 12.34,
-        max_distance_km: 12.34,
-        distance_variance: 0,
-        distance_stddev: 0,
-        fairness_score: 100,
-      },
-      weather: [
-        {
-          date: '2026-07-18',
-          condition: '晴',
-          temp_min_c: 23,
-          temp_max_c: 31,
-          precipitation_mm: 0,
-          wind_speed_kmh: 8,
-          humidity_percent: 60,
-          visibility_km: 20,
-          uv_index: 5,
-        },
-      ],
-      daily_suitability: [{
-        date: '2026-07-18',
-        score: 90,
-        status: 'suitable',
-        summary: '7月18日天气条件适合前往。',
-        reasons: ['天气晴朗'],
-      }],
-      score: {
-        weather: 90,
-        distance: 75.3,
-        fairness: 100,
-        popularity: 100,
-        coverage_penalty: 0,
-        total: 86.59,
-      },
-      explanation: '天气和距离都适合短途出游。',
-      overall_advice: 'suitable',
-    },
-  ],
-  uncovered_scenery_types: [],
-}
-
-const multiItemResponse: RecommendationResponse = {
-  generated_at: '2026-07-17T08:00:00Z',
-  source_state: { kind: 'demo', notices: ['苏州内置演示数据'] },
-  items: [
-    response.items[0],
-    {
-      ...response.items[0],
-      destination: {
-        ...response.items[0].destination,
-        provider_id: 'suzhou-museum',
-        name: '苏州博物馆',
-        address: '东北街204号',
-        scenery_tags: ['museum' as const],
-      },
-      score: { ...response.items[0].score, total: 82.4 },
-    },
-  ],
-  uncovered_scenery_types: [],
-}
-
-describe('SearchWorkspace', () => {
-  beforeEach(() => {
-    scrollMocks.startSmoothScrollInContainer.mockReset()
-    scrollMocks.startSmoothScrollInContainer.mockImplementation((_container, _getTarget, onComplete) => {
-      queueMicrotask(() => onComplete?.())
-      return () => undefined
-    })
-    scrollMocks.startSmoothScrollTo.mockReset()
-    scrollMocks.startSmoothScrollTo.mockImplementation((_getTarget, onComplete) => {
-      queueMicrotask(() => onComplete?.())
-      return () => undefined
-    })
+import { saveSearchResult, saveTravelDraft } from '../src/features/search/formState'
+import { seedStudioDraft, studioResponse } from './fixtures/studio'
+const guest: AuthContextValue = { user: null, initializing: false, login: vi.fn(), register: vi.fn(), logout: vi.fn() }
+function mount(props = {}) { return render(<AuthContext.Provider value={guest}><MemoryRouter initialEntries={['/recommend']}><AppShell><SearchWorkspace {...props} /></AppShell></MemoryRouter></AuthContext.Provider>) }
+describe('progressive SearchWorkspace business regression', () => {
+  beforeEach(() => vi.restoreAllMocks())
+  it('dismisses the query capsule after two seconds without discarding feedback', async () => {
+    vi.useFakeTimers()
+    try {
+      mount()
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '开始推荐' })) })
+      expect(screen.getByRole('alert')).toHaveTextContent('请补充主出发地')
+      act(() => vi.advanceTimersByTime(2100))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.getByText('请补充主出发地。')).toBeVisible()
+    } finally { vi.useRealTimers() }
   })
-
-  it('keeps the initial form visible and does not show the quick-start guide', () => {
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
-
+  it('lets a guest create their first condition manually without sending an AI request', async () => {
+    const post = vi.spyOn(apiClient, 'post')
+    mount()
+    await userEvent.click(screen.getByRole('button', { name: '更多功能' }))
+    await userEvent.click(screen.getByRole('button', { name: '手动填写条件' }))
+    await userEvent.click(screen.getByRole('button', { name: '出发地', exact: true }))
+    await userEvent.type(screen.getByRole('combobox', { name: '主出发地' }), '苏州站')
+    await userEvent.click(screen.getByRole('button', { name: '保存条件' }))
+    expect(screen.getByRole('button', { name: /编辑出发地/ })).toHaveTextContent('苏州站')
+    expect(post).not.toHaveBeenCalled()
+  })
+  it('opens login for an expired assistant session while retaining the composer text', async () => {
+    vi.spyOn(apiClient, 'post').mockRejectedValue(new ApiError(401, 'authentication_required', 'private'))
+    mount()
+    const composer = screen.getByRole('textbox', { name: '继续补充条件' })
+    await userEvent.type(composer, '苏州10月11日')
+    await userEvent.click(screen.getByRole('button', { name: '发送消息' }))
+    expect(await screen.findByRole('dialog', { name: '登录 RoamBot' })).toBeVisible()
+    expect(composer).toHaveValue('苏州10月11日')
+    expect(screen.queryByText(/AI暂不可用/)).not.toBeInTheDocument()
+  })
+  it('keeps direct condition editing reachable when the assistant fails before any cards exist', async () => {
+    vi.spyOn(apiClient, 'post').mockRejectedValue(new ApiError(429, 'assistant_busy', 'busy'))
+    mount()
+    await userEvent.type(screen.getByRole('textbox', { name: '继续补充条件' }), '明天从苏州站出发')
+    await userEvent.click(screen.getByRole('button', { name: '发送消息' }))
+    await userEvent.click(await screen.findByRole('button', { name: '补充出发地' }))
+    expect(screen.getByRole('combobox', { name: '主出发地' })).toBeVisible()
+  })
+  it('shows one requested editor and keeps the composer', async () => {
+    seedStudioDraft(); mount(); expect(screen.queryByLabelText('主出发地')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /编辑出发地/ }))
     expect(screen.getByLabelText('主出发地')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '三步找到适合这次出行的地方' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '继续补充条件' })).toBeVisible()
   })
-
-  it('clicking the RoamBot brand preserves the recommendation state', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    saveSearchResult(response)
-    const { container } = render(
-      <AuthProvider>
-        <MemoryRouter>
-          <AppShell><SearchWorkspace /></AppShell>
-        </MemoryRouter>
-      </AuthProvider>,
-    )
-
-    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
-    expect(container.querySelector('.search-workspace')).not.toHaveClass('search-workspace-empty')
-
-    await user.click(screen.getByRole('link', { name: 'RoamBot' }))
-
-    expect(container.querySelector('.search-workspace')).not.toHaveClass('search-workspace-empty')
+  it('header 推荐 preserves cached results', async () => {
+    saveSearchResult(studioResponse); mount()
+    await userEvent.click(screen.getByRole('link', { name: '推荐' }))
     expect(screen.getByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
   })
-
-  it('clicking the 推荐 link resets to the initial recommendation state', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    saveSearchResult(response)
-    const { container } = render(
-      <AuthProvider>
-        <MemoryRouter>
-          <AppShell><SearchWorkspace /></AppShell>
-        </MemoryRouter>
-      </AuthProvider>,
-    )
-
-    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('link', { name: '推荐' }))
-
-    await waitFor(() => expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty'))
-    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
+  it('going home keeps saved workspace', async () => {
+    saveSearchResult(studioResponse); mount(); await userEvent.click(screen.getByRole('link', { name: 'RoamBot' }))
+    expect(sessionStorage.getItem('roambot.studio.session.v1')).not.toBeNull()
   })
-
-  it('navigating from /favorites via the brand lands on home without clearing saved results', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    saveSearchResult(response)
-    render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/favorites']}>
-          <AppShell>
-            <Routes>
-              <Route path="/" element={<p>Photo home</p>} />
-              <Route path="/favorites" element={<p>Favorites placeholder</p>} />
-            </Routes>
-          </AppShell>
-        </MemoryRouter>
-      </AuthProvider>,
-    )
-
-    expect(screen.getByText('Favorites placeholder')).toBeInTheDocument()
-    expect(screen.queryByLabelText('主出发地')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('link', { name: 'RoamBot' }))
-
-    expect(screen.getByText('Photo home')).toBeInTheDocument()
-    expect(sessionStorage.getItem('roambot.session.search-result.v1')).not.toBeNull()
-  })
-
-  it('navigating from /favorites via the 推荐 link lands on a clean empty workspace', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    saveSearchResult(response)
-    const { container } = render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/favorites']}>
-          <AppShell>
-            <Routes>
-              <Route path="/recommend" element={<SearchWorkspace />} />
-              <Route path="/favorites" element={<p>Favorites placeholder</p>} />
-            </Routes>
-          </AppShell>
-        </MemoryRouter>
-      </AuthProvider>,
-    )
-
-    await user.click(screen.getByRole('link', { name: '推荐' }))
-
-    await waitFor(() => expect(screen.getByLabelText('主出发地')).toBeInTheDocument())
-    expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty')
-    expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
-  })
-
-  it('keeps the form visible and scrolls the sidebar to the query summary after submit', async () => {
-    const user = userEvent.setup()
-    let scrollContainer: HTMLElement | null = null
-    let scrollTarget: HTMLElement | null = null
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(response)
-    scrollMocks.startSmoothScrollInContainer.mockImplementation((container, getTarget, onComplete) => {
-      scrollContainer = container
-      scrollTarget = getTarget()
-      queueMicrotask(() => onComplete?.())
-      return () => undefined
-    })
-
-    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
-
-    await user.type(screen.getByLabelText('主出发地'), '苏州站')
-    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
-    await user.click(screen.getByRole('button', { name: '开始推荐' }))
-
-    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
-    await waitFor(() => expect(scrollMocks.startSmoothScrollInContainer).toHaveBeenCalledTimes(1))
-    expect(scrollContainer).toHaveClass('workspace-sidebar')
-    expect(scrollTarget).toHaveClass('sidebar-summary-anchor')
-  })
-
-  it('opens a requested place evaluation even when a previous result is cached', () => {
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    saveSearchResult(response)
-
-    render(
-      <AuthProvider>
-        <SearchWorkspace initialMode="place_evaluation" initialTarget="金鸡湖景区" />
-      </AuthProvider>,
-    )
-
-    expect(screen.getByRole('radio', { name: '评估指定地点' })).toBeChecked()
-    expect(screen.getByLabelText('目标地点')).toHaveValue('金鸡湖景区')
-    expect(screen.getByRole('button', { name: '评估这个地点' })).toBeInTheDocument()
-  })
-
-  it('submits the form and displays a complete recommendation result', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(response)
-    const { container } = render(<AuthProvider><SearchWorkspace /></AuthProvider>)
-
-    expect(container.querySelector('.search-workspace')).toHaveClass('search-workspace-empty')
-
-    await user.type(screen.getByLabelText('主出发地'), '苏州站')
-    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
-    await user.click(screen.getByRole('button', { name: '开始推荐' }))
-
-    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
-    expect(container.querySelector('.search-workspace')).not.toHaveClass('search-workspace-empty')
-    expect(screen.getByLabelText('出游匹配指数 87')).toBeInTheDocument()
+  it('queries only by explicit button and renders real results', async () => {
+    seedStudioDraft(); const post = vi.spyOn(apiClient, 'post').mockResolvedValue(studioResponse); mount()
+    expect(post).not.toHaveBeenCalled(); await userEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+    expect(await screen.findByRole('heading', { name: '金鸡湖景区' }, { timeout: 2000 })).toBeInTheDocument()
+    expect(post).toHaveBeenCalledWith('/recommendations', expect.objectContaining({ main_origin: '苏州站', scenery_types: ['lake'] }))
     expect(screen.getByText('演示数据')).toBeInTheDocument()
-    expect(screen.getByText(/12.34 km/)).toBeInTheDocument()
-    expect(screen.getByText(/天气条件适合前往/)).toBeInTheDocument()
-    expect(screen.getByText('天气和距离都适合短途出游。')).toBeInTheDocument()
-    expect(screen.getAllByText(/天气数据来自和风天气；地点评分来自高德开放平台/)).toHaveLength(1)
-    expect(await screen.findByRole('button', { name: '重新查询' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
-    expect(container.querySelector('.workspace-message-slot')).not.toHaveClass('workspace-message-slot-collapsed')
-    expect(container.querySelectorAll('.query-summary .query-facts svg')).toHaveLength(5)
-    expect(screen.getByText('最大距离内不限省市')).toBeInTheDocument()
-    expect(container.querySelectorAll('.place-detail')).toHaveLength(1)
   })
-
-  it('keeps the favorite action visible for guests and opens the account dialog', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    saveSearchResult(response)
-
-    render(
-      <AuthProvider>
-        <MemoryRouter>
-          <AppShell><SearchWorkspace /></AppShell>
-        </MemoryRouter>
-      </AuthProvider>,
-    )
-
-    await user.click(screen.getByRole('button', { name: '收藏地点' }))
-
-    expect(screen.getByRole('dialog', { name: '登录 RoamBot' })).toBeInTheDocument()
+  it('validates missing conditions without HTTP', async () => {
+    const post = vi.spyOn(apiClient, 'post'); mount(); await userEvent.click(screen.getByRole('button', { name: '开始推荐' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('请补充主出发地'); expect(post).not.toHaveBeenCalled()
   })
-
-  it('clears the loaded favorite state when the user logs out', async () => {
-    saveSearchResult(response)
-    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
-      favorites: [{
-        id: 'favorite-1',
-        place: {
-          provider: 'amap',
-          provider_place_id: 'jinji-lake',
-          name: '金鸡湖景区',
-          address: '苏州工业园区',
-          city: '苏州',
-          coordinate: { longitude: 120.7, latitude: 31.3, system: 'gcj02' },
-          type_name: '风景名胜',
-          type_code: '110000',
-          scenery_tags: ['lake'],
-        },
-        created_at: '2026-07-17T08:00:00Z',
-      }],
-    })
-    const signedIn = {
-      user: { username: 'tester' },
-      initializing: false,
-      login: vi.fn(async () => undefined),
-      register: vi.fn(async () => undefined),
-      logout: vi.fn(async () => undefined),
-    }
-    const { rerender } = render(
-      <AuthContext.Provider value={signedIn}>
-        <SearchWorkspace />
-      </AuthContext.Provider>,
-    )
-
-    expect(await screen.findByRole('button', { name: '取消收藏' })).toBeInTheDocument()
-
-    rerender(
-      <AuthContext.Provider value={{ ...signedIn, user: null }}>
-        <SearchWorkspace />
-      </AuthContext.Provider>,
-    )
-
-    await waitFor(() => expect(screen.getByRole('button', { name: '收藏地点' })).toBeInTheDocument())
+  it('locks double submit with immediate visible notice and no fake percentages', async () => {
+    seedStudioDraft(); let finish!: (v: typeof studioResponse) => void
+    const post = vi.spyOn(apiClient, 'post').mockReturnValue(new Promise(resolve => { finish = resolve })); mount()
+    await userEvent.dblClick(screen.getByRole('button', { name: '开始推荐' }))
+    expect(post).toHaveBeenCalledTimes(1); expect(screen.getByRole('status')).toHaveTextContent('已开始推荐')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument(); finish(studioResponse)
+    await screen.findByRole('heading', { name: '金鸡湖景区' }, { timeout: 2000 })
   })
-
-  it('opens the account dialog and explains that login is required after a 401 submit', async () => {
-    const user = userEvent.setup()
-    sessionStorage.clear()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(
-      new ApiError(401, 'unauthorized', 'Unauthorized.'),
-    )
-
-    render(
-      <AuthProvider>
-        <MemoryRouter>
-          <AppShell><SearchWorkspace /></AppShell>
-        </MemoryRouter>
-      </AuthProvider>,
-    )
-
-    await user.type(screen.getByLabelText('主出发地'), '苏州站')
-    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
-    await user.click(screen.getByRole('button', { name: '开始推荐' }))
-
+  it('failed updates retain old results and hide private errors', async () => {
+    seedStudioDraft(); saveSearchResult(studioResponse)
+    vi.spyOn(apiClient, 'post').mockRejectedValue(new ApiError(503, 'unavailable', 'private')); mount()
+    await userEvent.click(screen.getByRole('button', { name: '← 返回修改' }))
+    await userEvent.click(await screen.findByRole('button', { name: '开始推荐' }, { timeout: 2000 }))
+    expect(await screen.findByRole('alert')).not.toHaveTextContent('private')
+    expect(screen.getByRole('heading', { name: '金鸡湖景区', hidden: true })).toBeInTheDocument()
+  })
+  it('401 opens login without leaving the workspace', async () => {
+    seedStudioDraft(); vi.spyOn(apiClient, 'post').mockRejectedValue(new ApiError(401, 'unauthorized', 'private')); mount()
+    await userEvent.click(screen.getByRole('button', { name: '开始推荐' }))
     expect(await screen.findByRole('dialog', { name: '登录 RoamBot' })).toBeInTheDocument()
-    expect(screen.getByRole('alert')).toHaveTextContent('请先登录后再进行查询。')
+    expect(screen.getByRole('alert')).toHaveTextContent('请先登录')
   })
-
-  it('selects one candidate at a time while keeping the existing form in place', async () => {
-    const user = userEvent.setup()
-    const museum = {
-      ...response.items[0],
-      destination: {
-        ...response.items[0].destination,
-        provider_id: 'suzhou-museum',
-        name: '苏州博物馆',
-        address: '东北街204号',
-        scenery_tags: ['museum' as const],
-      },
-      score: { ...response.items[0].score, total: 82.4 },
-    }
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ ...response, items: [response.items[0], museum] })
-    const { container } = render(<AuthProvider><SearchWorkspace /></AuthProvider>)
-
-    await user.type(screen.getByLabelText('主出发地'), '苏州站')
-    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
-    await user.click(screen.getByRole('button', { name: '开始推荐' }))
-
-    const candidateNavigation = await screen.findByRole('navigation', { name: '候选地点' })
-    const firstCandidate = within(candidateNavigation).getByRole('button', { name: /金鸡湖景区/ })
-    expect(firstCandidate).toHaveAttribute('aria-current', 'true')
-    await user.click(screen.getByRole('button', { name: /苏州博物馆/ }))
-
-    expect(screen.getByRole('heading', { name: '苏州博物馆' })).toBeInTheDocument()
+  it('requested evaluation replaces cached recommendations but retains draft', () => {
+    seedStudioDraft(); saveSearchResult(studioResponse); mount({ initialMode: 'place_evaluation', initialTarget: '留园' })
+    expect(screen.getByRole('button', { name: '评估这个地点' })).toBeInTheDocument()
+    expect(screen.getByText('留园')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
-
-    expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
-    expect(screen.getByDisplayValue('苏州站')).toBeInTheDocument()
-    expect(container.querySelector('.search-controls')).not.toHaveClass('search-controls-editing')
+    expect(screen.getByText('苏州站')).toBeInTheDocument()
   })
-
-  it('scrolls the sidebar back to the persistent form when re-querying', async () => {
-    const user = userEvent.setup()
-    let scrollContainer: HTMLElement | null = null
-    let scrollTarget: HTMLElement | null = null
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    saveSearchResult(response)
-    scrollMocks.startSmoothScrollInContainer.mockImplementation((container, getTarget) => {
-      scrollContainer = container
-      scrollTarget = getTarget()
-      return () => undefined
-    })
-
-    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
-
-    await user.click(screen.getByRole('button', { name: '重新查询' }))
-
-    expect(screen.getByRole('button', { name: '开始推荐' })).toBeInTheDocument()
-    expect(scrollContainer).toHaveClass('workspace-sidebar')
-    expect(scrollTarget).toHaveClass('search-form-anchor')
+  it('editor saves without query and retains other conditions', async () => {
+    seedStudioDraft(); const post = vi.spyOn(apiClient, 'post'); mount()
+    await userEvent.click(screen.getByRole('button', { name: /编辑目的地范围/ }))
+    const input = screen.getByLabelText('最大距离（km）'); await userEvent.clear(input); await userEvent.type(input, '120')
+    await userEvent.click(screen.getByRole('button', { name: '保存条件' }))
+    expect(screen.getByText('苏州站')).toBeInTheDocument(); expect(post).not.toHaveBeenCalled()
   })
-
-  it('locks repeated submissions immediately and shows non-numeric progress', async () => {
-    const user = userEvent.setup()
-    let resolveRequest!: (value: RecommendationResponse) => void
-    const pending = new Promise<RecommendationResponse>((resolve) => {
-      resolveRequest = resolve
-    })
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    const post = vi.spyOn(apiClient, 'post').mockReturnValue(pending)
-    post.mockClear()
-    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
-
-    await user.type(screen.getByLabelText('主出发地'), '苏州站')
-    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
-    const button = screen.getByRole('button', { name: '开始推荐' })
-    await user.dblClick(button)
-
+  it('edits result conditions in place, cancels without mutation, and queries only after explicit update', async () => {
+    seedStudioDraft(); saveSearchResult(studioResponse)
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue(studioResponse)
+    mount()
+    const entry = { ...window.history.state }, length = window.history.length
+    await userEvent.click(screen.getByRole('button', { name: /编辑目的地范围/ }))
+    await userEvent.clear(screen.getByLabelText('最大距离（km）'))
+    await userEvent.type(screen.getByLabelText('最大距离（km）'), '120')
+    await userEvent.click(screen.getByRole('button', { name: '关闭条件编辑' }))
+    expect(document.querySelector('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'results')
+    expect(screen.queryByRole('button', { name: '更新推荐' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /编辑目的地范围/ }))
+    expect(screen.getByLabelText('最大距离（km）')).toHaveValue(50)
+    await userEvent.clear(screen.getByLabelText('最大距离（km）'))
+    await userEvent.type(screen.getByLabelText('最大距离（km）'), '120')
+    await userEvent.click(screen.getByRole('button', { name: '保存条件' }))
+    expect(document.querySelector('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'results')
+    expect(screen.getByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
+    expect(window.history.state).toEqual(entry); expect(window.history.length).toBe(length)
+    expect(post).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: '更新推荐' }))
     expect(post).toHaveBeenCalledTimes(1)
-    const progress = screen.getByRole('progressbar', { name: '正在生成推荐' })
-    expect(progress).toBeInTheDocument()
-    expect(progress).toHaveTextContent('')
-    expect(screen.getByRole('status')).toHaveTextContent('正在查询推荐地点')
-    expect(screen.getByRole('button', { name: '短途近程' })).toBeDisabled()
-
-    resolveRequest(response)
-    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
+    expect(post).toHaveBeenCalledWith('/recommendations', expect.objectContaining({ max_distance_km: 120 }))
   })
-
-  it('offers mobile candidate navigation after the initial list leaves view', async () => {
-    const user = userEvent.setup()
-    const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY')
-    const museum = {
-      ...response.items[0],
-      destination: {
-        ...response.items[0].destination,
-        provider_id: 'suzhou-museum-mobile',
-        name: '苏州博物馆',
-      },
-    }
-
-    try {
-      const view = render(
-        <ResultList
-          items={[response.items[0], museum]}
-          source={response.source_state}
-          generatedAt={response.generated_at}
-          candidateSwitcherEnabled={false}
-        />,
-      )
-
-      Object.defineProperty(window, 'scrollY', { configurable: true, value: 160 })
-      act(() => window.dispatchEvent(new Event('scroll')))
-
-      expect(screen.queryByLabelText('切换候选地点')).not.toBeInTheDocument()
-      view.rerender(
-        <ResultList
-          items={[response.items[0], museum]}
-          source={response.source_state}
-          generatedAt={response.generated_at}
-          candidateSwitcherEnabled
-        />,
-      )
-      act(() => window.dispatchEvent(new Event('scroll')))
-
-      expect(screen.getByRole('button', { name: '上一个地点' })).toBeInTheDocument()
-      expect(screen.getByLabelText('切换候选地点')).toHaveClass('candidate-switcher')
-      await user.click(screen.getByRole('button', { name: /1\/2/ }))
-      const drawer = screen.getByRole('dialog', { name: '选择候选地点' })
-      expect(drawer).toBeInTheDocument()
-
-      await user.click(within(drawer).getByRole('button', { name: /苏州博物馆/ }))
-      expect(screen.getByRole('heading', { name: '苏州博物馆' })).toBeInTheDocument()
-    } finally {
-      if (originalScrollY) Object.defineProperty(window, 'scrollY', originalScrollY)
-    }
-  })
-
-  it('renders the candidate comparison control after a multi-candidate search', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(multiItemResponse)
-    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
-
-    await user.type(screen.getByLabelText('主出发地'), '苏州站')
-    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
-    await user.click(screen.getByRole('button', { name: '开始推荐' }))
-
-    expect(await screen.findByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
-    expect(screen.queryByText('正在查询推荐地点…')).not.toBeInTheDocument()
-    expect(screen.getByRole('group', { name: '选择候选进行对比' })).toBeInTheDocument()
-  })
-
-  it('reflects the chosen preset in the form while retaining the origin', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(response)
-    render(<AuthProvider><SearchWorkspace initialTarget="留园" /></AuthProvider>)
-    await user.type(screen.getByLabelText('主出发地'), '上海虹桥站')
-    await user.click(screen.getByRole('button', { name: '室内参观' }))
-    expect(screen.queryByLabelText('出发城市')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('主出发地')).toHaveValue('上海虹桥站')
-    expect(screen.getByLabelText('最大距离（km）')).toHaveValue(40)
-    expect(screen.getByRole('checkbox', { name: '博物馆' })).toBeChecked()
-  })
-
-  it('announces offscreen comparison only when the second candidate first makes it available', async () => {
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 2000, bottom: 2100, left: 0, right: 300, width: 300, height: 100 } as DOMRect)
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    saveSearchResult(multiItemResponse)
-    render(<AuthProvider><SearchWorkspace /></AuthProvider>)
-    const choices = within(screen.getByRole('group', { name: '选择候选进行对比' })).getAllByRole('checkbox')
-    await userEvent.click(choices[0])
-    expect(screen.queryByText(/对比已准备好/)).not.toBeInTheDocument()
-    await userEvent.click(choices[1])
-    expect(await screen.findByText(/对比已准备好/)).toBeInTheDocument()
-    await userEvent.click(choices[1])
-    expect(screen.queryByText(/对比已准备好/)).not.toBeInTheDocument()
-  })
-
-  it('takes users to the highlighted comparison after two candidates are selected', async () => {
-    const user = userEvent.setup()
-    let scrollTarget: HTMLElement | null = null
-    vi.spyOn(apiClient, 'me').mockResolvedValueOnce(null)
-    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(multiItemResponse)
-    scrollMocks.startSmoothScrollTo.mockImplementation((getTarget, onComplete) => {
-      scrollTarget = getTarget()
-      queueMicrotask(() => onComplete?.())
-      return () => undefined
-    })
-    render(<MemoryRouter><AuthProvider><SearchWorkspace /></AuthProvider></MemoryRouter>)
-
-    await user.type(screen.getByLabelText('主出发地'), '苏州站')
-    await user.click(screen.getByRole('checkbox', { name: '湖景' }))
-    await user.click(screen.getByRole('button', { name: '开始推荐' }))
-    await screen.findByRole('heading', { name: '金鸡湖景区' })
-
-    const comparisonGroup = screen.getByRole('group', { name: '选择候选进行对比' })
-    const choices = within(comparisonGroup).getAllByRole('checkbox')
-    await user.click(choices[0])
-    await user.click(choices[1])
-    expect(within(screen.getByRole('complementary', { name: '查询与候选列表' }))
-      .getByRole('button', { name: '创建同行计划' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '查看对比结果（2）' }))
-
-    await waitFor(() => expect(scrollMocks.startSmoothScrollTo).toHaveBeenCalledTimes(1))
-    expect(scrollTarget).toHaveClass('comparison-focus-target')
-    await waitFor(() => expect(scrollTarget).toHaveFocus())
-    expect(scrollTarget).toHaveClass('comparison-focus-highlight')
+  it('opens supplemental preference editors without returning to query', async () => {
+    saveTravelDraft({ ...seedStudioDraft(), companions: ['南京站'], companionOriginCoordinates: [null] })
+    saveSearchResult(studioResponse)
+    const post = vi.spyOn(apiClient, 'post')
+    mount()
+    await userEvent.click(screen.getByRole('button', { name: /编辑其他偏好/ }))
+    await userEvent.click(screen.getByRole('button', { name: /同行出发地/ }))
+    await screen.findByRole('dialog', { name: '同行出发地' })
+    await userEvent.click(screen.getByRole('button', { name: '关闭条件编辑' }))
+    expect(document.querySelector('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'results')
+    expect(screen.getByRole('heading', { name: '金鸡湖景区' })).toBeInTheDocument()
+    expect(post).not.toHaveBeenCalled()
   })
 })

@@ -88,9 +88,6 @@ export function ResultList({
         <p className="empty-state">可以尝试增加最大距离、调整日期或更换风景类型。</p>
       ) : (
         <>
-          <p className="result-method-note">
-            天气数据来自和风天气；地点评分来自高德开放平台；距离与用时按查询时驾车路况估算；出游匹配指数仅用于比较本次候选地点。
-          </p>
           {selectedItem && (
             <div className="results-detail">
               <div className="detail-pane">

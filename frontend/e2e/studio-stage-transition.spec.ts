@@ -1,0 +1,33 @@
+import { test, expect } from '@playwright/test'
+import { registerUser } from './helpers'
+
+test.use({ video: 'on' })
+test('query and result share the coastal stage and reverse without losing conditions', async ({ page }, testInfo) => {
+  await page.goto('/recommend')
+  await registerUser(page, 'stage')
+  await expect(page.getByRole('button', { name: /编辑出发地/ })).toHaveCount(0)
+  await page.getByRole('textbox', { name: '继续补充条件' }).fill('明天从苏州站出发，80公里内，想去湖边')
+  await page.getByRole('button', { name: '发送消息' }).click()
+  await expect(page.getByRole('button', { name: /编辑出发地/ })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('query.png'), fullPage: true })
+  await page.route('**/api/v1/recommendations', async route => {
+    const response = await route.fetch()
+    await new Promise(resolve => setTimeout(resolve, 700))
+    await route.fulfill({ response })
+  })
+  await page.getByRole('button', { name: '开始推荐', exact: true }).click()
+  await expect(page.getByText('已开始推荐 · 正在结合天气、距离和你的偏好', { exact: true })).toBeVisible()
+  await expect(page.locator('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'toResults')
+  await page.waitForTimeout(380)
+  await page.screenshot({ path: testInfo.outputPath('enter-mid.png') })
+  await expect(page.locator('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'results')
+  await expect(page.getByRole('button', { name: '← 返回修改' })).toBeVisible()
+  await expect(page.locator('.studio-composer')).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('results.png'), fullPage: true })
+  await page.getByRole('button', { name: '← 返回修改' }).click()
+  await page.waitForTimeout(350)
+  await page.screenshot({ path: testInfo.outputPath('return-mid.png') })
+  await expect(page.locator('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'query')
+  await expect(page.getByRole('button', { name: /编辑出发地/ })).toContainText('苏州站')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})

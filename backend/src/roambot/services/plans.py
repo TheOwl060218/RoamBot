@@ -3,6 +3,7 @@
 import json
 import unicodedata
 from datetime import UTC, date, datetime, time, timedelta, timezone
+from hmac import digest
 from secrets import compare_digest
 from uuid import uuid4
 
@@ -44,6 +45,11 @@ class PlanError(Exception):
 
 def normalized(value):
     return unicodedata.normalize("NFKC", value.strip()).casefold()
+
+
+def anonymous_csrf(identity):
+    # The random HttpOnly identity is the secret; opening another tab must not rotate it.
+    return digest(identity.encode("utf-8"), b"roambot-plan-csrf-v1", "sha256").hex()
 
 
 def plan_name(city, start, end, year):
@@ -317,7 +323,7 @@ class PlanService:
                         joined_at=now,
                     )
                     db.add(participant)
-                csrf = new_token()
+                csrf = anonymous_csrf(identity)
                 anonymous_session = db.get(PlanAnonymousSessionTable, hash_token(identity))
                 if anonymous_session is None:
                     db.add(
@@ -341,8 +347,9 @@ class PlanService:
             row = db.get(PlanAnonymousSessionTable, hash_token(identity))
             if row is None:
                 return None
-            csrf = new_token()
-            row.csrf_hash = hash_token(csrf)
+            csrf = anonymous_csrf(identity)
+            if not compare_digest(row.csrf_hash, hash_token(csrf)):
+                row.csrf_hash = hash_token(csrf)
             return csrf
 
     def save_vote(self, db, plan, participant, body):
@@ -452,71 +459,84 @@ class PlanService:
 
     def check_weather(self, user_id, plan_id, bundle):
         now = self.clock()
+        # Read a detached snapshot. Provider/cache I/O must not run under a SQLite write lock.
+        with self.factory() as db:
+            plan = self.owned(db, user_id, plan_id)
+            previous = self.weather_checks(db, plan)
+            self.require_weather_check(plan, previous, now)
+            candidates = [
+                c for c in self.candidates(db, plan)
+                if plan.status != "decided" or c.provider_id == plan.final_candidate_id
+            ]
+            original_dates = (plan.start_date, plan.end_date)
+            start = max(date.fromisoformat(plan.start_date), now.astimezone(CHINA).date())
+            end = date.fromisoformat(plan.end_date)
+
+        rows = []
+        for candidate in candidates:
+            snapshot = json.loads(candidate.snapshot_json)
+            tags = snapshot["destination"]["scenery_tags"]
+            successful = next(
+                (c for c in previous if c.candidate_id == candidate.id and c.status == "success"),
+                None,
+            )
+            baseline = json.loads(successful.weather_json) if successful else snapshot["weather"]
+            baseline = [
+                day for day in baseline if start.isoformat() <= day["date"] <= end.isoformat()
+            ]
+            before = weather_risk(baseline, tags) if baseline else None
+            row = PlanWeatherCheckTable(
+                id=str(uuid4()), plan_id=plan_id, candidate_id=candidate.id,
+                triggered_by=user_id, checked_at=now, status="failed", source="unavailable",
+                weather_json=None, risk=None, change="unavailable",
+            )
+            try:
+                days = bundle.weather.daily(
+                    Coordinate(longitude=candidate.longitude, latitude=candidate.latitude),
+                    start,
+                    end,
+                )
+                expected_dates = {start + timedelta(days=i) for i in range((end - start).days + 1)}
+                if {day.date for day in days} != expected_dates:
+                    raise ProviderError("unavailable", "Weather data incomplete")
+                weather = [day.model_dump(mode="json") for day in days]
+                risk = weather_risk(weather, tags)
+                row.status, row.source = "success", bundle.trace.to_source_state(3).kind.value
+                row.weather_json, row.risk = json.dumps(weather, ensure_ascii=False), risk
+                row.change = risk_change(before, risk) if before else "stable"
+            except ProviderError:
+                pass
+            rows.append(row)
+
         with self.factory.begin() as db:
-            # Serialize checks/decisions/votes to prevent duplicate checks at the cooldown boundary.
+            # Revalidate atomically after I/O: only one concurrent check may commit.
             db.execute(text("BEGIN IMMEDIATE"))
             plan = self.owned(db, user_id, plan_id)
-            if plan.end_date < now.astimezone(CHINA).date().isoformat():
-                raise PlanError("invalid_plan_transition", "出行已结束，不能再检查天气。", 409)
-            previous = self.weather_checks(db, plan)
-            if previous and previous[0].checked_at.replace(tzinfo=UTC) + timedelta(hours=1) > now:
-                raise PlanError("weather_check_cooldown", "一小时内无需重复检查。", 429)
-            for candidate in self.candidates(db, plan):
-                if plan.status == "decided" and candidate.provider_id != plan.final_candidate_id:
+            now = self.clock()
+            self.require_weather_check(plan, self.weather_checks(db, plan), now)
+            current_ids = {
+                c.id for c in self.candidates(db, plan)
+                if plan.status != "decided" or c.provider_id == plan.final_candidate_id
+            }
+            if (
+                (plan.start_date, plan.end_date) != original_dates
+                or not current_ids <= {r.candidate_id for r in rows}
+            ):
+                raise PlanError("invalid_plan_transition", "计划已更改，请重新检查天气。", 409)
+            for row in rows:
+                if row.candidate_id not in current_ids:
                     continue
-                snapshot = json.loads(candidate.snapshot_json)
-                successful = next(
-                    (
-                        c
-                        for c in previous
-                        if c.candidate_id == candidate.id and c.status == "success"
-                    ),
-                    None,
-                )
-                before = (
-                    successful.risk
-                    if successful
-                    else weather_risk(snapshot["weather"], snapshot["destination"]["scenery_tags"])
-                )
-                try:
-                    days = bundle.weather.daily(
-                        Coordinate(longitude=candidate.longitude, latitude=candidate.latitude),
-                        date.fromisoformat(plan.start_date),
-                        date.fromisoformat(plan.end_date),
-                    )
-                    if not days:
-                        raise ProviderError("unavailable", "Weather data unavailable")
-                    weather = [day.model_dump(mode="json") for day in days]
-                    risk = weather_risk(weather, snapshot["destination"]["scenery_tags"])
-                    row = PlanWeatherCheckTable(
-                        id=str(uuid4()),
-                        plan_id=plan.id,
-                        candidate_id=candidate.id,
-                        triggered_by=user_id,
-                        checked_at=now,
-                        status="success",
-                        source=bundle.trace.to_source_state(3).kind.value,
-                        weather_json=json.dumps(weather, ensure_ascii=False),
-                        risk=risk,
-                        change=risk_change(before, risk),
-                    )
-                except ProviderError:
-                    row = PlanWeatherCheckTable(
-                        id=str(uuid4()),
-                        plan_id=plan.id,
-                        candidate_id=candidate.id,
-                        triggered_by=user_id,
-                        checked_at=now,
-                        status="failed",
-                        source="unavailable",
-                        weather_json=None,
-                        risk=None,
-                        change="unavailable",
-                    )
+                row.checked_at = now
                 db.add(row)
             plan.updated_at = now
             db.flush()
             return self.serialize(db, plan)
+
+    def require_weather_check(self, plan, previous, now):
+        if plan.end_date < now.astimezone(CHINA).date().isoformat():
+            raise PlanError("invalid_plan_transition", "出行已结束，不能再检查天气。", 409)
+        if previous and previous[0].checked_at.replace(tzinfo=UTC) + timedelta(hours=1) > now:
+            raise PlanError("weather_check_cooldown", "一小时内无需重复检查。", 429)
 
     def serialize(self, db, plan, participant=None, public=False):
         participants = db.scalars(

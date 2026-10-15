@@ -139,6 +139,8 @@ class RecommendationService:
             city=request.city,
             scenery_types=tuple(request.scenery_types),
             radius_km=request.max_distance_km,
+            **({'scenery_keywords': tuple(request.scenery_keywords)}
+               if request.scenery_keywords else {}),
             **(
                 {"destination_regions": tuple(request.destination_regions)}
                 if request.destination_regions
@@ -164,6 +166,14 @@ class RecommendationService:
             origins[0].coordinate,
             target_count,
         )
+        selected_ids = {item.provider_id for item in eligible_destinations}
+        eligible_destinations.extend(
+            item for item in sorted(
+                matching_destinations,
+                key=lambda item: self._preview_key(item, origins[0].coordinate),
+            )
+            if item.provider_id not in selected_ids
+        )
 
         notices: list[str] = []
         if getattr(destinations, "region_metadata_missing", False) or any(
@@ -175,6 +185,18 @@ class RecommendationService:
         otherwise_eligible_count = 0
         items: list[RecommendationItem] = []
         for destination in eligible_destinations:
+            if len(items) >= target_count:
+                break
+            exhausted = next(
+                (op for op in (ProviderOperation.DISTANCE, ProviderOperation.WEATHER)
+                 if budget.count(op) >= budget.limits[op]),
+                None,
+            )
+            if exhausted is not None:
+                if not items:
+                    raise ProviderBudgetExceeded(exhausted, budget.limits[exhausted])
+                notices.append("candidate_budget_exhausted")
+                break
             try:
                 budget.consume(ProviderOperation.DISTANCE)
                 distances = self.distance.measure(origins, destination)
@@ -369,7 +391,9 @@ class RecommendationService:
             key=lambda destination: self._preview_key(destination, center),
         )
         if request.scenery_match_mode == SceneryMatchMode.ANY:
-            return ordered[:target_count]
+            if len(set(request.scenery_types)) < 3:
+                return ordered[:target_count]
+            return self._spread_across_scenery_types(ordered, target_count)
 
         selected: list[Destination] = []
         selected_ids: set[str] = set()
@@ -393,6 +417,33 @@ class RecommendationService:
             if destination.provider_id not in selected_ids:
                 selected.append(destination)
                 selected_ids.add(destination.provider_id)
+        return selected[:target_count]
+
+    def _spread_across_scenery_types(
+        self, ordered: list[Destination], target_count: int
+    ) -> list[Destination]:
+        # A broad ANY query (e.g. the client's all-types default when the user
+        # named no preference) must not collapse into a single type merely
+        # because it holds the top ratings.
+        per_type_cap = 2
+        counts: dict[object, int] = {}
+        selected: list[Destination] = []
+        selected_ids: set[str] = set()
+        for destination in ordered:
+            tags = destination.scenery_tags
+            if tags and all(counts.get(tag, 0) >= per_type_cap for tag in tags):
+                continue
+            selected.append(destination)
+            selected_ids.add(destination.provider_id)
+            for tag in tags:
+                counts[tag] = counts.get(tag, 0) + 1
+            if len(selected) >= target_count:
+                return selected
+        for destination in ordered:
+            if len(selected) >= target_count:
+                break
+            if destination.provider_id not in selected_ids:
+                selected.append(destination)
         return selected[:target_count]
 
     def _preview_key(self, destination: Destination, center) -> tuple[object, ...]:

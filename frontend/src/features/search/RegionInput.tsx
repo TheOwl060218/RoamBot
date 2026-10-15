@@ -73,11 +73,14 @@ export function RegionInput({ value, onChange, query, onQueryChange }: {
       if (!anchor.current?.contains(event.target as Node) && !panel.current?.contains(event.target as Node)) setOpen(false)
     }
     function escape(event: KeyboardEvent) {
-      if (event.key === 'Escape') { setOpen(false); input.current?.focus() }
+      if (event.key !== 'Escape' || event.defaultPrevented || anchor.current?.closest('[inert]')) return
+      // Consume the top popover's Escape before its parent modal sees it.
+      event.preventDefault(); event.stopPropagation()
+      setOpen(false); input.current?.focus({ preventScroll: true })
     }
     document.addEventListener('pointerdown', outside)
-    document.addEventListener('keydown', escape)
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape) }
+    document.addEventListener('keydown', escape, true)
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape, true) }
   }, [open])
 
   return <div className="region-field">

@@ -9,16 +9,22 @@ export function tomorrowInChina() {
   }).format(new Date(Date.now() + 86_400_000))
 }
 
+export async function fillStudioConditions(page: Page, scenery = ['湖景']) {
+  if (await page.getByRole('button', { name: '← 返回修改' }).isVisible()) {
+    await page.getByRole('button', { name: '← 返回修改' }).click()
+  }
+  await page.getByRole('textbox', { name: '继续补充条件' }).fill(`明天从苏州站出发，80公里内，想去${scenery.join('和')}`)
+  await page.getByRole('button', { name: '发送消息' }).click()
+  await expect(page.getByRole('button', { name: /编辑出发地/ })).toContainText('苏州站')
+  await expect(page.getByRole('button', { name: '开始推荐', exact: true })).toBeEnabled()
+}
 export async function submitRecommendation(page: Page) {
-  const date = tomorrowInChina()
-  await page.getByLabel('主出发地', { exact: true }).fill('苏州站')
-  await page.getByLabel('最大距离（km）', { exact: true }).fill('80')
-  await page.getByLabel('开始日期', { exact: true }).fill(date)
-  await page.getByLabel('结束日期', { exact: true }).fill(date)
-  await page.getByRole('checkbox', { name: '湖景', exact: true }).check()
+  await fillStudioConditions(page)
   await page.getByRole('button', { name: '开始推荐', exact: true }).click()
-  await expect(page.locator('.place-detail')).toBeVisible()
-  await expect(page.getByRole('button', { name: '重新查询', exact: true })).toBeVisible()
+  await expect(page.getByTestId('destination-card').first()).toBeVisible()
+  await page.getByRole('button', { name: /^了解/ }).first().click()
+  await expect(page.locator('.destination-detail')).toBeVisible()
+  await expect(page.getByRole('button', { name: '← 返回修改' })).toBeVisible()
   await expect(page.getByText('演示数据', { exact: true })).toBeVisible()
 }
 

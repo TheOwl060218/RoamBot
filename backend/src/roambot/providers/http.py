@@ -88,6 +88,8 @@ class ProviderHttpClient:
             status = response.status_code
             if response.status_code == 429:
                 raise ProviderError("rate_limited", "Provider rate limit reached.")
+            if self._provider == "llm" and response.status_code == 404:
+                raise ProviderError("configuration_error", "Model or model route is unavailable.")
             if response.status_code >= 400:
                 raise ProviderError("unavailable", "Provider request failed.")
             try:

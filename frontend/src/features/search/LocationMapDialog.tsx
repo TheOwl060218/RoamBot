@@ -1,14 +1,17 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ExternalLink, X } from 'lucide-react'
 import type { RecommendationItem } from '../../api/types'
 import { amapPlaceUrl, amapSearchUrl } from './amapLink'
+import { useLayerExit } from '../studio/useLayerExit'
+import { useModalLayer } from '../studio/useModalLayer'
 
 type Props = {
   items: RecommendationItem[]
   selectedId: string
   onSelect?: (item: RecommendationItem) => void
   onClose: () => void
+  children?: ReactNode
 }
 
 type Point = [number, number]
@@ -60,8 +63,11 @@ function point(item: RecommendationItem): Point {
   return [item.destination.coordinate.longitude, item.destination.coordinate.latitude]
 }
 
-export function LocationMapDialog({ items, selectedId, onSelect, onClose }: Props) {
+export function LocationMapDialog({ items, selectedId, onSelect, onClose, children }: Props) {
   const headingId = useId()
+  const backdropRef = useRef<HTMLDivElement>(null)
+  useLayerExit(backdropRef, '.location-dialog')
+  useModalLayer(backdropRef)
   const closeRef = useRef<HTMLButtonElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapInstance | null>(null)
@@ -83,10 +89,8 @@ export function LocationMapDialog({ items, selectedId, onSelect, onClose }: Prop
   }, [onClose])
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeRef.current?.focus()
-    return () => { document.body.style.overflow = overflow; previous?.focus() }
+    closeRef.current?.focus({ preventScroll: true })
+    return () => previous?.focus({ preventScroll: true })
   }, [])
 
   useEffect(() => {
@@ -154,9 +158,10 @@ export function LocationMapDialog({ items, selectedId, onSelect, onClose }: Prop
   }, [selected, selectedId, ready])
 
   function keyboard(event: KeyboardEvent<HTMLElement>) {
+    if (event.defaultPrevented) return
     if (event.key === 'Escape') { event.preventDefault(); onClose(); return }
     if (event.key !== 'Tab') return
-    const elements = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex="0"]'))
+    const elements = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), [tabindex="0"]')).filter(node => !node.closest('[inert]'))
     const first = elements[0]
     const last = elements.at(-1)
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
@@ -164,10 +169,10 @@ export function LocationMapDialog({ items, selectedId, onSelect, onClose }: Prop
   }
 
   return createPortal(
-    <div className="dialog-backdrop location-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
-      <section className="location-dialog" role="dialog" aria-modal="true" aria-labelledby={headingId} onKeyDown={keyboard}>
+    <div ref={backdropRef} className="dialog-backdrop location-backdrop" onKeyDown={keyboard} onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+      <section className="location-dialog" role="dialog" aria-modal="true" aria-labelledby={headingId}>
         <header className="location-heading">
-          <div><h2 id={headingId}>景点位置</h2><p>本页查看位置，无需登录高德</p></div>
+          <div><h2 id={headingId}>景点位置</h2></div>
           <button ref={closeRef} className="text-button" type="button" aria-label="关闭地图" onClick={onClose}><X size={20} /></button>
         </header>
         <div className="location-candidates" aria-label="选择地图景点">
@@ -180,8 +185,8 @@ export function LocationMapDialog({ items, selectedId, onSelect, onClose }: Prop
         {selected && <footer className="location-footer"><div><strong>{selected.destination.name}</strong><p>{selected.destination.city} · {selected.destination.address}</p></div>
           {amapPlaceUrl(selected.destination.provider_id) && <a className="text-button place-map-link" href={amapSearchUrl(selected.destination.name, selected.destination.city)} target="_blank" rel="noopener noreferrer"><ExternalLink size={16} />打开高德</a>}
         </footer>}
-        <p className="location-disclaimer">地图仅用于查看位置。详情与评价请打开高德，可能需要登录。</p>
       </section>
+      {children}
     </div>, document.body,
   )
 }

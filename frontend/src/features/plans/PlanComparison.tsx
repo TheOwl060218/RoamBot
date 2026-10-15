@@ -48,7 +48,6 @@ function ComparisonBody({ plan, hideHeading, decisionAction, toolbarActions }: P
     <div className='plan-date-tabs' role='group' aria-label='选择比较日期'>{dates.map(date => <button className='icon-text-button' key={date} type='button' aria-pressed={currentDate === date} onClick={() => { closeExplanation(); setSelectedDate(date) }}><time dateTime={date}>{shortDate(date)}</time></button>)}</div>
     <div className='plan-toolbar-actions'><button className='text-button' type='button' aria-expanded={allDates} aria-controls={allId} onClick={() => { if (allDates) clear(); setAllDates(value => !value) }}>{allDates ? '收起全部日期' : '查看全部日期'}</button>{toolbarActions}</div>
     </div>
-    <p className='muted plan-date-note'>天气记录仅供出行参考 · 原推荐分数不随投票变化</p>
     <div className='plan-comparison-rail' role='group' aria-label='候选比较卡片' tabIndex={0}>
       <div className={`plan-comparison-cards plan-candidate-count-${candidates.length}`}>{candidates.map(candidate => <ComparisonCard key={candidate.id} candidate={candidate} date={currentDate} final={candidate.id === plan.final_candidate_id} expanded={explanationId === candidate.id} onToggle={() => setExplanationId(id => id === candidate.id ? null : candidate.id)} onClose={closeExplanation}>{decisionAction?.(candidate)}</ComparisonCard>)}</div>
     </div>

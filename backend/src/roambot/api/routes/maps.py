@@ -12,6 +12,7 @@ router = APIRouter(prefix="/maps", tags=["maps"])
 _UPSTREAMS = {
     "v4/map/styles": "https://webapi.amap.com/v4/map/styles",
     "v3/vectormap": "https://restapi.amap.com/v3/vectormap",
+    "v3/log/init": "https://restapi.amap.com/v3/log/init",
 }
 
 

@@ -102,6 +102,82 @@ def explanation_context() -> ExplanationContext:
     )
 
 
+def test_factory_non_thinking_policy_reaches_both_assistant_and_recommendation_calls():
+    from roambot.config import Settings
+    from roambot.domain.assistant import AssistantTurnRequest
+    from roambot.providers.factory import _build_live_adapters
+
+    bodies = []
+
+    def handle(request):
+        body = json.loads(request.content)
+        bodies.append(body)
+        assert body["model"] == "qwen3.7-plus"
+        assert body["enable_thinking"] is False
+        if "tools" in body:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "tool_calls": [
+                                    {
+                                        "type": "function",
+                                        "function": {
+                                            "name": "submit_travel_intent",
+                                            "arguments": json.dumps(
+                                                {
+                                                    "intent": "conditions",
+                                                    "updates": {"main_origin": "合肥"},
+                                                }
+                                            ),
+                                        },
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+            )
+        return response(
+            [
+                {
+                    "destination_id": "test-place",
+                    "reason": "此处天气晴朗而且距离较近，可结合当日实际情况选择游览。",
+                }
+            ]
+        )
+
+    settings = Settings(
+        provider_mode="live",
+        demo_mode=False,
+        qweather_api_host="https://student.qweatherapi.com",
+        llm_base_url="https://fixture.invalid/v1",
+        llm_model="qwen3.7-plus",
+        llm_enable_thinking=False,
+    )
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        adapters = _build_live_adapters(
+            settings=settings,
+            credentials={
+                "amap_api_key": "fake-amap",
+                "qweather_api_key": "fake-weather",
+                "llm_api_key": "fake-llm",
+            },
+            client=client,
+            cache_repository=None,
+        )
+        result = adapters.assistant.turn(
+            AssistantTurnRequest(message="合成测试", revision=0, draft={}), None
+        )
+        reasons = adapters.explanations.explain(
+            [item("test-place", "测试景点")], explanation_context()
+        )
+    assert result.patch.main_origin == "合肥"
+    assert len(bodies) == 2 and len(reasons) == 1
+
+
 def response(explanations: list[dict[str, str]]) -> httpx.Response:
     return httpx.Response(
         200,

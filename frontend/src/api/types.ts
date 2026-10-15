@@ -33,6 +33,8 @@ export type TravelRequestBase = {
 }
 
 export type RecommendationRequest = TravelRequestBase & {
+  scenery_query?: string | null
+  scenery_keywords?: string[]
   destination_regions?: string[]
   scenery_types: SceneryType[]
   scenery_match_mode: 'any' | 'cover_all'
@@ -111,6 +113,7 @@ export type RecommendationItem = {
 export type SourceState = { kind: SourceKind; notices: string[] }
 
 export type RecommendationResponse = {
+  assistant_context?: string | null
   history_id?: string | null
   items: RecommendationItem[]
   source_state: SourceState
@@ -119,6 +122,7 @@ export type RecommendationResponse = {
 }
 
 export type PlaceEvaluationResponse = {
+  assistant_context?: string | null
   item: RecommendationItem
   source_state: SourceState
   generated_at: string

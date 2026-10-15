@@ -49,7 +49,7 @@ export function PlansPage() {
     return () => { active = false }
   }, [])
   return <section className='plan-page'>
-    <header className='plan-page-heading'><div><p className='eyebrow'>从候选到共同决定</p><h1>计划中心</h1><p>你发起的计划会一直保存在这个账户中。</p></div><Link className='icon-text-button' to='/recommend'>开始一次推荐</Link></header>
+    <header className='plan-page-heading'><div><p className='eyebrow'>从候选到共同决定</p><h1>计划中心</h1><p>选 2–3 个地点，邀请同行者投票，共同决定目的地。</p></div><Link viewTransition className='primary-button plan-start' to='/recommend' state={{ startTeamPick: true }}>发起同行计划</Link></header>
     {error && <p role='alert' className='error-banner'>{error}</p>}
     {!plans && !error && <p className='loading-state'>正在加载计划…</p>}
     {plans && <>
@@ -101,7 +101,7 @@ function PlanHeader({ plan, owner }: { plan: TravelPlan; owner: boolean }) {
   let progress = known ? `${voted}/${joined} 人已投票` : plan.me ? '先投票，再查看进展' : '加入计划，一起选目的地'
   let next = known
     ? remaining ? `还有 ${remaining} 位同行者未投票，可先比较候选。` : joined ? '已加入的同行者都已投票。' : '邀请同行者加入，一起选择目的地。'
-    : '投票后可查看大家的进展，不会提前公开选择。'
+    : '投票后查看结果。'
   if (plan.ended) { progress = '出行已结束'; next = destination ? `最终目的地：${destination}，计划已留档。` : '计划已留档，可回顾候选与投票记录。' }
   else if (plan.status === 'decided') { progress = destination ?? '目的地已确定'; next = '出行前可以按需再检查一次天气。' }
   else if (plan.status === 'closed') { progress = owner ? '等待你确定目的地' : '等待发起者确定目的地'; next = '投票已结束，可结合同行者的选择和天气查看候选。' }
@@ -138,11 +138,10 @@ function PlanWorkbench({ plan, busy, error, onVote, management, ownerActions, co
 
 function VoteSummary({ plan }: { plan: TravelPlan }) {
   const summary = plan.summary
-  if (!summary) return <p className='plan-empty'>先提交自己的投票，再查看当前结果，避免受到他人选择影响。</p>
+  if (!summary) return <p className='plan-empty'>投票后查看结果。</p>
   return <section className='plan-card'><div className='plan-card-heading'><h2>{plan.status === 'decided' ? '决定时的投票结果' : '当前投票结果'}</h2><span className='plan-badge'>{planProgress(plan)}</span></div>
-    {!summary.complete && <p className='muted'>当前结果：尚未达到预计人数，不代表最终共识。</p>}
+    {!summary.complete && <p className='muted'>尚未达到预计人数。</p>}
     <div className='plan-tallies'>{summary.candidates.map(c => <div className='plan-tally' key={c.id}><strong>{plan.candidates.find(item => item.id === c.id)?.snapshot.destination.name}</strong><div><span>{c.preferred_count} 首选</span><span>{c.acceptable_count} 人可接受</span></div>{c.all_accept && <small>所有已投票成员均可接受</small>}</div>)}</div>
-    <p className='muted'>票数不影响原推荐评分。并列时由发起者决定。</p>
   </section>
 }
 
@@ -210,15 +209,14 @@ export function PlanDetailPage() {
           }}>{plan.invite_active ? '换新邀请' : '生成邀请'}</button>
           {plan.invite_active && <button className='text-button' type='button' disabled={busy} onClick={() => setConfirm({ title: '撤销邀请？', message: '现有链接将无法继续访问此计划。', label: '确认撤销', action: async () => { await apiClient.delete(`${path}/invite`); setInviteUrl(''); return apiClient.get<Envelope>(path) } })}>撤销邀请</button>}</div>
           {inviteUrl && <div className='plan-link-copy'><label className='field'><span>邀请链接</span><input readOnly value={inviteUrl} onFocus={e => e.target.select()} /></label><button type='button' className='icon-text-button' onClick={() => void share()}><Copy size={16} aria-hidden='true' />分享 / 复制邀请</button></div>}
-          <p className='muted'>只分享城市、日期与候选信息；不会公开出发地和坐标。同行者清除 Cookie 后需重新加入。</p>
         </section>
         <section className='plan-management-members'><h2>同行者</h2><ul className='plan-participants'>{plan.participants?.map(p => <li key={p.id}><span>{p.nickname} {p.role === 'owner' ? '（发起者）' : ''}</span><span>{p.voted ? '已投票' : '未投票'}</span>{p.role === 'guest' && <button className='text-button' type='button' disabled={busy} onClick={() => setConfirm({ title: `移除 ${p.nickname}？`, message: '该成员的投票也会删除。', label: '确认移除', action: async () => { await apiClient.delete(`${path}/participants/${p.id}`); return apiClient.get<Envelope>(path) } })}>移除</button>}</li>)}</ul><div className='plan-management-action-row'><button className='text-button plan-delete' disabled={busy} type='button' onClick={() => setConfirm({ title: '永久删除计划？', message: '候选、投票、成员、邀请与天气记录会一并删除，无法恢复。', label: '永久删除', action: async () => { await apiClient.delete(path); navigate('/plans') } })}>删除计划</button></div></section>
 
       </section>}
       ownerActions={<>        {plan.status === 'voting' && !plan.ended && <button className='icon-text-button' type='button' disabled={busy} onClick={() => setConfirm({ title: '结束本轮投票？', message: '已有投票会保留，同行者将不能再投票或改票。你可以稍后决定目的地，也可以重新开放投票。', label: '确认结束投票', action: () => apiClient.put<Envelope>(`${path}/voting-close`) })}>结束投票</button>}
-        {plan.status === 'closed' && !plan.ended && <p className='plan-privacy-note'>投票已结束，等待你决定目的地。已有投票已保留。</p>}
+        {plan.status === 'closed' && !plan.ended && <p className='plan-privacy-note'>投票已结束，等待确定目的地。</p>}
         {plan.status !== 'voting' && !plan.ended && <button className='icon-text-button' type='button' disabled={busy} onClick={() => setConfirm({ title: '重新开放投票？', message: '保留成员与投票，清除最终目的地。', label: '确认重新开放', action: () => apiClient.remove<Envelope>(`${path}/decision`) })}>重新开放投票</button>}</>}
-      comparisonActions={<div className='plan-check-controls'><button className='icon-text-button' type='button' disabled={busy || plan.ended || Boolean(plan.next_weather_check_at && Date.parse(plan.next_weather_check_at) > now)} onClick={() => void act(() => apiClient.post<Envelope>(`${path}/weather-checks`))}>检查天气</button><small className='muted'>{plan.next_weather_check_at ? `下次可检查：${new Date(plan.next_weather_check_at).toLocaleString()}` : '按需检查，不会自动更新'}</small></div>}
+      comparisonActions={<div className='plan-check-controls'><button className='icon-text-button' type='button' disabled={busy || plan.ended || Boolean(plan.next_weather_check_at && Date.parse(plan.next_weather_check_at) > now)} onClick={() => void act(() => apiClient.post<Envelope>(`${path}/weather-checks`))}>检查天气</button>{plan.next_weather_check_at && <small className='muted'>下次可检查：{new Date(plan.next_weather_check_at).toLocaleString()}</small>}</div>}
       decisionAction={c => plan.status !== 'decided' && !plan.ended && <button className='icon-text-button plan-decide' disabled={busy} type='button' onClick={() => setConfirm({ title: '确定最终目的地？', message: `决定前往${c.snapshot.destination.name}后，同行者投票将关闭。你仍可重新开放。`, label: '确认决定', action: () => apiClient.put<Envelope>(`${path}/decision`, { candidate_id: c.id }) })} aria-label={`确定${c.snapshot.destination.name}`}>选为目的地</button>}
       onVote={async body => {
         let saved = false
@@ -240,10 +238,8 @@ export function JoinPlanPage() {
     {error && <p role='alert' className='error-banner'>{error}</p>}
     {!plan && !error && <p>正在打开同行邀请…</p>}
     {plan && <>
-      <p className='plan-privacy-note'>同行者仅能查看候选公开信息，不会看到任何人的出发地址。</p>
       {plan.status === 'voting' && !plan.ended && !plan.me && <form className='plan-card' onSubmit={e => { e.preventDefault(); void act(() => apiClient.post<Envelope>(`${path}/join`, { nickname })) }}>
         <h2>加入这次出行</h2><label className='field'><span>临时昵称</span><input required maxLength={32} value={nickname} onChange={e => setNickname(e.target.value)} autoComplete='nickname' /></label>
-        <p className='muted'>请保留当前浏览器 Cookie，以便回来修改投票。换浏览器或清除 Cookie 后无法找回此临时身份。</p>
         <button className='primary-button' disabled={busy} type='submit'>加入计划</button>
       </form>}
       {plan.status === 'closed' && !plan.ended && <p className='plan-privacy-note'>投票已结束，等待发起者决定目的地。你仍可查看已有投票结果。</p>}

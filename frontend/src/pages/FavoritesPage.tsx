@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { OverlayHost } from '../features/studio/OverlayHost'
 
 import { apiClient } from '../api/client'
 import type { Favorite } from '../api/types'
@@ -36,7 +37,7 @@ export function FavoritesPage() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  const selected = favorites.find((favorite) => favorite.id === selectedId) ?? favorites[0] ?? null
+  const selected = favorites.find((favorite) => favorite.id === selectedId) ?? null
 
   return (
     <section className="personal-page">
@@ -45,7 +46,9 @@ export function FavoritesPage() {
       {loading ? <p className="loading-state">正在加载收藏…</p> : favorites.length ? (
         <div className="favorites-workspace">
           <FavoriteList favorites={favorites} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
-          {selected && <FavoriteDetail favorite={selected} onDelete={remove} />}
+          {selected && <OverlayHost label={`${selected.place.name}收藏详情`} onClose={() => setSelectedId(null)} className='favorite-detail-layer' panelClassName='favorite-detail-host'>
+            <FavoriteDetail favorite={selected} onClose={() => setSelectedId(null)} onDelete={remove} />
+          </OverlayHost>}
         </div>
       ) : <p className="empty-state">还没有收藏地点。完成一次推荐后即可收藏。</p>}
       {toast && <div className="app-toast" role="status">{toast}</div>}

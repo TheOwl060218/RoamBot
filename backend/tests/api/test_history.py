@@ -74,6 +74,7 @@ def test_nationwide_query_history_keeps_destination_city_and_blank_request(auth_
     assert summary["city"] == "苏州"
     detail = client.get(f"{HISTORY_URL}/{summary['id']}").json()["history"]
     assert detail["request"]["city"] == ""
+    assert "assistant_context" not in detail["result"]
 
 
 def test_region_selection_survives_capture_and_explicit_rerun(auth_api_fixture):
@@ -180,8 +181,11 @@ def test_logged_in_success_captures_both_complete_canonical_snapshots(
         client.get(f"{HISTORY_URL}/{summary['id']}").json()["history"] for summary in summaries
     ]
     by_mode = {detail["mode"]: detail for detail in details}
-    assert by_mode["recommendation"]["result"] == recommendation.json()
-    assert by_mode["place_evaluation"]["result"] == evaluation.json()
+    assert by_mode["recommendation"]["result"] == {
+        k: v for k, v in recommendation.json().items() if k != "assistant_context"}
+    assert by_mode["place_evaluation"]["result"] == {
+        k: v for k, v in evaluation.json().items() if k != "assistant_context"}
+    assert "assistant_context" not in json.dumps(details)
     assert all(detail["snapshot"] is True for detail in details)
     serialized = json.dumps(details).lower()
     for secret in ("password", "cookie", "csrf", "token", "authorization", "raw_provider"):

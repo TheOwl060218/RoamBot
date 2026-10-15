@@ -32,10 +32,6 @@ export function PublicSharePage() {
         <div><p className="eyebrow">RoamBot 匿名分享</p><h1>{snapshot.city}出行结果</h1></div>
         <span>{snapshot.start_date} 至 {snapshot.end_date}</span>
       </header>
-      <p className="privacy-note">该页面只包含脱敏后的地点、天气和匹配指数，不包含账户身份与出发地址。</p>
-      <p className="result-method-note">
-        地点评分数据来源：高德开放平台；出游匹配指数仅用于比较本次候选地点，不代表官方评价。
-      </p>
       <div className="personal-list">
         {snapshot.items.map((item, index) => (
           <article className="shared-result" key={`${item.destination.name}-${index}`}>

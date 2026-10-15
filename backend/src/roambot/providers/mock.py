@@ -243,8 +243,9 @@ class MockPlaceProvider:
         scenery_types: tuple[SceneryType, ...],
         radius_km: float,
         destination_regions: tuple[str, ...] = (),
+        scenery_keywords: tuple[str, ...] = (),
     ) -> list[Destination]:
-        del city
+        del city, scenery_keywords
         if not scenery_types:
             return []
 

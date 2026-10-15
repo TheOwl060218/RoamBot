@@ -29,6 +29,26 @@ END = START + timedelta(days=2)
 GENERATED_AT = datetime(2026, 7, 16, 8, 30, tzinfo=UTC)
 
 
+@pytest.mark.parametrize("excluded_by", ["distance", "weather"])
+def test_recommendation_backfills_rejected_first_five_candidates(excluded_by):
+    candidates = [
+        destination(str(i), str(i), frozenset({SceneryType.LAKE}), rank=i + 1)
+        for i in range(6)
+    ]
+    distances = {str(i): [100 if excluded_by == "distance" and i < 5 else 10] for i in range(6)}
+    weather_data = {
+        str(i): weather_range()[:1] if excluded_by == "weather" and i < 5 else weather_range()
+        for i in range(6)
+    }
+    app, _, _, distance_provider, weather_provider, _ = service(
+        destinations=candidates, distances=distances, weather_by_id=weather_data
+    )
+    result = app.recommend(request())
+    assert [item.destination.provider_id for item in result.items] == ["5"]
+    assert len(distance_provider.calls) == 6
+    assert len(weather_provider.calls) == (6 if excluded_by == "weather" else 1)
+
+
 def fixed_clock() -> datetime:
     return GENERATED_AT
 
@@ -653,3 +673,32 @@ def test_evaluate_fails_when_target_lacks_complete_weather() -> None:
 
     assert exc_info.value.code == "unavailable"
     assert str(exc_info.value) == "指定地点天气数据暂时不可用"
+
+
+def test_broad_any_request_spreads_scenery_types_instead_of_all_museums() -> None:
+    all_types = list(SceneryType)
+    top_rated_museums = [
+        destination(f"museum-{index}", f"Museum {index}",
+                    frozenset({SceneryType.MUSEUM}), rank=index, rating=4.9 - index / 100)
+        for index in range(1, 7)
+    ]
+    others = [
+        destination("park-1", "Park", frozenset({SceneryType.PARK}), rating=4.3),
+        destination("lake-1", "Lake", frozenset({SceneryType.LAKE}), rating=4.2),
+        destination("old-town-1", "Old Town", frozenset({SceneryType.OLD_TOWN}), rating=4.1),
+    ]
+    candidates = top_rated_museums + others
+    recommendation_service, *_ = service(
+        destinations=candidates,
+        distances={candidate.provider_id: [10] for candidate in candidates},
+    )
+
+    result = recommendation_service.recommend(
+        request(scenery_types=all_types, scenery_match_mode=SceneryMatchMode.ANY)
+    )
+
+    museums = [item for item in result.items
+               if SceneryType.MUSEUM in item.destination.scenery_tags]
+    assert len(museums) <= 2
+    assert len(result.items) == 5
+    assert len(set().union(*(item.destination.scenery_tags for item in result.items))) >= 3

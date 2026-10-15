@@ -119,8 +119,11 @@ class AMapProvider:
         scenery_types: tuple[SceneryType, ...],
         radius_km: float,
         destination_regions: tuple[str, ...] = (),
+        scenery_keywords: tuple[str, ...] = (),
     ) -> list[Destination]:
         selected_types = tuple(dict.fromkeys(scenery_types))[:6]
+        from roambot.domain.semantic_preferences import normalize_scenery_keywords
+        semantic = normalize_scenery_keywords(list(scenery_keywords)) or []
         if not selected_types:
             return []
 
@@ -134,6 +137,9 @@ class AMapProvider:
         searches = ([(region, '|'.join(SEARCH_TERMS[kind] for kind in selected_types))
                      for region in destination_regions] if destination_regions else
                     [(None, SEARCH_TERMS[kind]) for kind in selected_types])
+        if semantic:
+            searches = [(region, '|'.join(dict.fromkeys([*terms.split('|'), *semantic])))
+                        for region, terms in searches]
         for region, keywords in searches:
             params = self._place_params(keywords, city)
             params.pop('region')
@@ -210,10 +216,15 @@ class AMapProvider:
         return PlaceSearchResults(merged, region_metadata_missing=missing_metadata)
 
     def resolve(self, name: str, city: str) -> Destination:
+        city = city.strip()
+        params = self._place_params(name.strip(), city)
+        if not city:
+            params.pop("region")
+            params["city_limit"] = "false"
         payload = self._http.get_json(
             operation="poi_search",
             path="/v5/place/text",
-            params=self._place_params(name.strip(), city),
+            params=params,
         )
         candidates = self._parse_pois(payload, city)
         if not candidates:

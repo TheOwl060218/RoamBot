@@ -26,6 +26,18 @@ def assert_sanitized(text: str) -> None:
     assert "Authorization" not in text
 
 
+def test_missing_llm_model_is_reported_as_configuration_failure():
+    client = ProviderHttpClient(
+        httpx.Client(transport=httpx.MockTransport(
+            lambda _: httpx.Response(404, json={"error": SECRETS[2]})
+        )), provider="llm", base_url="https://provider.example.com/v1", secrets=SECRETS,
+    )
+    with pytest.raises(ProviderError) as captured:
+        client.post_json(operation="assistant_turn", path="chat/completions", json_body={})
+    assert captured.value.code == "configuration_error"
+    assert_sanitized(str(captured.value))
+
+
 def test_get_json_returns_an_object_without_logging_request_details(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

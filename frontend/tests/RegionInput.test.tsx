@@ -5,6 +5,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 
 import { RegionInput } from '../src/features/search/RegionInput'
 import { loadRegionCatalog } from '../src/features/search/regions'
+import { OverlayHost } from '../src/features/studio/OverlayHost'
 
 vi.mock('../src/features/search/regions', async (original) => ({
   ...await original<object>(), loadRegionCatalog: vi.fn(),
@@ -22,6 +23,25 @@ function Harness({ initial = [] }: { initial?: string[] }) {
     <output data-testid='selection'>{value.join(',')}</output></>
 }
 beforeEach(() => vi.mocked(loadRegionCatalog).mockResolvedValue(catalog))
+
+it.each(['input', 'option'])('Escape from %s closes only the region popup then restores editor focus', async (focus) => {
+  const close = vi.fn()
+  render(<OverlayHost label='目的地范围' onClose={close}><Harness initial={['330100']} /></OverlayHost>)
+  const input = screen.getByRole('combobox')
+  fireEvent.change(input, { target: { value: '江苏' } })
+  const option = await screen.findByRole('option', { name: '江苏省', exact: true })
+  const target = focus === 'input' ? input : option
+  target.focus()
+  fireEvent.keyDown(target, { key: 'Escape' })
+  expect(screen.queryByRole('dialog', { name: '选择省市' })).not.toBeInTheDocument()
+  expect(screen.getByRole('dialog', { name: '目的地范围' })).toBeInTheDocument()
+  expect(close).not.toHaveBeenCalled()
+  expect(input).toHaveFocus()
+  expect(input).toHaveValue('江苏')
+  expect(screen.getByTestId('selection')).toHaveTextContent('330100')
+  fireEvent.keyDown(input, { key: 'Escape' })
+  expect(close).toHaveBeenCalledOnce()
+})
 it('shows two selected names and summarizes extras without an add placeholder', async () => {
   render(<Harness initial={['320500', '330100', '330000']} />)
   expect(await screen.findByRole('button', { name: '移除苏州市' })).toBeVisible()

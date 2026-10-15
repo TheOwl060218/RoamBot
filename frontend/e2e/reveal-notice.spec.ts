@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fillStudioConditions } from './helpers'
 import { workbenchPlan } from '../tests/fixtures/workbenchPlan'
 
 test('all dates announces offscreen content, expires, and stays quiet when the table is visible', async ({ page }, info) => {
@@ -22,32 +23,17 @@ test('all dates announces offscreen content, expires, and stays quiet when the t
   await expect(page.getByRole('table', { name: '全部日期天气对比' })).toBeVisible()
 })
 
-test('second candidate announces offscreen comparison without repeating for a third or visible comparison', async ({ page }, info) => {
-  const plan = workbenchPlan()
-  const response = { items: plan.candidates.map(candidate => ({ ...candidate.snapshot,
-    destination: { ...candidate.snapshot.destination, provider_id: candidate.id, coordinate: { longitude: 120.6, latitude: 31.3, system: 'gcj02' }, type_name: '景点', type_code: '110000', popularity_rank: null },
-    distances: [{ origin_label: '苏州站', distance_km: 2, duration_minutes: 10, estimated: true }],
-  })), generated_at: '2026-10-07T00:00:00Z', source_state: { kind: 'demo', notices: [] }, uncovered_scenery_types: [] }
-  await page.addInitScript(data => sessionStorage.setItem('roambot.session.search-result.v1', JSON.stringify(data)), response)
-  await page.route('**/api/v1/**', route => route.fulfill({ json: { user: null } }))
-  await page.setViewportSize({ width: page.viewportSize()!.width, height: 650 })
+test('candidate dock presents comparison affordance without repeated toast noise', async ({ page }) => {
   await page.goto('/recommend')
-  const choices = page.getByRole('group', { name: '选择候选进行对比' }).getByRole('checkbox')
-  const bubble = page.getByRole('status').filter({ hasText: '对比已准备好' })
-  await choices.nth(0).check()
-  await expect(bubble).toHaveCount(0)
-  await choices.nth(1).check()
-  await expect(bubble).toBeVisible()
-  await page.screenshot({ path: info.outputPath('comparison-notice.png') })
-  await expect(bubble).toHaveCount(0, { timeout: 3500 })
-  await choices.nth(2).check()
-  await page.waitForTimeout(100)
-  await expect(bubble).toHaveCount(0)
-  await choices.nth(2).uncheck()
-  await choices.nth(1).uncheck()
-  // A tall viewport exposes the right-hand comparison without auto-scrolling it.
-  await page.setViewportSize({ width: page.viewportSize()!.width, height: 3000 })
-  await choices.nth(1).check()
-  await page.waitForTimeout(100)
-  await expect(bubble).toHaveCount(0)
+  await fillStudioConditions(page, ['湖景','博物馆','古镇/历史街区'])
+  await page.getByRole('button', { name: '开始推荐' }).click()
+  await page.getByRole('button', { name: /^加入候选：/ }).first().click()
+  await expect(page.getByRole('button', { name: '查看对比（1）' })).toBeDisabled()
+  await page.getByRole('button', { name: /^加入候选：/ }).first().click()
+  await expect(page.getByRole('button', { name: '查看对比（2）' })).toBeEnabled()
+  await page.getByRole('button', { name: /^加入候选：/ }).first().click()
+  await expect(page.getByRole('button', { name: '查看对比（3）' })).toBeEnabled()
+  await expect(page.getByRole('status').filter({ hasText: '对比已准备好' })).toHaveCount(0)
+  await page.getByRole('button', { name: '查看对比（3）' }).click()
+  await expect(page.getByRole('region', { name: '候选对比' }).locator('article')).toHaveCount(3)
 })

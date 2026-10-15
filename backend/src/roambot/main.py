@@ -1,6 +1,8 @@
 from collections.abc import Mapping
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
+from secrets import token_bytes
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -13,6 +15,7 @@ from roambot.api.errors import (
     request_validation_exception_handler,
     unexpected_exception_handler,
 )
+from roambot.api.routes.assistant import router as assistant_router
 from roambot.api.routes.auth import router as auth_router
 from roambot.api.routes.favorites import router as favorites_router
 from roambot.api.routes.health import router as health_router
@@ -28,7 +31,9 @@ from roambot.config import ProviderMode, Settings
 from roambot.persistence.cache import SessionCacheStore
 from roambot.persistence.database import create_engine_and_session_factory, initialize_schema
 from roambot.providers.factory import build_provider_runtime
+from roambot.security.assistant_context import AssistantContextSigner
 from roambot.security.plan_logging import protect_plan_access_logs
+from roambot.services.assistant_limits import AssistantLimiter
 from roambot.services.plans import PlanError
 
 
@@ -77,6 +82,9 @@ def create_app(
 
     app = FastAPI(title="RoamBot API", version="0.1.0", lifespan=lifespan)
     app.state.settings = configured_settings
+    app.state.assistant_limiter = AssistantLimiter()
+    app.state.assistant_context_signer = AssistantContextSigner(
+        token_bytes(32), lambda: datetime.now(UTC))
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
     app.add_exception_handler(AuthApiError, auth_api_exception_handler)
     app.add_exception_handler(Exception, unexpected_exception_handler)
@@ -86,6 +94,7 @@ def create_app(
         return error_response(status_code=exc.status, code=exc.code, message=exc.message)
 
     app.include_router(health_router, prefix="/api/v1")
+    app.include_router(assistant_router, prefix="/api/v1")
     app.include_router(maps_router, prefix="/api/v1")
     app.include_router(regions_router, prefix="/api/v1")
     app.include_router(recommendations_router, prefix="/api/v1")

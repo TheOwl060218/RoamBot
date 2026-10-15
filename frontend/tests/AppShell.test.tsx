@@ -44,4 +44,28 @@ describe('AppShell', () => {
     expect(home.parentElement).toBe(screen.getByRole('link', { name: 'RoamBot' }).parentElement)
     expect(screen.getByRole('link', { name: '推荐' })).toBeInTheDocument()
   })
+
+  it('owns one shared coastal backdrop behind the route content', () => {
+    vi.spyOn(apiClient, 'me').mockResolvedValue(null)
+    const { rerender } = render(
+      <AuthProvider>
+        <MemoryRouter>
+          <AppShell><p>推荐内容</p></AppShell>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+
+    const backdrop = screen.getByTestId('coastal-backdrop')
+    expect(backdrop).toHaveAttribute('aria-hidden', 'true')
+    expect(document.querySelector('.app-shell')).toHaveClass('coastal-shell')
+
+    rerender(
+      <AuthProvider>
+        <MemoryRouter>
+          <AppShell><p>收藏内容</p></AppShell>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+    expect(screen.getByTestId('coastal-backdrop')).toBe(backdrop)
+  })
 })

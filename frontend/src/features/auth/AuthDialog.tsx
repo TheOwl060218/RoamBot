@@ -1,8 +1,11 @@
 import { CircleHelp, Eye, EyeOff, LogOut, X } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 
 import { ApiError } from '../../api/client'
 import { useAuth } from './authContext'
+import { useLayerExit } from '../studio/useLayerExit'
+import { useModalLayer } from '../studio/useModalLayer'
 
 type AuthDialogProps = {
   open: boolean
@@ -12,7 +15,24 @@ type AuthDialogProps = {
   initialMode?: 'login' | 'register'
 }
 
-export function AuthDialog({ open, onClose, onAuthenticated, onStatus, initialMode = 'login' }: AuthDialogProps) {
+export function AuthDialog(props: AuthDialogProps) {
+  return props.open ? createPortal(<AuthDialogContent {...props} />, document.body) : null
+}
+
+function AuthDialogContent({ open, onClose, onAuthenticated, onStatus, initialMode = 'login' }: AuthDialogProps) {
+  const layer = useRef<HTMLDialogElement>(null)
+  const previousFocus = useRef(document.activeElement as HTMLElement | null)
+  useLayerExit(layer, '.auth-dialog')
+  useModalLayer(layer)
+  // A body Portal escapes CSS stacking contexts; showModal also puts account
+  // UI above an existing native plan dialog and browser view-transition layer.
+  useLayoutEffect(() => {
+    const element = layer.current
+    if (element && !element.open) {
+      if (typeof element.showModal === 'function') element.showModal()
+      else element.setAttribute('open', '')
+    }
+  }, [])
   const { user, login, register, logout } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>(initialMode)
   const [username, setUsername] = useState('')
@@ -22,14 +42,15 @@ export function AuthDialog({ open, onClose, onAuthenticated, onStatus, initialMo
   const [showPassword, setShowPassword] = useState(false)
   const dialogRef = useRef<HTMLElement>(null)
   const passwordId = useId()
+  const outsideDown = useRef(false)
 
   useEffect(() => {
     if (!open) return
-    const previousFocus = document.activeElement as HTMLElement | null
+    const trigger = previousFocus.current
     const dialog = dialogRef.current
     const first = dialog?.querySelector<HTMLElement>('input, button, [href], [tabindex]:not([tabindex="-1"])')
-    first?.focus()
-    return () => previousFocus?.focus()
+    first?.focus({ preventScroll: true })
+    return () => trigger?.focus({ preventScroll: true })
   }, [open])
 
   if (!open) return null
@@ -111,7 +132,7 @@ export function AuthDialog({ open, onClose, onAuthenticated, onStatus, initialMo
   }
 
   return (
-    <div className="dialog-backdrop" role="presentation">
+    <dialog ref={layer} className="dialog-backdrop auth-layer" role="presentation" onCancel={event => { event.preventDefault(); closeDialog() }} onPointerDown={event => { outsideDown.current = event.target === event.currentTarget }} onPointerUp={event => { if (outsideDown.current && event.target === event.currentTarget) closeDialog(); outsideDown.current = false }}>
       <section
         className="auth-dialog"
         role="dialog"
@@ -132,7 +153,6 @@ export function AuthDialog({ open, onClose, onAuthenticated, onStatus, initialMo
 
         {user ? (
           <div className="account-panel">
-            <p>登录后，成功查询会自动保存在历史中，并可收藏地点或创建分享。</p>
             <button
               className="icon-text-button"
               type="button"
@@ -198,6 +218,6 @@ export function AuthDialog({ open, onClose, onAuthenticated, onStatus, initialMo
           </>
         )}
       </section>
-    </div>
+    </dialog>
   )
 }

@@ -1,4 +1,7 @@
 .dialog-backdrop.location-backdrop { z-index: 160; padding: 20px; }
+.location-backdrop { animation: layer-veil-in 260ms ease-out both; backdrop-filter: blur(6px); }
+.location-backdrop .location-dialog { animation: coastal-card-in 280ms cubic-bezier(.22,.75,.18,1) both; }
+@media(prefers-reduced-motion:reduce) { .location-backdrop, .location-backdrop .location-dialog { animation: none !important; } }
 .location-dialog { width: min(920px, 100%); max-height: calc(100dvh - 40px); overflow: auto; background: var(--surface, #fff); border: 1px solid var(--border); border-radius: 24px; padding: 24px; box-shadow: 0 24px 80px #142c3840; }
 .location-heading, .location-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .location-heading h2 { margin: 0 0 6px; }

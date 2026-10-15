@@ -1,23 +1,15 @@
 import { expect, test } from '@playwright/test'
 import path from 'node:path'
-import { tomorrowInChina } from './helpers'
+import { fillStudioConditions } from './helpers'
 
 test('guest recommendation becomes an owned plan after explicit rerun, anonymous vote and decision', async ({ page, browser }, testInfo) => {
   await page.goto('/recommend')
-  const day = tomorrowInChina()
-  await page.getByLabel('主出发地', { exact: true }).fill('苏州站')
-  await page.getByLabel('最大距离（km）', { exact: true }).fill('80')
-  await page.getByLabel('开始日期', { exact: true }).fill(day)
-  await page.getByLabel('结束日期', { exact: true }).fill(day)
-  await page.getByRole('checkbox', { name: '湖景', exact: true }).check()
-  await page.getByRole('checkbox', { name: '博物馆', exact: true }).check()
+  await fillStudioConditions(page, ['湖景','博物馆'])
   await page.getByRole('button', { name: '开始推荐', exact: true }).click()
-  const group = page.getByRole('group', { name: '选择候选进行对比' })
-  await expect(group).toBeVisible()
-  await group.getByRole('checkbox').nth(0).check()
-  await group.getByRole('checkbox').nth(1).check()
-  await page.getByRole('button', { name: '查看对比结果（2）' }).click()
-  await page.getByRole('button', { name: '创建同行计划', exact: true }).click()
+  await page.getByRole('button', { name: /^加入候选：/ }).nth(0).click()
+  await page.getByRole('button', { name: /^加入候选：/ }).nth(0).click()
+  await page.getByRole('button', { name: '查看对比（2）' }).click()
+  await page.getByRole('button', { name: '发起同行计划', exact: true }).click()
   await page.getByRole('tab', { name: '创建账户', exact: true }).click()
   await page.getByLabel('用户名', { exact: true }).fill(`plan_${Date.now()}_${page.viewportSize()!.width}`)
   await page.getByLabel('密码', { exact: true }).fill('RoamBotDemo123!')
@@ -28,8 +20,8 @@ test('guest recommendation becomes an owned plan after explicit rerun, anonymous
   await expect(dialog.getByRole('button', { name: '确认创建' })).toHaveCount(0)
   await dialog.getByRole('button', { name: '更新推荐' }).click()
   await expect(dialog).toHaveCount(0)
-  await page.getByRole('button', { name: '查看对比结果（2）' }).click()
-  await page.getByRole('button', { name: '创建同行计划', exact: true }).click()
+  await page.getByRole('button', { name: '查看对比（2）' }).click()
+  await page.getByRole('button', { name: '发起同行计划', exact: true }).click()
   await page.getByRole('dialog').getByLabel('计划名称').fill('同行验收计划')
   const people = page.getByRole('dialog').getByLabel('预计同行人数')
   await people.fill('')
@@ -118,7 +110,7 @@ test('guest recommendation becomes an owned plan after explicit rerun, anonymous
     await page.getByRole('button', { name: '更多历史操作' }).first().click()
     await page.getByRole('button', { name: '重新查询', exact: true }).click()
     await expect(page).toHaveURL(/\/recommend$/)
-    await expect(page.getByRole('region', { name: '当前查询条件' })).toContainText('苏州站')
-    await expect(page.getByRole('group', { name: '选择候选进行对比' })).toBeVisible()
+    await expect(page.getByRole('region', { name: '当前出行条件' })).toContainText('苏州站')
+    await expect(page.getByTestId('destination-card').first()).toBeVisible()
   } finally { await guestContext.close() }
 })

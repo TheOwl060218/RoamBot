@@ -5,14 +5,14 @@ import type { RestoredHistorySearch } from '../features/history/restoreHistorySe
 
 export function SearchPage() {
   const location = useLocation()
-  const state = location.state as { evaluationTarget?: string; restoredSearch?: RestoredHistorySearch } | null
+  const state = location.state as { evaluationTarget?: string; restoredSearch?: RestoredHistorySearch; startTeamPick?: boolean } | null
   const target = state?.evaluationTarget
   return (
     <SearchWorkspace
-      key={location.key}
       restoredSearch={state?.restoredSearch}
       initialMode={target ? 'place_evaluation' : 'recommendation'}
       initialTarget={target}
+      startTeamPick={state?.startTeamPick}
     />
   )
 }

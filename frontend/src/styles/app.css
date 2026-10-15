@@ -1,3 +1,6 @@
+@import './coastal.css';
+@import './studio.css';
+
 #root,
 .app-shell {
   min-height: 100vh;
@@ -16,6 +19,11 @@
   border-bottom: 1px solid var(--border);
   background: rgb(255 255 255 / 94%);
   backdrop-filter: blur(12px);
+}
+/* Fade only scrolling content. The scenery and navigation are separate siblings,
+   so no rectangular backdrop blur or second veil survives underneath a modal. */
+.coastal-shell .shell-main.is-scrolled {
+  mask-image: linear-gradient(to bottom, transparent var(--shell-fade-start), #000 var(--shell-fade-end));
 }
 
 .brand-navigation { display: flex; align-items: center; gap: 16px; min-width: 0; }
@@ -65,11 +73,16 @@
   line-height: 20px;
   text-decoration: none;
   white-space: nowrap;
+  transition: color 140ms ease, background-color 140ms ease, transform 140ms ease;
 }
 
 .nav-link:hover {
   color: var(--ink);
   background: var(--surface-muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-link:hover { transform: scale(1.03); }
 }
 
 .nav-link.active {
@@ -88,13 +101,17 @@
   color: var(--ink);
   background: var(--surface);
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
 .account-button:hover {
   border-color: var(--border-strong);
   color: var(--primary);
   background: var(--primary-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .account-button:hover { transform: scale(1.05); }
 }
 
 .shell-main {

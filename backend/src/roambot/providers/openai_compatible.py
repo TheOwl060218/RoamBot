@@ -40,10 +40,13 @@ class OpenAICompatibleExplanationProvider:
         http: ProviderHttpClient,
         api_key: str,
         model: str,
+        *,
+        enable_thinking: bool | None = None,
     ) -> None:
         self._http = http
         self._api_key = api_key
         self._model = model
+        self._enable_thinking = enable_thinking
 
     def explain(
         self,
@@ -61,6 +64,11 @@ class OpenAICompatibleExplanationProvider:
             headers={"Authorization": f"Bearer {self._api_key}"},
             json_body={
                 "model": self._model,
+                **(
+                    {"enable_thinking": self._enable_thinking}
+                    if self._enable_thinking is not None
+                    else {}
+                ),
                 "temperature": 0.2,
                 "response_format": {"type": "json_object"},
                 "messages": [
@@ -83,12 +91,9 @@ class OpenAICompatibleExplanationProvider:
                                 "destinations": [_public_summary(item) for item in items],
                                 "preferences": {
                                     "requested_scenery_types": [
-                                        tag.value
-                                        for tag in context.requested_scenery_types
+                                        tag.value for tag in context.requested_scenery_types
                                     ],
-                                    "scenery_match_mode": (
-                                        context.scenery_match_mode.value
-                                    ),
+                                    "scenery_match_mode": (context.scenery_match_mode.value),
                                     "display_weights": (
                                         context.display_weights.model_dump(mode="json")
                                     ),
@@ -141,9 +146,7 @@ def _public_summary(item: RecommendationItem) -> dict[str, object]:
         ),
         "maximum_distance_km": round(item.group_accessibility.max_distance_km, 2),
         "average_duration_minutes": _average_duration(item),
-        "overall_advice": (
-            item.overall_advice.value if item.overall_advice is not None else None
-        ),
+        "overall_advice": (item.overall_advice.value if item.overall_advice is not None else None),
         "local_reason": item.explanation,
         "weather": [
             {

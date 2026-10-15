@@ -7,9 +7,10 @@ import { scenerySummary } from './favoritePresentation'
 type FavoriteDetailProps = {
   favorite: Favorite
   onDelete: (id: string) => void
+  onClose?: () => void
 }
 
-export function FavoriteDetail({ favorite, onDelete }: FavoriteDetailProps) {
+export function FavoriteDetail({ favorite, onDelete, onClose }: FavoriteDetailProps) {
   const { place } = favorite
 
   return (
@@ -20,6 +21,7 @@ export function FavoriteDetail({ favorite, onDelete }: FavoriteDetailProps) {
           <h2 id={`favorite-title-${favorite.id}`}>{place.name}</h2>
           <p className="favorite-address"><MapPin aria-hidden="true" size={17} />{place.address}</p>
         </div>
+        {onClose && <button className="text-button" type="button" onClick={onClose}>← 返回收藏</button>}
       </header>
 
       <dl className="favorite-facts">
@@ -28,7 +30,6 @@ export function FavoriteDetail({ favorite, onDelete }: FavoriteDetailProps) {
         <div><dt>收藏时间</dt><dd>{new Date(favorite.created_at).toLocaleDateString('zh-CN')}</dd></div>
       </dl>
 
-      <p className="privacy-note">地点资料保存自高德开放平台；重新评估后才会生成最新天气与出游建议。</p>
 
       <div className="favorite-detail-actions">
         <Link className="icon-text-button link-button primary-action" to="/recommend" state={{ evaluationTarget: place.name }}>

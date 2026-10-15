@@ -69,13 +69,15 @@ test('query route survives refresh and home entry returns without losing the dra
   expect(home!.x + home!.width).toBeLessThanOrEqual(account!.x)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width)
   await page.screenshot({ path: `../test-results/home-entry-${info.project.name}.png` })
+  await page.getByRole('button', { name: /编辑出发地/ }).click()
   await page.getByLabel('主出发地', { exact: true }).fill('苏州站')
+  await page.getByRole('button', { name: '保存条件' }).click()
   await page.reload()
-  await expect(page.getByLabel('主出发地', { exact: true })).toHaveValue('苏州站')
+  await expect(page.getByRole('region', { name: '当前出行条件' })).toContainText('苏州站')
   await page.getByRole('link', { name: '首页', exact: true }).click()
   await expect(page.locator('.home-scene')).toBeVisible()
   await page.getByRole('link', { name: '开始查询' }).click()
-  await expect(page.getByLabel('主出发地', { exact: true })).toHaveValue('苏州站')
+  await expect(page.getByRole('region', { name: '当前出行条件' })).toContainText('苏州站')
 })
 
 test('registration opens directly and guest plans continue to plans after authentication', async ({ page }) => {

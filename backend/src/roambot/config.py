@@ -30,7 +30,9 @@ class Settings(BaseSettings):
     qweather_api_host: AnyHttpUrl | None = None
     llm_base_url: AnyHttpUrl | None = None
     llm_model: str | None = None
+    llm_enable_thinking: bool | None = None
     provider_timeout_seconds: float = Field(default=5.0, gt=0)
+    assistant_timeout_seconds: float = Field(default=7.0, gt=0, le=60)
     max_geocode_calls: int = Field(default=3, gt=0)
     max_poi_search_calls: int = Field(default=6, gt=0)
     max_weather_calls: int = Field(default=7, gt=0)

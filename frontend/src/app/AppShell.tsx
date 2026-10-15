@@ -1,12 +1,13 @@
-import { useEffect, useState, type PropsWithChildren } from 'react'
+import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { UserRound } from 'lucide-react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 
 import { AuthDialog } from '../features/auth/AuthDialog'
 import { useAuth } from '../features/auth/authContext'
 import { ACCOUNT_DIALOG_REQUEST_EVENT } from './accountDialog'
-import { HOME_RESET_REQUEST_EVENT, clearSearchResult } from '../features/search/formState'
 import { PlanNavigation } from '../features/plans/PlanNavigation'
+import { CoastalBackdrop } from './CoastalBackdrop'
+import { RouteTransitionFrame } from './RouteTransitionFrame'
 
 const navigation = [
   { label: '推荐', to: '/recommend' },
@@ -18,9 +19,27 @@ export function AppShell({ children }: PropsWithChildren) {
   const [accountOpen, setAccountOpen] = useState(false)
   const [accountTarget, setAccountTarget] = useState<'/plans' | null>(null)
   const [status, setStatus] = useState('')
+  const main = useRef<HTMLElement>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
+
+  useEffect(() => {
+    const onScroll = () => {
+      const content = main.current
+      const header = document.querySelector<HTMLElement>('.shell-header')
+      if (!content || !header) return
+      const overlap = header.getBoundingClientRect().bottom - content.getBoundingClientRect().top
+      content.style.setProperty('--shell-fade-end', `${Math.max(0, overlap) + 72}px`)
+      content.style.setProperty('--shell-fade-start', `${Math.max(0, overlap)}px`)
+      content.classList.toggle('is-scrolled', window.scrollY > 8)
+    }
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onScroll)
+    if (main.current) resize?.observe(main.current)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => { resize?.disconnect(); window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll) }
+  }, [])
 
   useEffect(() => {
     if (!status) return
@@ -38,23 +57,16 @@ export function AppShell({ children }: PropsWithChildren) {
     return () => window.removeEventListener(ACCOUNT_DIALOG_REQUEST_EVENT, openAccount)
   }, [])
 
-  function goRecommend() {
-    clearSearchResult()
-    if (location.pathname !== '/recommend') {
-      navigate('/recommend')
-    }
-    window.dispatchEvent(new Event(HOME_RESET_REQUEST_EVENT))
-  }
-
   return (
-    <div className="app-shell">
-      <header className="shell-header">
+    <div className="app-shell coastal-shell">
+      <CoastalBackdrop />
+      <header className='shell-header'>
         <div className="brand-navigation">
-          <NavLink className="brand" to="/" aria-label="RoamBot">
+          <NavLink className="brand" to="/" aria-label="RoamBot" viewTransition>
             <span aria-hidden="true" className="brand-mark">R</span>
             <span>RoamBot</span>
           </NavLink>
-          <NavLink className="shell-home-link" to="/" end>首页</NavLink>
+          <NavLink className="shell-home-link" to="/" end viewTransition>首页</NavLink>
         </div>
 
         <div className='mobile-plan-status'><PlanNavigation mobile /></div>
@@ -67,7 +79,7 @@ export function AppShell({ children }: PropsWithChildren) {
               end={item.to === '/recommend'}
               key={item.label}
               to={item.to}
-              onClick={item.to === '/recommend' ? goRecommend : undefined}
+              viewTransition
             >
               {item.label}
             </NavLink>
@@ -87,7 +99,7 @@ export function AppShell({ children }: PropsWithChildren) {
         </button>
       </header>
 
-      <main className="shell-main">{children}</main>
+      <main ref={main} className="shell-main"><RouteTransitionFrame>{children}</RouteTransitionFrame></main>
       {status && <div className="app-toast" role="status">{status}</div>}
       <AuthDialog open={accountOpen} onClose={() => { setAccountOpen(false); setAccountTarget(null) }} onStatus={setStatus} onAuthenticated={() => {
         setAccountOpen(false)

@@ -1,148 +1,30 @@
 import { expect, test } from '@playwright/test'
-
-import { submitRecommendation } from './helpers'
-
-test('form and results keep their intended responsive relationship', async ({ page }) => {
+import { fillStudioConditions } from './helpers'
+test('conditions, layered detail, weights and composer retain responsive relationship', async ({ page }) => {
   await page.goto('/recommend')
-
-  const initialForm = await page.locator('.travel-form').boundingBox()
-  const initialViewport = page.viewportSize()
-  const initialContentWidth = await page.evaluate(() => document.documentElement.clientWidth)
-  expect(initialForm).not.toBeNull()
-  expect(initialViewport).not.toBeNull()
-
-  const initialScenes = await page.locator('.sample-scenes').boundingBox()
-  const sidebar = await page.locator('.workspace-sidebar').boundingBox()
-  expect(sidebar).not.toBeNull()
-  if (initialViewport!.width > 768) {
-    expect(initialScenes).not.toBeNull()
-    expect(initialForm!.x + initialForm!.width).toBeLessThanOrEqual(initialScenes!.x + 8)
-    expect(initialForm!.x).toBeGreaterThanOrEqual(sidebar!.x)
-    expect(initialScenes!.x).toBeGreaterThanOrEqual(sidebar!.x + sidebar!.width)
-  } else {
-    await expect(page.locator('.sample-scenes')).toBeHidden()
-    expect(Math.abs(initialForm!.x + initialForm!.width / 2 - initialContentWidth / 2)).toBeLessThanOrEqual(8)
-  }
-
-  const handles = await page.getByRole('slider').all()
-  expect(handles).toHaveLength(2)
-  for (const handle of handles) {
-    const hitArea = await handle.boundingBox()
-    expect(hitArea).not.toBeNull()
-    expect(hitArea!.width).toBeGreaterThanOrEqual(44)
-    expect(hitArea!.height).toBeGreaterThanOrEqual(44)
-  }
-
-  await page.getByRole('checkbox', { name: '博物馆', exact: true }).check()
-  await submitRecommendation(page)
-
-  await expect(page.locator('.query-summary')).toBeVisible()
-  await expect(page.locator('.travel-form')).toBeVisible()
-  await expect(page.locator('.query-summary')).toHaveCount(1)
-
-  if (initialViewport!.width > 768) {
-    await expect.poll(async () => {
-      const summaryBox = await page.locator('.sidebar-summary-anchor').boundingBox()
-      const sidebarBox = await page.locator('.workspace-sidebar').boundingBox()
-      const sidebarClientTop = await page.locator('.workspace-sidebar').evaluate((element) => element.clientTop)
-      const pageGutter = await page.locator('.shell-main').evaluate((element) => (
-        Number.parseFloat(getComputedStyle(element).paddingLeft)
-      ))
-      const actualGap = (summaryBox?.y ?? 0) - (sidebarBox?.y ?? 0) - sidebarClientTop
-      return Math.abs(actualGap - pageGutter)
-    }).toBeLessThanOrEqual(2)
-  }
-
-  const summary = await page.locator('.query-summary').boundingBox()
-  const results = await page.locator('.results-panel').boundingBox()
-  const candidates = await page.locator('.sidebar-candidate-list').boundingBox()
-  const detail = await page.locator('.place-detail').boundingBox()
-  const viewport = page.viewportSize()
-  expect(summary).not.toBeNull()
-  expect(results).not.toBeNull()
-  expect(candidates).not.toBeNull()
-  expect(detail).not.toBeNull()
-  expect(viewport).not.toBeNull()
-
-  if (viewport!.width <= 600) {
-    expect(summary!.y).toBeLessThan(candidates!.y)
-    expect(candidates!.y).toBeLessThan(detail!.y)
-  } else {
-    expect(candidates!.x + candidates!.width).toBeLessThanOrEqual(detail!.x + 8)
-  }
-
-  if (viewport!.width >= 1024) {
-    expect(candidates!.x + candidates!.width).toBeLessThanOrEqual(detail!.x)
-    const candidatesList = page.locator('.sidebar-candidate-list .candidate-list')
-    const candidatesStyle = await candidatesList.evaluate((element) => (
-      getComputedStyle(element).overscrollBehaviorY
-    ))
-    expect(candidatesStyle).not.toBe('contain')
-  } else {
-    expect(candidates!.y + candidates!.height).toBeLessThanOrEqual(detail!.y)
-  }
-
-  const matchColumnCount = await page.locator('.match-grid').evaluate((element) => (
-    getComputedStyle(element).gridTemplateColumns.split(' ').length
-  ))
-  expect(matchColumnCount).toBe(viewport!.width <= 600 ? 1 : 3)
-
-  // One frame: smooth scrolling must not mix viewport coordinates from different frames.
-  const [weatherDate, weatherCondition, weatherHeading, weatherFacts, weatherSummary] = await page.evaluate(() =>
-    ['.weather-day-heading time', '.weather-condition', '.weather-list-single .weather-day-heading',
-      '.weather-list-single .weather-facts', '.weather-list-single .weather-summary'].map(selector => {
-      const box = document.querySelector(selector)?.getBoundingClientRect()
-      return box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null
-    }))
-  expect(weatherDate).not.toBeNull()
-  expect(weatherCondition).not.toBeNull()
-  expect(weatherHeading).not.toBeNull()
-  expect(weatherFacts).not.toBeNull()
-  // Ordinary days deliberately have no filler reminder; keep testing the row layout.
-  expect(weatherCondition!.x - weatherDate!.x - weatherDate!.width).toBeLessThanOrEqual(24)
-
-  if (viewport!.width >= 1024) {
-    expect(weatherFacts!.x).toBeGreaterThan(weatherHeading!.x + weatherHeading!.width - 2)
-    if (weatherSummary) expect(weatherSummary.x).toBeGreaterThan(weatherFacts!.x + weatherFacts!.width - 2)
-  } else {
-    expect(weatherFacts!.y).toBeGreaterThanOrEqual(weatherHeading!.y + weatherHeading!.height)
-    if (weatherSummary) expect(weatherSummary.y).toBeGreaterThanOrEqual(weatherFacts!.y + weatherFacts!.height)
-  }
-
-  await expect(page.locator('.candidate-row')).toHaveCount(2)
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-  const selectedName = page.locator('.place-detail h2')
-  const firstSelectedName = await selectedName.textContent()
-  if (viewport!.width <= 600) {
-    await expect(page.getByLabel('切换候选地点')).toBeVisible()
-    const switcherButtons = page.locator('.candidate-switcher .icon-button')
-    await switcherButtons.nth(1).click()
-    await expect(selectedName).not.toHaveText(firstSelectedName ?? '')
-    await expect(page.locator('.candidate-switcher-current strong')).toHaveText('2/2')
-    await switcherButtons.first().click()
-    await expect(selectedName).toHaveText(firstSelectedName ?? '')
-  } else {
-    await page.locator('.candidate-row').nth(1).click()
-    await expect(selectedName).not.toHaveText(firstSelectedName ?? '')
-    await page.locator('.candidate-row').first().click()
-    await expect(selectedName).toHaveText(firstSelectedName ?? '')
-  }
-
-  await page.getByRole('button', { name: '重新查询' }).click()
-  await expect(page.locator('.travel-form')).toBeVisible()
-  const editingForm = await page.locator('.travel-form').boundingBox()
-  const editingContentWidth = await page.evaluate(() => document.documentElement.clientWidth)
-  expect(editingForm).not.toBeNull()
-  if (viewport!.width <= 600) {
-    expect(editingForm!.x).toBeLessThanOrEqual(24)
-    expect(editingForm!.width).toBeGreaterThan(editingContentWidth * 0.7)
-  } else {
-    expect(editingForm!.x + editingForm!.width).toBeLessThanOrEqual(detail!.x + 8)
-  }
-
-  const dimensions = await page.evaluate(() => ({
-    contentWidth: document.documentElement.clientWidth,
-    pageWidth: document.documentElement.scrollWidth,
-  }))
-  expect(dimensions.pageWidth).toBeLessThanOrEqual(dimensions.contentWidth)
+  await expect(page.locator('.travel-form')).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: '继续补充条件' })).toBeVisible()
+  await page.getByRole('button', { name: '更多工具' }).click()
+  await page.getByRole('button', { name: '偏好权重', exact: true }).click()
+  const handles = page.getByRole('slider')
+  await expect(handles).toHaveCount(2)
+  for (const handle of await handles.all()) { const b = (await handle.boundingBox())!; expect(b.width).toBeGreaterThanOrEqual(44); expect(b.height).toBeGreaterThanOrEqual(44) }
+  await page.getByRole('button', { name: '取消', exact: true }).click()
+  await fillStudioConditions(page, ['湖景', '博物馆', '古镇/历史街区'])
+  await page.getByRole('button', { name: '开始推荐', exact: true }).click()
+  await expect(page.getByTestId('destination-card')).toHaveCount(3)
+  await page.getByRole('button', { name: /^了解/ }).first().click()
+  const firstName = await page.locator('.destination-detail h2').innerText()
+  await expect(page.locator('.weather-day')).toHaveCount(1)
+  await expect(page.locator('.weather-condition')).toBeVisible()
+  await expect(page.locator('.weather-facts')).toBeVisible()
+  const columns = await page.locator('.detail-overview').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)
+  expect(columns).toBe(page.viewportSize()!.width <= 600 ? 1 : 3)
+  await page.getByRole('button', { name: /返回地点/ }).click()
+  await expect(page.getByTestId('destination-card').first()).toBeVisible()
+  await page.getByRole('button', { name: /^了解/ }).nth(1).click()
+  await expect(page.locator('.destination-detail h2')).not.toHaveText(firstName)
+  await page.getByRole('button', { name: /编辑出发地/ }).click()
+  await expect(page.getByLabel('主出发地')).toHaveValue('苏州站')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 })

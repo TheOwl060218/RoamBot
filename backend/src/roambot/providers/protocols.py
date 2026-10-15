@@ -48,6 +48,7 @@ class PlaceProvider(Protocol):
         scenery_types: tuple[SceneryType, ...],
         radius_km: float,
         destination_regions: tuple[str, ...] = (),
+        scenery_keywords: tuple[str, ...] = (),
     ) -> list[Destination]:
         raise NotImplementedError
 

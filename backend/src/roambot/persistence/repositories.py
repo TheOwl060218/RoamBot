@@ -217,6 +217,7 @@ class PlaceRepository:
         provider: str,
         destination: Destination,
         updated_at: datetime,
+        favorite_user_id: str | None = None,
     ) -> PlaceRecord:
         values = {
             "id": str(uuid4()),
@@ -245,6 +246,14 @@ class PlaceRepository:
                     for key, value in values.items()
                     if key not in {"id", "provider", "provider_place_id"}
                 },
+                # Client-supplied favorite metadata cannot rewrite a place used by another user.
+                where=(
+                    ~select(FavoriteTable.id).where(
+                        FavoriteTable.place_id == PlaceTable.id,
+                        FavoriteTable.user_id != favorite_user_id,
+                    ).exists()
+                    if favorite_user_id is not None else None
+                ),
             )
         )
         row = self._db.scalar(

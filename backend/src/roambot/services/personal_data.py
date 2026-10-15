@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from typing import Literal
 from uuid import uuid4
 
@@ -31,6 +31,10 @@ from roambot.services.snapshot_metadata import display_city
 
 
 class ResourceNotFoundError(RuntimeError):
+    pass
+
+
+class HistoryDatesExpiredError(RuntimeError):
     pass
 
 
@@ -77,6 +81,7 @@ class PersonalDataService:
                 provider=provider,
                 destination=destination,
                 updated_at=now,
+                favorite_user_id=user_id,
             )
             return FavoriteRepository(db).create_or_get(
                 user_id=user_id,
@@ -110,7 +115,7 @@ class PersonalDataService:
         request_json = _canonical_json(
             request.model_dump(mode="json", exclude_computed_fields=True)
         )
-        result_json = _canonical_json(result.model_dump(mode="json"))
+        result_json = _canonical_json(result.model_dump(mode="json", exclude={"assistant_context"}))
         with self._session_factory.begin() as db:
             record = HistoryRepository(db).create(
                 user_id=user_id,
@@ -145,6 +150,12 @@ class PersonalDataService:
         recommendation_service: RecommendationService,
     ) -> HistorySnapshot:
         old = self.get_history(user_id=user_id, history_id=history_id)
+        today = self._now().astimezone(timezone(timedelta(hours=8))).date()
+        start, end = (
+            date.fromisoformat(str(old.request[key])) for key in ("start_date", "end_date")
+        )
+        if start < today or end < start or end > today + timedelta(days=6):
+            raise HistoryDatesExpiredError
         if old.mode == "recommendation":
             request = RecommendationRequest.model_validate(old.request)
             result = recommendation_service.recommend(request)
@@ -253,6 +264,7 @@ def _snapshot(record: HistoryRecord) -> HistorySnapshot:
 
 
 def _normalize_history_result(result: dict[str, object]) -> dict[str, object]:
+    result.pop("assistant_context", None)
     raw_items = result.get("items")
     if raw_items is None:
         raw_items = [result["item"]]

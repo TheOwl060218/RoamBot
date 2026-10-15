@@ -22,6 +22,23 @@ from roambot.providers.trace import ProviderEvent, ProviderTrace
 NOW = datetime(2026, 7, 18, 8, 0, tzinfo=UTC)
 
 
+def test_semantic_keywords_have_separate_cache_entries():
+    class Places:
+        calls = []
+
+        def search(self, *args, **kwargs):
+            self.calls.append((args, kwargs))
+            return MockProviderBundle.default().places.search(*args[:5])
+
+    inner = Places()
+    provider = CachedPlaceProvider(inner, MemoryCache(), 'amap', lambda: NOW, ProviderTrace())
+    args = (Coordinate(longitude=120.617, latitude=31.335), '苏州', (SceneryType.LAKE,), 50)
+    provider.search(*args, scenery_keywords=('湿地',))
+    provider.search(*args, scenery_keywords=('水库',))
+    provider.search(*args, scenery_keywords=('湿地',))
+    assert len(inner.calls) == 2
+
+
 def test_region_search_cache_isolated_and_order_independent():
     inner = CountingBundle()
     provider = CachedPlaceProvider(inner, MemoryCache(), 'amap', lambda: NOW, ProviderTrace())
