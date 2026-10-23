@@ -19,8 +19,8 @@ export function HistoryList({ histories, onRerun, onDelete, onStatus, rerunningI
         <article className="history-row" data-history-id={history.id} key={history.id}>
           <Link className="history-row-main" to={`/history/${history.id}`}>
             <p className="eyebrow">历史快照</p>
-            <h2>{history.mode === 'recommendation' ? '地点推荐' : '指定地点评估'} · {history.city}</h2>
-            <p>{history.start_date} 至 {history.end_date} · {history.item_count} 个结果</p>
+            <h2>{history.mode === 'discovery' ? '随心发现' : history.mode === 'recommendation' ? '地点推荐' : '指定地点评估'} · {history.city}</h2>
+            <p>{history.start_date && history.end_date && <>{history.start_date} 至 {history.end_date} · </>}{history.item_count} 个结果</p>
             <time dateTime={history.created_at}>保存于 {new Date(history.created_at).toLocaleString('zh-CN')}</time>
           </Link>
           <HistoryActionsMenu

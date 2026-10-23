@@ -18,6 +18,7 @@ from roambot.api.errors import (
 from roambot.api.routes.assistant import router as assistant_router
 from roambot.api.routes.auth import router as auth_router
 from roambot.api.routes.commands import router as commands_router
+from roambot.api.routes.discovery import router as discovery_router
 from roambot.api.routes.favorites import router as favorites_router
 from roambot.api.routes.health import router as health_router
 from roambot.api.routes.history import router as history_router
@@ -76,6 +77,9 @@ def create_app(
         try:
             yield
         finally:
+            discovery_jobs = getattr(app.state, "discovery_jobs", None)
+            if discovery_jobs is not None:
+                discovery_jobs.close()
             runtime.close()
             auth_engine = getattr(app.state, "auth_engine", None)
             if auth_engine is not None:
@@ -97,6 +101,7 @@ def create_app(
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(assistant_router, prefix="/api/v1")
     app.include_router(commands_router, prefix="/api/v1")
+    app.include_router(discovery_router, prefix="/api/v1")
     app.include_router(maps_router, prefix="/api/v1")
     app.include_router(regions_router, prefix="/api/v1")
     app.include_router(recommendations_router, prefix="/api/v1")

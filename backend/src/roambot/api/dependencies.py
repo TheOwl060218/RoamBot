@@ -150,7 +150,7 @@ def get_optional_session(
     request: Request,
     service: AuthService = AUTH_SERVICE_DEPENDENCY,
 ) -> RequestSession | None:
-    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    session_token = request.cookies.get(get_settings(request).session_cookie_name)
     if not session_token:
         return None
     try:
@@ -215,9 +215,10 @@ async def auth_api_exception_handler(
     )
     if exc.status_code == 401 and exc.code == "authentication_required":
         response.headers["Cache-Control"] = "no-store"
-        if request.cookies.get(SESSION_COOKIE_NAME):
+        cookie_name = get_settings(request).session_cookie_name
+        if request.cookies.get(cookie_name):
             response.delete_cookie(
-                SESSION_COOKIE_NAME,
+                cookie_name,
                 path="/",
                 secure=get_settings(request).secure_cookies,
                 httponly=True,

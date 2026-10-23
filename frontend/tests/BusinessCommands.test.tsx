@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { apiClient, ApiError } from '../src/api/client'
 import { CommandRoot } from '../src/features/commands/CommandRoot'
 import { useCommandTarget } from '../src/features/commands/commandContext'
@@ -34,6 +34,28 @@ async function input(message: string) {
 }
 
 describe('business chat execution', () => {
+  it('keeps discovery object references when continuing a task from another page', async () => {
+    function DiscoveryResults() {
+      useCommandTarget('discovery', () => ({ discovery_job_id: 'owned-job', history_id: 'owned-history',
+        result_version: 3, selected_ids: ['p1', 'p2'], visible_places: [{ id: 'p1', name: '湖边' }, { id: 'p2', name: '书店' }] }), () => false)
+      return <Link to='/favorites'>去收藏</Link>
+    }
+    const post = vi.spyOn(apiClient, 'post').mockImplementation(async path => path.endsWith('/proposals')
+      ? { ...proposal(), question: '测试到此停止，不执行写入' } as never
+      : { status: 'completed', steps: [] } as never)
+    render(<MemoryRouter initialEntries={['/explore']}><Routes><Route element={<CommandRoot />}>
+      <Route path='/explore' element={<DiscoveryResults />} />
+      <Route path='/favorites' element={<h1>收藏页面</h1>} />
+    </Route></Routes></MemoryRouter>)
+    await userEvent.setup().click(screen.getByRole('link', { name: '去收藏' }))
+    await screen.findByRole('heading', { name: '收藏页面' })
+    await input('用刚才选的两个创建计划')
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/assistant/commands/proposals', expect.objectContaining({
+      context: expect.objectContaining({ page: '/favorites', discovery_job_id: 'owned-job', history_id: 'owned-history',
+        selected_ids: ['p1', 'p2'], result_version: 3 }),
+    })))
+    expect(post).toHaveBeenCalledTimes(1)
+  })
   it('opens a collapsed assistant with only the keyboard shortcut', async () => {
     mount()
     expect(screen.queryByRole('textbox', { name: '继续补充条件' })).not.toBeInTheDocument()

@@ -2,7 +2,7 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { apiClient, ApiError } from '../../api/client'
-import { requestAccountDialog } from '../../app/accountDialog'
+import { ACCOUNT_DIALOG_CANCELLED_EVENT, requestAccountDialog } from '../../app/accountDialog'
 import { ConfirmDialog } from '../../app/ConfirmDialog'
 import { announcePlanChange } from '../plans/planPresentation'
 import { BusinessAssistantContext } from './commandContext'
@@ -19,8 +19,11 @@ type Execution = { status: 'completed' | 'failed' | 'uncertain' | 'awaiting_inpu
   error?: { code: string; message: string }; question?: string | null }
 type Pending = { proposal: Proposal; fingerprint: string; owner: string | null }
 type Attempt = { message: string; requestId: string; context: CommandContext; fingerprint: string;
-  owner: string | null; saved?: Pending; confirmed: boolean }
+  owner: string | null; saved?: Pending; confirmed: boolean; intakeId?: string }
+const loginFingerprint = (context: CommandContext) => contextFingerprint(context.discovery_job_id
+  ? { ...context, history_id: undefined } : context)
 const labels: Record<string, string> = {
+  compare_places: '比较地点',
   favorite_place: '收藏地点', remove_favorite: '取消收藏', create_plan_from_selection: '创建同行计划',
   rotate_invite: '生成或换新邀请', revoke_invite: '撤销邀请', update_plan: '修改计划',
   delete_plan: '删除计划', remove_participant: '移除成员', submit_vote: '提交投票',
@@ -36,15 +39,20 @@ export function CommandRoot() {
   const auth = useContext(AuthContext)
   const authReady = useRef(!auth?.initializing)
   useLayoutEffect(() => { authReady.current = !auth?.initializing }, [auth?.initializing])
-  const [bridge] = useState(() => new CommandBridge())
+  const [bridge] = useState(() => new CommandBridge(() => apiClient.authSession?.user.username ?? null))
   const [busy, setBusy] = useState(false)
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([])
   const [pending, setPending] = useState<Pending | null>(null)
   const [lastLink, setLastLink] = useState('')
+  const [lastLinkAccount, setLastLinkAccount] = useState<string | null>(null)
+  const linkOwner = useRef<string | null>(null)
+  const observedOwner = useRef(auth?.user?.username ?? null)
   const [confirmationText, setConfirmationText] = useState('')
   const lock = useRef(false)
   const deferred = useRef<string | null>(null)
   const attempt = useRef<Attempt | null>(null)
+  const awaitingLogin = useRef<{ message: string; context: CommandContext; intakeId?: string } | null>(null)
+  const resumeLogin = useRef<() => void>(() => {})
   const selection = useRef<{ owner: string | null; history: string | null; version: number; ids: string[] } | null>(null)
   const focusFrame = useRef<number | null>(null)
   const mounted = useRef(true)
@@ -70,13 +78,36 @@ export function CommandRoot() {
   }, [])
   const latest = useRef({ page: location.pathname, lastLink, messages })
   useLayoutEffect(() => { latest.current = { page: location.pathname, lastLink, messages } }, [location.pathname, lastLink, messages])
+  useLayoutEffect(() => {
+    const next = auth?.user?.username ?? null
+    if (observedOwner.current === next) return
+    const guestLogin = observedOwner.current === null && next !== null
+    observedOwner.current = next
+    latest.current = { ...latest.current, ...(guestLogin ? {} : { messages: [] }), lastLink: '' }
+    if (!guestLogin) { setMessages([]); awaitingLogin.current = null }
+    setLastLink(''); setPending(null)
+    setLastLinkAccount(next)
+    selection.current = null; attempt.current = null; deferred.current = null
+    bridge.clearPreviousContexts()
+  }, [auth?.user?.username, bridge])
+  useEffect(() => { if (auth?.user) resumeLogin.current() }, [auth?.user])
+  useEffect(() => {
+    const cancel = () => {
+      const intake = awaitingLogin.current?.intakeId
+      awaitingLogin.current = null
+      if (intake) void apiClient.remove(`/discovery/jobs/${intake}`).catch(() => undefined)
+    }
+    window.addEventListener(ACCOUNT_DIALOG_CANCELLED_EVENT, cancel)
+    return () => window.removeEventListener(ACCOUNT_DIALOG_CANCELLED_EVENT, cancel)
+  }, [])
   const getContext = (): CommandContext => {
     const page = latest.current.page
     const planId = page.match(/^\/plans\/([^/]+)$/)?.[1]
     const invite = page.match(/^\/join\/([^/]+)$/)?.[1]
     const historyId = page.match(/^\/history\/([^/]+)$/)?.[1]
-    const cached = selection.current?.owner === owner() ? bridge.previousContext('studio') : undefined
+    const cached = bridge.previousResultContext()
     const background = cached ? { history_id: cached.history_id, selected_ids: cached.selected_ids,
+      discovery_job_id: cached.discovery_job_id, visible_places: cached.visible_places,
       result_version: cached.result_version, dirty: cached.dirty, assistant_turn: cached.assistant_turn } : {}
     return { ...background, page, conversation: latest.current.messages.slice(-6).map(message => ({
       role: message.role, content: message.content.slice(0, 1000) })), ...(planId ? { plan_id: planId } : {}),
@@ -84,13 +115,26 @@ export function CommandRoot() {
       ...bridge.context() }
   }
   const owner = () => apiClient.authSession?.user.username ?? null
+  useLayoutEffect(() => {
+    resumeLogin.current = () => {
+      const waiting = awaitingLogin.current
+      if (!waiting) return
+      awaitingLogin.current = null
+      if (loginFingerprint(waiting.context) !== loginFingerprint(getContext())) return
+      // Re-propose with the new authenticated actor and a fresh request ID.
+      // Keep the server-owned intake, avoiding another model interpretation.
+      queueMicrotask(() => { void send(waiting.message, waiting.intakeId ? { intakeId: waiting.intakeId } : undefined, true).catch(() => undefined) })
+    }
+  })
   function rememberLink(link: string) {
+    linkOwner.current = owner()
+    setLastLinkAccount(owner())
     latest.current = { ...latest.current, lastLink: link }
     setLastLink(link)
   }
   async function globalEffect(effect: CommandEffect) {
     const args = effect.arguments
-    const pages: Record<string, string> = { home: '/', recommend: '/recommend', favorites: '/favorites',
+    const pages: Record<string, string> = { home: '/', explore: '/explore', recommend: '/recommend', favorites: '/favorites',
       history: '/history', plans: '/plans' }
     if (effect.tool === 'navigate') {
       const path = pages[String(args.page)]
@@ -99,6 +143,8 @@ export function CommandRoot() {
     } else if (effect.tool === 'open_plan' || effect.tool === 'open_history') {
       navigate('/' + (effect.tool === 'open_plan' ? 'plans' : 'history') + '/' +
         encodeURIComponent(String(args.id)), { viewTransition: true })
+    } else if (effect.tool === 'discovery_job_started') {
+      navigate('/explore', { state: { discoveryJobId: String(args.id), discoveryMessage: String(args.message) }, viewTransition: true })
     } else if (effect.tool === 'open_account') {
       if (latest.current.page === '/') { navigate('/recommend'); await bridge.waitFor('studio') }
       await bridge.waitFor('shell')
@@ -111,10 +157,10 @@ export function CommandRoot() {
       setMessages([])
       await bridge.dispatch(effect)
     } else if (effect.tool === 'copy_link') {
-      if (!latest.current.lastLink) throw new Error('请先生成邀请或分享链接。')
+      if (!latest.current.lastLink || linkOwner.current !== owner()) throw new Error('请先生成邀请或分享链接。')
       await navigator.clipboard.writeText(new URL(latest.current.lastLink, window.location.origin).href)
     } else if (effect.tool === 'open_generated_link') {
-      if (!latest.current.lastLink) throw new Error('请先生成邀请或分享链接。')
+      if (!latest.current.lastLink || linkOwner.current !== owner()) throw new Error('请先生成邀请或分享链接。')
       navigate(latest.current.lastLink, { viewTransition: true })
     } else if (effect.tool === 'refresh_page') {
       window.dispatchEvent(new Event(BUSINESS_CHANGED))
@@ -129,7 +175,7 @@ export function CommandRoot() {
     } else if (effect.tool === 'scroll_view') {
       const direction = String(args.direction)
       const horizontal = direction === 'left' || direction === 'right'
-      const selectors = horizontal ? '.destination-grid,.plan-comparison-rail,.plan-collection-rail' :
+      const selectors = horizontal ? '.destination-grid,.discovery-rail,.plan-comparison-rail,.plan-collection-rail' :
         '[role="dialog"],.location-dialog,.studio-detail-host'
       const elements = [...document.querySelectorAll<HTMLElement>(selectors)].filter(element =>
         usable(element) && (horizontal ? element.scrollWidth > element.clientWidth : element.scrollHeight > element.clientHeight))
@@ -142,6 +188,7 @@ export function CommandRoot() {
         top: horizontal ? 0 : (direction === 'up' ? -1 : 1) * (element?.clientHeight ?? innerHeight) * .7, behavior })
     } else if (['show_tools', 'show_preferences', 'choose_favorite', 'start_team_pick',
       'edit_condition', 'start_new_query', 'undo_new_query', 'end_team_pick'].includes(effect.tool)) {
+      if (latest.current.page === '/explore' && await bridge.dispatch(effect)) { await frame(); return }
       if (latest.current.page !== '/recommend') {
         navigate('/recommend', { viewTransition: true })
         await bridge.waitFor('studio')
@@ -166,6 +213,7 @@ export function CommandRoot() {
     const result = await apiClient.post<Execution>('/assistant/commands/execute', {
       request_id: saved.proposal.request_id, proposal: saved.proposal.proposal, confirmed,
     })
+    if (saved.owner !== owner()) { attempt.current = null; return }
     const unchanged = saved.fingerprint === contextFingerprint(getContext()) && saved.owner === owner()
     let assistantShown = false
     for (let index = 0; index < result.steps.length; index++) {
@@ -239,7 +287,7 @@ export function CommandRoot() {
     catch (error) { say(error instanceof Error ? error.message : '操作未完成。') }
     finally { lock.current = false; setBusy(false); restoreChatFocus() }
   }
-  async function send(message: string) {
+  async function send(message: string, options?: { intakeId: string }, resumingLogin = false) {
     if (lock.current) throw new Error('当前操作仍在执行，请稍后发送。')
     if (!message.trim()) return
     if (pending && /^(确认|确定|执行|确认执行)[。！!\s]*$/.test(message)) return confirm()
@@ -248,9 +296,11 @@ export function CommandRoot() {
     }
     lock.current = true; setBusy(true); setPending(null)
     const waitingPage = latest.current.page
+    const waitingOwner = owner()
     try {
       await bridge.whenReady(() => authReady.current)
       if (latest.current.page !== waitingPage) throw new Error('页面已变化，请重新发起操作。')
+      if (owner() !== waitingOwner) throw new Error('账户已变化，请重新发起操作。')
     } catch (error) {
       lock.current = false; setBusy(false)
       say(error instanceof Error ? error.message : '页面尚未准备好。')
@@ -263,15 +313,20 @@ export function CommandRoot() {
       previous.fingerprint === currentFingerprint ? previous : {
         message, requestId: crypto.randomUUID(), context: currentContext,
         fingerprint: currentFingerprint, owner: owner(), confirmed: false,
+        intakeId: options?.intakeId,
       }
     attempt.current = task
     const { requestId, context, fingerprint, owner: startedOwner } = task
-    setMessages(current => [...current, { role: 'user', content: message }].slice(-24))
-    await bridge.dispatch({ tool: 'chat_started', arguments: { requestId, message } })
+    if (!resumingLogin) {
+      setMessages(current => [...current, { role: 'user', content: message }].slice(-24))
+      await bridge.dispatch({ tool: 'chat_started', arguments: { requestId, message } })
+    }
     try {
       const proposal = task.saved?.proposal ?? await apiClient.post<Proposal>('/assistant/commands/proposals', {
         request_id: requestId, message, context,
+        ...(task.intakeId ? { intake_id: task.intakeId } : {}),
       })
+      if (startedOwner !== owner()) { attempt.current = null; return }
       if (proposal.question) {
         attempt.current = null
         say(proposal.question)
@@ -279,7 +334,7 @@ export function CommandRoot() {
         return
       }
       const saved = { proposal, fingerprint, owner: startedOwner }
-      task.saved = saved
+      attempt.current = { ...task, saved }
       if (proposal.requires_confirmation && !task.confirmed) {
         setPending(saved)
         await bridge.dispatch({ tool: 'chat_reply', arguments: {
@@ -290,13 +345,19 @@ export function CommandRoot() {
     } catch (error) {
       // A rejected proposal has not executed. A fresh explicit retry may safely
       // obtain a new request ID; lost transport responses still reuse the old ID.
-      if (error instanceof ApiError && !task.saved) attempt.current = null
+      if (startedOwner !== owner()) return
+      if (error instanceof ApiError && error.status === 401 && startedOwner === null && !attempt.current?.saved) {
+        awaitingLogin.current = { message, context, intakeId: task.intakeId }
+      }
+      if (error instanceof ApiError && !attempt.current?.saved) attempt.current = null
       const reply = error instanceof Error ? error.message : '操作未完成。'
       say(reply)
       await bridge.dispatch({ tool: 'chat_failed', arguments: { requestId, message: reply } })
       if (error instanceof ApiError && error.status === 401) requestAccountDialog()
       throw error
     } finally {
+      if (task.intakeId && awaitingLogin.current?.intakeId !== task.intakeId)
+        void apiClient.remove(`/discovery/jobs/${task.intakeId}`).catch(() => undefined)
       lock.current = false; setBusy(false)
       const next = deferred.current
       deferred.current = null
@@ -309,6 +370,7 @@ export function CommandRoot() {
     {lastLink && <a className='business-result-link' href={lastLink} target='_blank' rel='noreferrer'>打开刚生成的链接</a>}
   </LayerConversation>
   return <BusinessAssistantContext.Provider value={{ bridge, send, busy, chat: conversation,
+    resultLink: lastLinkAccount === owner() ? lastLink : '',
     recallSelection: (history, version) => {
       const saved = selection.current
       return saved?.owner === owner() && saved.history === history && saved.version === version ? saved.ids : []
@@ -316,7 +378,7 @@ export function CommandRoot() {
     rememberSelection: (history, version, ids) => { selection.current = { owner: owner(), history, version, ids } },
   }}>
     <Outlet />
-    {location.pathname !== '/recommend' && createPortal(<div className='business-command-layer'>
+    {!['/recommend', '/explore'].includes(location.pathname) && createPortal(<div className='business-command-layer'>
       {conversation}
     </div>, document.body)}
     {pending && createPortal(<ConfirmDialog open title='确认执行这些操作？'

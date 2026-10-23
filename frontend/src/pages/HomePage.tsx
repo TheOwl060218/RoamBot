@@ -39,7 +39,7 @@ export function HomePage() {
         <div className="home-content">
           <div className="home-brand"><span className="home-logo" aria-hidden="true">R</span><h1>RoamBot</h1></div>
           <div className="home-actions">
-            <Link className="home-start" ref={startRef} to="/recommend" viewTransition><span>开始查询</span><ArrowRight aria-hidden="true" size={20} /></Link>
+            <Link className="home-start" ref={startRef} to="/explore" viewTransition><span>开始查询</span><ArrowRight aria-hidden="true" size={20} /></Link>
             {initializing ? (
               <div className="home-session-placeholder" aria-busy="true">
                 <div className="home-first-row" role="status">正在确认登录状态…</div><div className="home-second-row" />

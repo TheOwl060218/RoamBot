@@ -21,7 +21,7 @@ function datesBetween(start: string, end: string) {
 function shortDate(date: string) { const [, month, day] = date.split('-'); return `${Number(month)}.${Number(day)}` }
 function weatherData(candidate: PlanCandidate) {
   const check = candidate.latest_weather
-  return { weather: check ? check.weather ?? [] : candidate.snapshot.weather, suitability: check ? check.daily_suitability ?? [] : candidate.snapshot.daily_suitability ?? [] }
+  return { weather: check ? check.weather ?? [] : candidate.snapshot.weather, suitability: check ? check.daily_suitability ?? [] : 'schema_version' in candidate.snapshot ? [] : candidate.snapshot.daily_suitability ?? [] }
 }
 
 export function PlanComparison(props: Props) { return <ComparisonBody key={props.plan.id} {...props} /> }
@@ -86,10 +86,12 @@ function ComparisonCard({ candidate, date, final, children, expanded, onToggle, 
   const data = weatherData(candidate), weather = data.weather.filter(day => day.date === date)
   const hasExplanation = weather.length > 0 && data.suitability.some(day => day.date === date && Boolean(day.summary?.trim()))
   return <article className={`plan-card plan-comparison-card${final ? ' plan-final' : ''}`}>
-    <div className='plan-card-heading'><div className='plan-comparison-title'><h3 title={item.destination.name}>{item.destination.name}</h3>{final && <span className='plan-final-marker'><Check size={14} aria-hidden='true' />最终目的地</span>}</div><div className='plan-comparison-score'><strong className='plan-score'>{Math.round(item.score.total)}</strong><small>匹配指数</small></div></div>
+    <div className='plan-card-heading'><div className='plan-comparison-title'><h3 title={item.destination.name}>{item.destination.name}</h3>{final && <span className='plan-final-marker'><Check size={14} aria-hidden='true' />最终目的地</span>}</div>{!('schema_version' in item) && <div className='plan-comparison-score'><strong className='plan-score'>{Math.round(item.score.total)}</strong><small>匹配指数</small></div>}</div>
     <p className='muted plan-candidate-address'>{item.destination.address}</p>
-    <dl className='plan-metrics'><div><dt>平均路程</dt><dd>{item.group_accessibility.average_distance_km.toFixed(1)} km</dd></div><div><dt>最大路程</dt><dd>{item.group_accessibility.max_distance_km.toFixed(1)} km</dd></div><div><dt>多人公平性</dt><dd>{item.group_accessibility.fairness_score.toFixed(0)}</dd></div></dl>
-    <p className='muted plan-weather-source'>{check ? `最近检查 · ${sources[check.source] ?? '服务不可用'}` : `创建时天气 · ${sources[item.source_state?.kind ?? ''] ?? '来源见原推荐记录'}`}</p>
+    {'schema_version' in item ? <><p className='eyebrow'>{item.experience}</p><p className='discovery-reason'>{item.reason}</p>
+      <div className='item-actions'>{item.sources.filter(s => s.url).slice(0, 2).map(s => <a href={s.url} key={s.id} target='_blank' rel='noreferrer'>{s.title || '推荐依据'}</a>)}</div></>
+      : <dl className='plan-metrics'><div><dt>平均路程</dt><dd>{item.group_accessibility.average_distance_km.toFixed(1)} km</dd></div><div><dt>最大路程</dt><dd>{item.group_accessibility.max_distance_km.toFixed(1)} km</dd></div><div><dt>多人公平性</dt><dd>{item.group_accessibility.fairness_score.toFixed(0)}</dd></div></dl>}
+    {(check || data.weather.length > 0) && <p className='muted plan-weather-source'>{check ? `最近检查 · ${sources[check.source] ?? '服务不可用'}` : `创建时天气 · ${sources['schema_version' in item ? item.source : item.source_state?.kind ?? ''] ?? '来源见原推荐记录'}`}</p>}
     {check && <p className={check.status === 'failed' ? 'field-error' : 'muted'}>{check.status === 'failed' ? '检查失败，保留已有天气记录' : '检查于'} · {new Date(check.checked_at).toLocaleString()}{check.status === 'failed' && check.last_success_at && ` · 上次成功：${new Date(check.last_success_at).toLocaleString()}`}</p>}
     <div className='plan-selected-weather'>
       {weather.length ? <DailyWeatherList weather={weather} suitability={data.suitability.filter(day => day.date === date)} showSummary={false} /> : <p className='plan-missing-weather'>该日暂无天气记录</p>}

@@ -12,7 +12,7 @@ from roambot.api.dependencies import (
     require_session,
 )
 from roambot.api.errors import error_response
-from roambot.domain.models import Coordinate, Destination
+from roambot.domain.models import Coordinate, Destination, PlaceIdentity
 from roambot.persistence.repositories import FavoriteRecord
 from roambot.services.personal_data import PersonalDataService, ResourceNotFoundError
 
@@ -24,7 +24,7 @@ class FavoriteCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider: ProviderName
-    destination: Destination
+    destination: Destination | PlaceIdentity
 
 
 class FavoritePlaceResponse(BaseModel):

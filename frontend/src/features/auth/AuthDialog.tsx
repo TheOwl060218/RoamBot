@@ -6,6 +6,7 @@ import { ApiError } from '../../api/client'
 import { useAuth } from './authContext'
 import { useLayerExit } from '../studio/useLayerExit'
 import { useModalLayer } from '../studio/useModalLayer'
+import { ACCOUNT_DIALOG_CANCELLED_EVENT } from '../../app/accountDialog'
 
 type AuthDialogProps = {
   open: boolean
@@ -64,6 +65,7 @@ function AuthDialogContent({ open, onClose, onAuthenticated, onStatus, initialMo
   }
 
   function closeDialog() {
+    window.dispatchEvent(new Event(ACCOUNT_DIALOG_CANCELLED_EVENT))
     resetForm()
     onClose()
   }

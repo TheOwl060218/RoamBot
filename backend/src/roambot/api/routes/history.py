@@ -41,8 +41,8 @@ class HistorySummaryResponse(BaseModel):
     id: str
     mode: str
     city: str
-    start_date: str
-    end_date: str
+    start_date: str | None
+    end_date: str | None
     item_count: int
     generated_at: str
     created_at: str
@@ -163,6 +163,14 @@ def delete_history(
 
 
 def _summary(snapshot: HistorySnapshot) -> HistorySummaryResponse:
+    if snapshot.mode == "discovery":
+        cards = snapshot.result["cards"]
+        context = snapshot.request["context"]
+        return HistorySummaryResponse(id=snapshot.id, mode="discovery",
+            city="、".join(dict.fromkeys(c["place"]["city"] for c in cards)),
+            start_date=context.get("start_date"), end_date=context.get("end_date"),
+            item_count=len(cards), generated_at=snapshot.result["generated_at"],
+            created_at=snapshot.created_at.isoformat())
     result_items = snapshot.result.get("items")
     item_count = len(result_items) if isinstance(result_items, list) else 1
     return HistorySummaryResponse(

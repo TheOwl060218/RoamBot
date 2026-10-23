@@ -202,7 +202,15 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
       else if (detail) closeDetail()
       else return false
     } else if (effect.tool === 'show_comparison') {
-      if (chosen.length < 2) throw new Error('请至少选择两个地点。')
+      const ids = args.ids as string[] | undefined
+      if (ids) {
+        if (ids.length < 2 || ids.length > 3 || new Set(ids).size !== ids.length ||
+          !ids.every(id => state.result?.items.some(i => i.destination.provider_id === id)))
+          throw new Error('比较候选已变化，请重新选择。')
+        for (const id of new Set([...state.selection, ...ids])) {
+          if (state.selection.includes(id) !== ids.includes(id)) dispatch({ type: 'toggleCandidate', id })
+        }
+      } else if (chosen.length < 2) throw new Error('请至少选择两个地点。')
       setComparing(true)
     } else if (effect.tool === 'show_candidates') {
       workspace.current?.querySelector('.destination-grid')?.scrollIntoView({

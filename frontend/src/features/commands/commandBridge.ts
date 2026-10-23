@@ -4,24 +4,39 @@ type Target = { context: () => CommandContext; handle: (effect: CommandEffect) =
 
 export function contextFingerprint(context: CommandContext) {
   const turn = context.assistant_turn as { revision?: number } | undefined
-  return JSON.stringify([context.page, context.history_id, context.plan_id, context.invite_token,
+  return JSON.stringify([context.page, context.history_id, context.discovery_job_id, context.plan_id, context.invite_token,
     context.result_version, context.focused_id, context.selected_ids, context.layer,
     context.resource_version, context.visible_resources, context.weather_date, context.all_dates,
     context.dirty, turn?.revision])
 }
 
 export class CommandBridge {
+  private owner: () => string | null
+  constructor(owner: () => string | null = () => null) { this.owner = owner }
   private targets = new Map<string, Target>()
   private waiting = new Map<string, Set<() => void>>()
-  private previousContexts = new Map<string, CommandContext>()
-  previousContext(name: string) { return this.previousContexts.get(name) }
+  private previousContexts = new Map<string, { context: CommandContext; owner: string | null }>()
+  previousContext(name: string) {
+    const saved = this.previousContexts.get(name)
+    return saved?.owner === this.owner() ? saved.context : undefined
+  }
+  clearPreviousContexts() { this.previousContexts.clear() }
+  previousResultContext() {
+    if (this.targets.has('studio') || this.targets.has('discovery')) return undefined
+    const name = [...this.previousContexts.keys()].reverse().find(key => key === 'studio' || key === 'discovery')
+    return name ? this.previousContext(name) : undefined
+  }
   register(name: string, context: Target['context'], handle: Target['handle']) {
     const target = { context, handle }
+    const owner = this.owner()
     this.targets.set(name, target)
     this.waiting.get(name)?.forEach(resolve => resolve())
     return () => {
       if (this.targets.get(name) === target) {
-        this.previousContexts.set(name, target.context())
+        if (owner === this.owner()) {
+          this.previousContexts.delete(name)
+          this.previousContexts.set(name, { context: target.context(), owner })
+        }
         this.targets.delete(name)
       }
     }

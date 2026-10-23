@@ -1,4 +1,5 @@
 from typing import Annotated
+from datetime import date
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -38,6 +39,8 @@ class CreatePlan(BaseModel):
     candidate_ids: list[str] = Field(min_length=2, max_length=3)
     name: Name | None = None
     expected_count: int | None = Field(default=None, ge=1, le=100)
+    start_date: date | None = None
+    end_date: date | None = None
 
     @field_validator("candidate_ids")
     @classmethod

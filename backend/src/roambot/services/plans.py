@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from roambot.domain.models import Coordinate, DailyWeather, SceneryType
 from roambot.domain.scoring import score_daily_weather
+from roambot.domain.discovery_snapshot import DiscoveryArchive, DiscoveryArchiveRequest, DiscoveryPlanSnapshot
 from roambot.persistence.tables import (
     HistoryTable,
     PlanAcceptableTable,
@@ -26,7 +27,7 @@ from roambot.persistence.tables import (
 )
 from roambot.providers.protocols import ProviderError
 from roambot.security.sessions import hash_token, new_token
-from roambot.services.personal_data import _origin_labels, _remove_private_strings
+from roambot.services.personal_data import _origin_labels, _remove_private_strings, public_discovery_snapshot
 from roambot.services.snapshot_metadata import display_city
 
 CHINA = timezone(timedelta(hours=8))
@@ -117,6 +118,8 @@ class PlanService:
             )
             if history is None:
                 raise PlanError("plan_not_found", "历史不存在或不属于当前账户。", 404)
+            if history.mode == "discovery":
+                return self.create_discovery(db, user_id, body, history, now)
             if history.mode != "recommendation":
                 raise PlanError("history_not_eligible", "请使用登录后产生的推荐结果。")
             request, result = json.loads(history.request_json), json.loads(history.result_json)
@@ -200,6 +203,43 @@ class PlanService:
             )
             db.flush()
             return self.serialize(db, plan)
+
+    def create_discovery(self, db, user_id, body, history, now):
+        query = DiscoveryArchiveRequest.model_validate_json(history.request_json)
+        result = DiscoveryArchive.model_validate_json(history.result_json)
+        start = body.start_date or query.context.start_date
+        end = body.end_date or query.context.end_date
+        if not start or not end:
+            raise PlanError("plan_dates_required", "计划安排哪天？")
+        today = now.astimezone(CHINA).date()
+        if start < today or end < start or end > today + timedelta(days=6):
+            raise PlanError("plan_dates_invalid", "计划日期请选在未来七天内。")
+        available = {c.place.id: c for c in result.cards}
+        if any(cid not in available for cid in body.candidate_ids):
+            raise PlanError("candidate_not_in_history", "所选候选不在本次历史中。")
+        public = public_discovery_snapshot(query.model_dump(mode="json"), result.model_dump(mode="json"), user_id)
+        public_cards = {c.place.id: p for c, p in zip(result.cards, public['cards'], strict=True)}
+        city = "、".join(dict.fromkeys(available[cid].place.city for cid in body.candidate_ids))
+        plan = TravelPlanTable(id=str(uuid4()), owner_user_id=user_id,
+            name=body.name or plan_name(city, start.isoformat(), end.isoformat(), today.year),
+            city=city, start_date=start.isoformat(), end_date=end.isoformat(),
+            expected_count=body.expected_count or 1, status="voting", created_at=now, updated_at=now)
+        db.add(plan); db.flush()
+        for position, cid in enumerate(body.candidate_ids):
+            card = available[cid]
+            public_card = public_cards[cid]
+            weather = public_card['weather'] or []
+            weather = [day for day in weather if start.isoformat() <= day['date'] <= end.isoformat()]
+            snapshot = DiscoveryPlanSnapshot(destination=public_card['place'], experience=public_card['experience'],
+                reason=public_card['reason'], sources=public_card['sources'], weather=weather, source=result.source)
+            db.add(PlanCandidateTable(id=str(uuid4()), plan_id=plan.id, provider_id=cid, position=position,
+                snapshot_json=snapshot.model_dump_json(), longitude=card.place.coordinate.longitude,
+                latitude=card.place.coordinate.latitude))
+        user = db.get(UserTable, user_id)
+        db.add(PlanParticipantTable(id=str(uuid4()), plan_id=plan.id, user_id=user_id,
+            nickname=user.username, normalized_nickname=normalized(user.username), role="owner", joined_at=now))
+        db.flush()
+        return self.serialize(db, plan)
 
     def list(self, user_id):
         with self.factory() as db:
@@ -475,7 +515,8 @@ class PlanService:
         rows = []
         for candidate in candidates:
             snapshot = json.loads(candidate.snapshot_json)
-            tags = snapshot["destination"]["scenery_tags"]
+            discovery = snapshot.get("schema_version") == "discovery-v1"
+            tags = snapshot["destination"].get("scenery_tags", [])
             successful = next(
                 (c for c in previous if c.candidate_id == candidate.id and c.status == "success"),
                 None,
@@ -484,7 +525,7 @@ class PlanService:
             baseline = [
                 day for day in baseline if start.isoformat() <= day["date"] <= end.isoformat()
             ]
-            before = weather_risk(baseline, tags) if baseline else None
+            before = weather_risk(baseline, tags) if baseline and not discovery else None
             row = PlanWeatherCheckTable(
                 id=str(uuid4()), plan_id=plan_id, candidate_id=candidate.id,
                 triggered_by=user_id, checked_at=now, status="failed", source="unavailable",
@@ -500,10 +541,10 @@ class PlanService:
                 if {day.date for day in days} != expected_dates:
                     raise ProviderError("unavailable", "Weather data incomplete")
                 weather = [day.model_dump(mode="json") for day in days]
-                risk = weather_risk(weather, tags)
+                risk = weather_risk(weather, tags) if not discovery else None
                 row.status, row.source = "success", bundle.trace.to_source_state(3).kind.value
                 row.weather_json, row.risk = json.dumps(weather, ensure_ascii=False), risk
-                row.change = risk_change(before, risk) if before else "stable"
+                row.change = risk_change(before, risk) if before and risk else "stable"
             except ProviderError:
                 pass
             rows.append(row)
@@ -633,7 +674,7 @@ class PlanService:
             successful = next((c for c in relevant if c.status == "success"), None)
             weather = json.loads(successful.weather_json) if successful else None
             tags = frozenset(
-                SceneryType(tag) for tag in serialized["snapshot"]["destination"]["scenery_tags"]
+                SceneryType(tag) for tag in serialized["snapshot"]["destination"].get("scenery_tags", [])
             )
             serialized["latest_weather"] = (
                 {
@@ -647,7 +688,7 @@ class PlanService:
                         score_daily_weather(DailyWeather.model_validate(day), tags).model_dump(
                             mode="json"
                         )
-                        for day in weather or []
+                        for day in (weather or []) if serialized["snapshot"].get("schema_version") != "discovery-v1"
                     ],
                     "last_success_at": iso(successful.checked_at) if successful else None,
                 }

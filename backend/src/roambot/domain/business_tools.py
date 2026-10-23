@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,10 +36,17 @@ class Selection(Parameters):
     places: list[Reference] = Field(max_length=3)
 
 
+class ComparePlaces(Parameters):
+    places: list[Reference] | None = Field(default=None, min_length=2, max_length=3)
+
+
 class CreatePlanArgs(Parameters):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     expected_count: int | None = Field(default=None, ge=1, le=100)
     places: list[Reference] | None = Field(default=None, min_length=2, max_length=3)
+    start_date: date | None = None
+    end_date: date | None = None
+    date_quote: str | None = Field(default=None, max_length=200)
 
 
 class UpdatePlanArgs(ResourceTarget):
@@ -60,7 +68,7 @@ class JoinArgs(Parameters):
 
 
 class NavigateArgs(Parameters):
-    page: Literal["home", "recommend", "favorites", "history", "plans"]
+    page: Literal["home", "explore", "recommend", "favorites", "history", "plans"]
 
 
 class EditArgs(Parameters):
@@ -109,7 +117,7 @@ _TOOLS = [
         "update_search_conditions",
         "无入参，arguments必须为{}。程序按本轮原文修改条件，保留未提及条件。",
     ),
-    _tool("explain_result", "解读当前真实结果的天气、路程、评分或差异，不修改条件。"),
+    _tool("explain_result", "回答当前真实推荐结果的地点、天气、路程或差异问题，不修改条件、不重新查询。新推荐没有匹配指数。"),
     _tool("run_recommendation", "按已确认条件查询推荐或指定地点评估；条件缺失则先补充。"),
     _tool("favorite_place", "收藏当前真实结果中的地点；未指明时用当前详情。", PlaceTarget),
     _tool("evaluate_favorite", "把当前收藏地点放入指定地点评估条件。", ResourceTarget),
@@ -124,7 +132,7 @@ _TOOLS = [
     _tool("revoke_share", "撤销当前历史分享。", ResourceTarget, destructive=True),
     _tool("list_plans", "查看当前用户的同行计划。"),
     _tool("open_plan", "打开当前用户的一项计划。", ResourceTarget),
-    _tool("create_plan_from_selection", "用当前历史的2–3个已选地点创建计划。", CreatePlanArgs),
+    _tool("create_plan_from_selection", "用当前2–3个已选地点创建计划。新推荐可另外提供出行日期，date_quote须摘录用户日期原话；缺日期先问，不补默认。", CreatePlanArgs),
     _tool("update_plan", "修改当前计划的名称或预计人数，保留未提及字段。", UpdatePlanArgs),
     _tool("delete_plan", "删除明确指定的当前用户计划。", ResourceTarget, destructive=True),
     _tool(
@@ -142,17 +150,18 @@ _TOOLS = [
     _tool("reopen_voting", "重新开放当前或具名计划投票。", PlanScope, destructive=True),
     _tool("check_plan_weather", "检查当前或具名计划剩余日期天气，遵守复查冷却。", PlanScope),
     _tool("join_plan", "通过当前邀请以给定昵称加入，不更换登录身份。", JoinArgs),
-    _tool("navigate", "打开指定站内页面。", NavigateArgs, kind="ui"),
+    _tool("navigate", "打开指定站内页面：explore是新推荐，recommend是原推荐。", NavigateArgs, kind="ui"),
     _tool("open_detail", "打开当前结果中的地点详情。", PlaceTarget, kind="ui"),
     _tool("open_map", "查看当前地点位置。", PlaceTarget, kind="ui"),
     _tool("close_layer", "只关闭当前最上层浮层。", kind="ui"),
     _tool(
         "select_candidates",
-        "设置比较或同行清单，给出完整0–3个当前候选，空列表清空。",
+        "只设置比较或同行清单，不打开对比。给出完整0–3个当前候选；要查看对比须接show_comparison。空列表清空。",
         Selection,
         kind="ui",
     ),
-    _tool("show_comparison", "显示已选择的候选对比。", kind="ui"),
+    _tool("show_comparison", "打开已选择候选的对比；尚未选够时先select_candidates，再调用本工具。", kind="ui"),
+    _tool("compare_places", "比较2–3个当前地点：一次绑定候选、选入并打开对比；places省略时用已选清单。优先用于直接比较任务。", ComparePlaces, kind="ui"),
     _tool("show_vote_panel", "打开当前计划的本人投票面板。", kind="ui"),
     _tool("show_plan_management", "打开当前计划的管理区。", kind="ui"),
     _tool("edit_plan", "打开当前计划的名称和人数编辑表单。", kind="ui"),
@@ -183,6 +192,10 @@ _TOOLS = [
     _tool("scroll_chat", "查看更早或更近的聊天记录，可到顶到底。", ScrollArgs, kind="ui"),
 ]
 TOOL_CATALOG = {tool.name: tool for tool in _TOOLS}
+# The intake planner may propose these local-result tasks in its existing call.
+# Everything else still uses the complete planner and authorization boundary.
+INTAKE_TOOLS = frozenset({"explain_result", "favorite_place", "create_plan_from_selection", "open_detail", "open_map", "close_layer",
+    "select_candidates", "show_comparison", "compare_places", "show_candidates", "scroll_view", "go_back", "navigate"})
 
 
 class Action(Parameters):
@@ -209,11 +222,12 @@ class CommandContext(Parameters):
     page_loading: bool = False
     page: str = Field(default="/recommend", max_length=300)
     history_id: str | None = Field(default=None, max_length=100)
+    discovery_job_id: str | None = Field(default=None, max_length=64)
     plan_id: str | None = Field(default=None, max_length=100)
     share_id: str | None = Field(default=None, max_length=100)
     invite_token: str | None = Field(default=None, max_length=200)
     selected_ids: list[str] = Field(default_factory=list, max_length=3)
-    visible_places: list[VisiblePlace] = Field(default_factory=list, max_length=7)
+    visible_places: list[VisiblePlace] = Field(default_factory=list, max_length=24)
     visible_resources: VisibleResources | None = None
     focused_id: str | None = Field(default=None, max_length=200)
     result_version: int | None = Field(default=None, ge=0)
@@ -230,6 +244,7 @@ class CommandRequest(Parameters):
     request_id: str = Field(min_length=16, max_length=100)
     message: str = Field(min_length=1, max_length=2000)
     context: CommandContext = Field(default_factory=CommandContext)
+    intake_id: str | None = Field(default=None, max_length=64)
 
 
 class ExecutionRequest(Parameters):

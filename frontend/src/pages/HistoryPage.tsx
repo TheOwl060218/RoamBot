@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { apiClient, ApiError } from '../api/client'
-import type { HistoryDetail, HistorySummary } from '../api/types'
+import type { LegacyHistoryDetail, HistorySummary } from '../api/types'
 import { ConfirmDialog } from '../app/ConfirmDialog'
 import { HistoryList } from '../features/history/HistoryList'
 import { restoreHistorySearch } from '../features/history/restoreHistorySearch'
@@ -48,7 +48,12 @@ export function HistoryPage() {
     rerunLock.current = true
     setRerunningId(id)
     try {
-      const response = await apiClient.post<{ history: HistoryDetail }>(`/history/${id}/rerun`)
+      if (histories.find(item => item.id === id)?.mode === 'discovery') {
+        const started = await apiClient.post<{ id: string; message: string }>(`/discovery/history/${id}/rerun`)
+        navigate('/explore', { state: { discoveryJobId: started.id, discoveryMessage: started.message }, viewTransition: true })
+        return
+      }
+      const response = await apiClient.post<{ history: LegacyHistoryDetail }>(`/history/${id}/rerun`)
       const restoredSearch = restoreHistorySearch(response.history, user?.username ?? null)
       navigate('/recommend', { state: { restoredSearch } })
     } catch (error) {

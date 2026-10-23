@@ -5,6 +5,7 @@ import { apiClient } from '../../api/client'
 import type { PublicSnapshot } from '../../api/types'
 import { DailyWeatherList } from '../search/DailyWeatherList'
 import { tripMatchIndex } from '../search/matchLabels'
+import { DiscoveryArchiveCards } from '../discovery/DiscoveryArchiveCards'
 
 const adviceLabels = {
   suitable: '适合前往',
@@ -25,6 +26,11 @@ export function PublicSharePage() {
 
   if (unavailable) return <section className="access-state"><h1>分享链接不可用或已撤销</h1></section>
   if (!snapshot) return <p className="loading-state">正在加载分享快照…</p>
+  if (snapshot.mode === 'discovery') return <section className='public-share-page'>
+    <header className='page-heading'><div><p className='eyebrow'>RoamBot 分享</p><h1>{snapshot.city}休闲去处</h1></div>
+      {snapshot.start_date && snapshot.end_date && <span>{snapshot.start_date} 至 {snapshot.end_date}</span>}
+    </header><DiscoveryArchiveCards snapshot={snapshot} />
+  </section>
 
   return (
     <section className="public-share-page">

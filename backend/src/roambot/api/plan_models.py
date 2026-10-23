@@ -12,6 +12,7 @@ from roambot.domain.models import (
     ScoreBreakdown,
     SourceState,
 )
+from roambot.domain.discovery_snapshot import DiscoveryPlanSnapshot
 
 
 class PublicDestination(BaseModel):
@@ -48,7 +49,7 @@ class WeatherCheck(BaseModel):
 
 class PlanCandidate(BaseModel):
     id: str
-    snapshot: PlanSnapshot
+    snapshot: PlanSnapshot | DiscoveryPlanSnapshot
     latest_weather: WeatherCheck | None
 
 

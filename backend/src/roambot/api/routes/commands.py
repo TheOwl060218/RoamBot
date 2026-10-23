@@ -17,6 +17,7 @@ from roambot.api.dependencies import (
 from roambot.api.errors import error_response
 from roambot.domain.business_tools import (
     TOOL_CATALOG,
+    INTAKE_TOOLS,
     Action,
     BusinessPlan,
     CommandRequest,
@@ -83,6 +84,32 @@ def proposal_body(row):
     }
 
 
+def intake_plan(request, actor, body):
+    if not body.intake_id:
+        return None
+    jobs = getattr(request.app.state, "discovery_jobs", None)
+    try:
+        run = jobs.owned(actor, body.intake_id) if jobs else None
+        if run is None:
+            raise LookupError()
+    except LookupError:
+        raise BusinessFailure("intake_not_found", "本轮操作理解已失效，请重新发送。", status=404) from None
+    plan = getattr(run, "plan", None)
+    expected = {"focused_id": body.context.focused_id,
+        "selected_ids": body.context.selected_ids, "layer": body.context.layer or "results"}
+    if (not plan or plan.intent != "business" or run.status != "completed"
+        or run.body.message != body.message
+        or run.body.previous_id != body.context.discovery_job_id
+        or run.body.view.model_dump() != expected):
+        raise BusinessFailure("intake_context_changed", "结果或页面层级已变化，请重新发送。", status=409)
+    if not plan.business_plan:
+        return None  # Complex tasks retain the complete business planner.
+    selected = BusinessPlan.model_validate(plan.business_plan.model_dump())
+    if any(action.tool not in INTAKE_TOOLS for action in selected.actions):
+        raise ValueError("本轮操作超出已理解的工具范围。")
+    return selected
+
+
 @router.get("/catalog")
 def catalog():
     return {
@@ -125,12 +152,14 @@ async def propose(
                 message="操作方案尚未完成，请重新发起。",
             )
         return proposal_body(row)
-    executor = BusinessExecutor(request, raw["context"])
+    executor = BusinessExecutor(request, raw["context"], actor=actor)
     try:
-        context = await executor.public_context()
-        key = request.client.host if request.client else "unknown"
-        with request.app.state.assistant_limiter.acquire(key):
-            selected = await run_in_threadpool(planner, body, context)
+        selected = intake_plan(request, actor, body)
+        if selected is None:
+            context = await executor.public_context()
+            key = request.client.host if request.client else "unknown"
+            with request.app.state.assistant_limiter.acquire(key):
+                selected = await run_in_threadpool(planner, body, context)
         plan = BusinessPlan.model_validate(selected)
         if plan.question and plan.actions:
             raise ValueError("需要澄清时不能同时执行。")
@@ -138,6 +167,15 @@ async def propose(
             raise ValueError("操作方案为空。")
         for action in plan.actions:
             action.validated_arguments()
+            if body.context.discovery_job_id and action.tool in {
+                "update_search_conditions", "run_recommendation"
+            }:
+                # These legacy tasks expect scored recommendation snapshots. Never
+                # redirect a new discovery silently or act on its pre-query objects.
+                raise BusinessFailure(
+                    "discovery_task_not_connected",
+                    "本次新推荐尚不支持把重新查询或结果解读与业务操作合并执行。",
+                )
             public = {
                 "update_search_conditions",
                 "explain_result",
@@ -155,7 +193,16 @@ async def propose(
                 raise BusinessFailure(
                     "authentication_required", "请先登录后执行此操作。", status=401
                 )
-            if action.tool in {"favorite_place", "create_plan_from_selection"}:
+            if action.tool == "favorite_place" and body.context.discovery_job_id:
+                await executor.places()
+            elif action.tool == "create_plan_from_selection" and body.context.discovery_job_id:
+                data = await executor.discovery_data()
+                args = action.validated_arguments().model_dump(mode="json", exclude_none=True)
+                start, end = executor.plan_dates(args, body.message, data)
+                if not start or not end:
+                    plan = BusinessPlan(question="计划安排哪天？")
+                    break
+            elif action.tool in {"favorite_place", "create_plan_from_selection"}:
                 await executor.history()
         data = {
             "command": raw,
@@ -216,7 +263,7 @@ async def execute(
             code="command_busy_or_uncertain",
             message="操作正在执行或结果待核对，请先查看实际业务状态。",
         )
-    executor = BusinessExecutor(request, data["working_context"])
+    executor = BusinessExecutor(request, data["working_context"], actor=actor)
     steps = [s for s in data["steps"] if s["status"] == "completed"]
     data["steps"] = steps
     status, failure = "completed", {}

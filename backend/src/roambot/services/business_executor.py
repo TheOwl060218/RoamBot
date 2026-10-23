@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 import httpx
+from starlette.concurrency import run_in_threadpool
 
 from roambot.domain.assistant import AssistantDraft, AssistantPatch, merge_assistant_patch
 from roambot.domain.business_tools import TOOL_CATALOG, resolve_reference
@@ -14,6 +15,9 @@ from roambot.domain.models import (
     RecommendationResponse,
 )
 from roambot.security.assistant_context import FactCandidate, FactDestination, FactSuitability
+from roambot.providers.discovery_answer import explain_discovery_result
+from roambot.providers.protocols import ProviderError
+from roambot.services.assistant_limits import AssistantLimitError
 
 
 class BusinessFailure(ValueError):
@@ -39,8 +43,9 @@ def safe_result(value):
 
 
 class BusinessExecutor:
-    def __init__(self, request, context):
+    def __init__(self, request, context, *, actor=None):
         self.request, self.context = request, context
+        self.actor = actor
         self.cookies = []
         headers = {
             key: request.headers[key]
@@ -88,6 +93,11 @@ class BusinessExecutor:
         return (await self.call("GET", "/history/" + segment(history_id)))["history"]
 
     async def places(self):
+        discovery = await self.discovery_data()
+        if discovery is not None:
+            return [{"id": c["place"]["id"], "name": c["place"]["name"],
+                     "discovery_place": c["place"], "source": discovery["source"]}
+                    for c in discovery["cards"]]
         if self.context.get("page") == "/favorites":
             rows = await self.resource_list("favorites")
             return [{"id": r["id"], "name": r["name"]} for r in rows]
@@ -108,6 +118,42 @@ class BusinessExecutor:
             for i in items
         ]
 
+    async def discovery_data(self):
+        if self.context.get("discovery_job_id"):
+            jobs = getattr(self.request.app.state, "discovery_jobs", None)
+            try:
+                if jobs is None or not self.actor:
+                    raise LookupError()
+                snapshot = jobs.owned(self.actor, self.context["discovery_job_id"]).snapshot()
+            except LookupError:
+                raise BusinessFailure(
+                    "discovery_not_found", "推荐会话不存在或已失效。", status=404
+                ) from None
+            return snapshot
+        if self.context.get("history_id"):
+            history = await self.history()
+            if history["mode"] == "discovery":
+                return {**history["result"], "context": history["request"]["context"]}
+        return None
+
+    async def discovery_history_id(self):
+        key = self.context.get("discovery_job_id")
+        if key:
+            saved = await self.call("POST", "/discovery/jobs/" + segment(key) + "/history")
+            self.context["history_id"] = saved["history_id"]
+        return self.context.get("history_id")
+
+    def plan_dates(self, args, message, data):
+        context = data["context"]
+        start, end = args.get("start_date") or context.get("start_date"), args.get("end_date") or context.get("end_date")
+        changed = (start, end) != (context.get("start_date"), context.get("end_date"))
+        if changed and (args.get("start_date") or args.get("end_date")):
+            original = [message] + [m["content"] for m in self.context.get("conversation", []) if m["role"] == "user"]
+            quote = args.get("date_quote")
+            if not quote or not any(quote in text for text in original):
+                raise ValueError("计划日期需要用户明确表达。")
+        return start, end
+
     async def plan(self):
         if self.context.get("invite_token"):
             token = segment(self.context["invite_token"])
@@ -123,11 +169,14 @@ class BusinessExecutor:
 
     async def ui_places(self):
         # Client presentation objects can drive local UI only, never backend writes.
+        if self.context.get("discovery_job_id"):
+            return await self.places()
         return self.context.get("visible_places") or await self.places()
 
     async def public_context(self):
         """Only compact, authorized descriptions go to the model, never cookies/tokens."""
         out = {
+            "result_kind": "discovery" if self.context.get("discovery_job_id") else "legacy",
             "page": self.context.get("page"),
             "selected": self.context.get("selected_ids", []),
             "focused": self.context.get("focused_id"),
@@ -137,6 +186,16 @@ class BusinessExecutor:
             "weather_date": self.context.get("weather_date"),
             "all_dates": self.context.get("all_dates", False),
         }
+        if self.context.get("discovery_job_id"):
+            out["discovery_boundary"] = (
+                "当前是新推荐：详情、位置、选择比较、收藏及其他独立业务可执行。"
+                "重新查询/修改条件由新推荐入口处理；不要调用旧查询、旧条件工具。"
+                "询问当前地点、路线、天气或差异时用explain_result，程序读取当前授权快照回答。"
+                "混合要求先查询再操作时需先完成新查询，不能对旧候选执行后半句。"
+                "创建计划可使用当前选中地点，日期缺失只问计划安排哪天，不要求补出发地或类型。"
+            )
+            data = await self.discovery_data()
+            out["discovery_dates"] = {key: data["context"].get(key) for key in ("start_date", "end_date")}
         try:
             out["places"] = [{"id": p["id"], "name": p["name"]} for p in await self.ui_places()]
         except BusinessFailure as exc:
@@ -204,7 +263,7 @@ class BusinessExecutor:
                 "id": r["id"],
                 "name": r.get("name")
                 or r.get("place", {}).get("name")
-                or (r.get("city", "") + " " + r.get("start_date", "")),
+                or (str(r.get("city") or "") + " " + str(r.get("start_date") or "")),
             }
             for r in rows
         ]
@@ -261,7 +320,7 @@ class BusinessExecutor:
 
     async def execute(self, action, message):
         spec = TOOL_CATALOG[action.tool]
-        args = action.validated_arguments().model_dump(exclude_none=True)
+        args = action.validated_arguments().model_dump(mode="json", exclude_none=True)
         name = action.tool
         if name == "describe_capabilities":
             return {
@@ -279,13 +338,18 @@ class BusinessExecutor:
                 )
                 effect["arguments"] = {"id": place["id"]}
                 self.context["focused_id"] = place["id"]
-            elif name == "select_candidates":
+            elif name in {"select_candidates", "compare_places"}:
                 places = await self.ui_places()
-                ids = [resolve_reference(ref, places)["id"] for ref in args["places"]]
+                refs = args.get("places") if name == "select_candidates" else (
+                    args.get("places") or self.context.get("selected_ids", []))
+                ids = [resolve_reference(ref, places)["id"] for ref in refs]
                 if len(set(ids)) != len(ids):
                     raise ValueError("所选候选不能重复。")
+                if name == "compare_places" and len(ids) < 2:
+                    raise ValueError("请明确至少两个地点再比较。")
                 self.context["selected_ids"] = ids
-                effect["arguments"] = {"ids": ids}
+                effect = {"tool": "show_comparison" if name == "compare_places" else name,
+                    "arguments": {"ids": ids}}
             elif name == "show_comparison" and len(self.context.get("selected_ids", [])) < 2:
                 raise ValueError("请选择至少两个候选再比较。")
             elif name == "show_day_explanation":
@@ -295,6 +359,35 @@ class BusinessExecutor:
                 effect["arguments"] = {"id": candidate["id"]}
             return {"effect": effect}
         if name in {"update_search_conditions", "explain_result"}:
+            if name == 'explain_result':
+                # A current plan owns its explanation even if a background
+                # recommendation context remains available for other commands.
+                plan_scope = self.context.get('plan_id') or self.context.get('invite_token')
+                discovery = None
+                if plan_scope:
+                    plan = await self.plan()
+                    if all(c['snapshot'].get('schema_version') == 'discovery-v1' for c in plan['candidates']):
+                        discovery = {'context': {key: plan[key] for key in ('name', 'start_date', 'end_date')},
+                            'cards': [{'place': {**c['snapshot']['destination'], 'id': c['id']},
+                                'route': None, 'weather': c['latest_weather'].get('weather') if c.get('latest_weather')
+                                    else c['snapshot'].get('weather')} for c in plan['candidates']]}
+                else:
+                    discovery = await self.discovery_data()
+                if discovery is not None:
+                    if not discovery.get('cards'):
+                        raise BusinessFailure('discovery_not_ready', '当前还没有可查看的推荐结果。')
+                    provider = self.request.app.state.provider_runtime.new_request_bundle().assistant
+                    focused = self.context.get('focused_id')
+                    if focused not in {card['place']['id'] for card in discovery['cards']}:
+                        focused = None
+                    key = self.request.client.host if self.request.client else 'unknown'
+                    try:
+                        with self.request.app.state.assistant_limiter.acquire(key):
+                            reply = await run_in_threadpool(explain_discovery_result, provider, message,
+                                self.context.get('conversation', []), discovery, focused)
+                    except (ProviderError, AssistantLimitError) as error:
+                        raise BusinessFailure(getattr(error, 'code', 'assistant_busy'), str(error), status=503) from None
+                    return {'reply': reply}
             turn = self.context.get("assistant_turn")
             if turn and self.context.get("conversation"):
                 turn["history"] = self.context["conversation"][-6:]
@@ -393,6 +486,17 @@ class BusinessExecutor:
             place = resolve_reference(
                 args.get("place"), await self.places(), focused=self.context.get("focused_id")
             )
+            if place.get("discovery_place"):
+                value = place["discovery_place"]
+                provider = "mock" if place["source"] == "demo" else "amap"
+                return await self.call("POST", "/favorites", {
+                    "provider": provider, "destination": {
+                        "provider_id": value["id"].split(":", 1)[-1],
+                        "name": value["name"], "address": value["address"],
+                        "city": value["city"], "coordinate": value["coordinate"],
+                        "type_name": value["map_type"], "type_code": value.get("map_type_code", ""),
+                    },
+                })
             if not place.get("item"):
                 raise ValueError("请先登录并更新推荐，再收藏此地点。")
             source = (await self.history())["result"]["source_state"]["kind"]
@@ -434,7 +538,14 @@ class BusinessExecutor:
             allowed = {p["id"] for p in places}
             if any(value not in allowed for value in ids):
                 raise ValueError("候选不属于当前推荐。")
-            args.pop("places", None)
+            data = await self.discovery_data()
+            if data is not None:
+                start, end = self.plan_dates(args, message, data)
+                if not start or not end:
+                    raise ValueError("计划安排哪天？")
+                args.update(start_date=start, end_date=end)
+                await self.discovery_history_id()
+            args.pop("date_quote", None)
             body = {"history_id": self.context.get("history_id"), "candidate_ids": ids, **args}
             result = await self.call("POST", "/plans", body)
             self.context["plan_id"] = result["plan"]["id"]
@@ -454,6 +565,9 @@ class BusinessExecutor:
         return await self.plan_action(name, args)
 
     async def history_action(self, name, args):
+        if self.context.get("discovery_job_id") and args.get("target") is None and name in {
+            "create_share", "open_history", "rerun_history", "delete_history", "revoke_share"}:
+            await self.discovery_history_id()
         if name == "clear_history":
             return await self.call("DELETE", "/history")
         if name == "revoke_share":
@@ -484,6 +598,11 @@ class BusinessExecutor:
             result = await self.call("POST", path + "/share")
             self.context["share_id"] = result["share"]["id"]
             return result
+        if name == "rerun_history":
+            saved = await self.call("GET", path)
+            if saved["history"]["mode"] == "discovery":
+                started = await self.call("POST", "/discovery/history/" + segment(history_id) + "/rerun")
+                return {"effect": {"tool": "discovery_job_started", "arguments": started}}
         result = await self.call(
             "POST" if name == "rerun_history" else "GET",
             path + ("/rerun" if name == "rerun_history" else ""),

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom'
 
 import { SearchPage } from '../pages/SearchPage'
+import { DiscoveryPage } from '../pages/DiscoveryPage'
 import { HomePage } from '../pages/HomePage'
 import { FavoritesPage } from '../pages/FavoritesPage'
 import { HistoryPage } from '../pages/HistoryPage'
@@ -22,6 +23,7 @@ const router = coordinateRouteTransitions(createBrowserRouter([{ element: <Comma
     ),
     children: [
       { path: 'recommend', element: <SearchPage /> },
+      { path: 'explore', element: <DiscoveryPage /> },
       { path: 'favorites', element: <RequireAuth><FavoritesPage /></RequireAuth> },
       { path: 'history', element: <RequireAuth><HistoryPage /></RequireAuth> },
       { path: 'history/:historyId', element: <RequireAuth><HistoryDetailPage /></RequireAuth> },

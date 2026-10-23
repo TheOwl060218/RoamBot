@@ -1,4 +1,4 @@
-import type { HistoryDetail } from '../../api/types'
+import type { LegacyHistoryDetail } from '../../api/types'
 import type { SearchResult } from '../search/SearchWorkspace'
 import {
   draftFromRequest, saveSearchResult, saveSelectedPlaceId, saveTravelDraft,
@@ -7,7 +7,7 @@ import {
 
 export type RestoredHistorySearch = { result: SearchResult; draft: TravelFormDraft }
 
-export function restoreHistorySearch(history: HistoryDetail, username: string | null): RestoredHistorySearch {
+export function restoreHistorySearch(history: LegacyHistoryDetail, username: string | null): RestoredHistorySearch {
   const request = history.request
   const draft = draftFromRequest(request)
   const result: SearchResult = { ...history.result, query_request: request,

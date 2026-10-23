@@ -1,3 +1,5 @@
+import type { DiscoveryHistory, DiscoveryPlanSnapshot, PublicDiscoverySnapshot } from '../features/discovery/snapshotTypes'
+
 export type SceneryType = 'lake' | 'sea' | 'old_town' | 'museum' | 'park' | 'mountain'
 export type SearchMode = 'recommendation' | 'place_evaluation'
 export type SourceKind = 'live' | 'cache' | 'demo' | 'degraded'
@@ -164,16 +166,16 @@ export type PlaceSuggestion = {
 
 export type HistorySummary = {
   id: string
-  mode: SearchMode
+  mode: SearchMode | 'discovery'
   city: string
-  start_date: string
-  end_date: string
+  start_date: string | null
+  end_date: string | null
   item_count: number
   generated_at: string
   created_at: string
 }
 
-export type HistoryDetail = {
+export type LegacyHistoryDetail = {
   id: string
   mode: SearchMode
   request: RecommendationRequest | PlaceEvaluationRequest
@@ -181,6 +183,7 @@ export type HistoryDetail = {
   created_at: string
   snapshot: true
 }
+export type HistoryDetail = LegacyHistoryDetail | DiscoveryHistory
 
 export type Share = {
   id: string
@@ -198,7 +201,7 @@ export type PublicItem = {
   overall_advice: OverallAdviceStatus
 }
 
-export type PublicSnapshot = {
+export type LegacyPublicSnapshot = {
   mode: SearchMode
   city: string
   companion_count: number
@@ -208,10 +211,11 @@ export type PublicSnapshot = {
   generated_at: string
   uncovered_scenery_types: SceneryType[]
 }
+export type PublicSnapshot = LegacyPublicSnapshot | PublicDiscoverySnapshot
 
 export type PlanCandidate = {
   id: string
-  snapshot: PublicItem & { group_accessibility: RecommendationItem['group_accessibility']; source_state?: SourceState | null }
+  snapshot: (PublicItem & { group_accessibility: RecommendationItem['group_accessibility']; source_state?: SourceState | null }) | DiscoveryPlanSnapshot
   latest_weather: {
     checked_at: string
     status: 'success' | 'failed'

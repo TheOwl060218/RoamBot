@@ -1,16 +1,17 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ExternalLink, X } from 'lucide-react'
-import type { RecommendationItem } from '../../api/types'
+import type { Destination } from '../../api/types'
 import { amapPlaceUrl, amapSearchUrl } from './amapLink'
 import { useLayerExit } from '../studio/useLayerExit'
 import { useModalLayer } from '../studio/useModalLayer'
 import { useCommandTarget } from '../commands/commandContext'
 
-type Props = {
-  items: RecommendationItem[]
+type MapItem = { destination: Pick<Destination, 'provider_id' | 'name' | 'city' | 'address' | 'coordinate'> }
+type Props<T extends MapItem> = {
+  items: T[]
   selectedId: string
-  onSelect?: (item: RecommendationItem) => void
+  onSelect?: (item: T) => void
   onClose: () => void
   children?: ReactNode
 }
@@ -60,11 +61,11 @@ async function loadSdk(key: string, serviceHost: string): Promise<MapSdk> {
   return sdkPromise
 }
 
-function point(item: RecommendationItem): Point {
+function point(item: MapItem): Point {
   return [item.destination.coordinate.longitude, item.destination.coordinate.latitude]
 }
 
-export function LocationMapDialog({ items, selectedId, onSelect, onClose, children }: Props) {
+export function LocationMapDialog<T extends MapItem>({ items, selectedId, onSelect, onClose, children }: Props<T>) {
   const headingId = useId()
   const backdropRef = useRef<HTMLDivElement>(null)
   useLayerExit(backdropRef, '.location-dialog')

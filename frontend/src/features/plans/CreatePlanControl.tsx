@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../../api/client'
-import type { HistoryDetail, TravelPlan } from '../../api/types'
+import type { LegacyHistoryDetail, TravelPlan } from '../../api/types'
 import { AuthDialog } from '../auth/AuthDialog'
 import { useAuth } from '../auth/authContext'
 import { announcePlanChange, defaultPlanName, planError } from './planPresentation'
@@ -45,7 +45,7 @@ export function CreatePlanControl(props: Props) {
     if (!open || props.trusted || !ownershipKey || verified.key === ownershipKey) return
     let active = true
     // Session storage deliberately drops ownership. Confirm it with the server after a route return.
-    void apiClient.get<{ history: HistoryDetail }>(`/history/${props.historyId}`).then(({ history }) => {
+    void apiClient.get<{ history: LegacyHistoryDetail }>(`/history/${props.historyId}`).then(({ history }) => {
       if (!active) return
       const valid = history?.id === props.historyId && history.mode === 'recommendation'
         && 'items' in history.result

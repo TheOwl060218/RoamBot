@@ -7,6 +7,7 @@ import type { HistoryDetail, RecommendationItem } from '../api/types'
 import { ShareActions } from '../features/history/ShareActions'
 import { ResultList } from '../features/search/ResultList'
 import { useBusinessRevision } from '../features/commands/commandEvents'
+import { DiscoveryHistoryView } from '../features/discovery/DiscoveryHistoryView'
 
 export function HistoryDetailPage() {
   const businessRevision = useBusinessRevision()
@@ -22,6 +23,7 @@ export function HistoryDetailPage() {
 
   if (error) return <div className="error-banner" role="alert">{error}</div>
   if (!history) return <p className="loading-state">正在加载历史快照…</p>
+  if (history.mode === 'discovery') return <DiscoveryHistoryView history={history} />
 
   const result = history.result
   const items: RecommendationItem[] = 'items' in result ? result.items : [result.item]

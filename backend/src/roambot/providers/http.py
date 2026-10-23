@@ -54,6 +54,7 @@ class ProviderHttpClient:
         path: str,
         json_body: Mapping[str, Any],
         headers: Mapping[str, str] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         return self._request_json(
             method="POST",
@@ -61,6 +62,7 @@ class ProviderHttpClient:
             path=path,
             headers=headers,
             json_body=json_body,
+            timeout=timeout,
         )
 
     def _request_json(
@@ -72,6 +74,7 @@ class ProviderHttpClient:
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         request_id = uuid4().hex
         started = perf_counter()
@@ -83,7 +86,7 @@ class ProviderHttpClient:
                 params=params,
                 headers=headers,
                 json=json_body,
-                timeout=self._timeout,
+                timeout=self._timeout if timeout is None else timeout,
             )
             status = response.status_code
             if response.status_code == 429:

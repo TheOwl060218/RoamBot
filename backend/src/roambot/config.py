@@ -21,6 +21,8 @@ class Settings(BaseSettings):
         repr=False,
     )
     secure_cookies: bool = False
+    session_cookie_name: str = Field(default='roambot_session', min_length=1, max_length=64,
+        pattern=r'^[A-Za-z0-9_-]+$')
     session_hours: int = 24
     provider_mode: ProviderMode = ProviderMode.MOCK
     demo_mode: bool = True
@@ -31,6 +33,7 @@ class Settings(BaseSettings):
     llm_base_url: AnyHttpUrl | None = None
     llm_model: str | None = None
     llm_enable_thinking: bool | None = None
+    discovery_search_api_key: SecretStr | None = Field(default=None, repr=False)
     provider_timeout_seconds: float = Field(default=5.0, gt=0)
     assistant_timeout_seconds: float = Field(default=7.0, gt=0, le=60)
     max_geocode_calls: int = Field(default=3, gt=0)

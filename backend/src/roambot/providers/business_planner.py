@@ -63,6 +63,9 @@ def plan_business_actions(http, key, model, thinking, request, context):
         "第二个等序号只针对当前页面可见的对象；不能自行选择历史中另一个对象。"
         "序号从1开始，第一个是1，第二个是2；优先直接使用context中的真实ID。"
         "用户说这两个建计划时复用selected，不需要捏造ID。"
+        "新推荐创建计划时，使用discovery_dates里已有日期；没有明确日期就只追问计划安排哪天，不能默认。"
+        "用户接着日期追问回答时，继承前面建计划、名称、人数及选择；用服务器today计算ISO起止日期，"
+        "单天的起止相同，date_quote摘录用户日期原话。不要将该回复转成查询条件修改。"
         "任意角色、对象、日期含义不明就提出一个简短追问，不调用有副作用的工具。"
         "账号身份、权限、ID和执行成功由程序决定；不要求密码，不代他人投票。"
         "最多6个有顺序的工具调用。用户明确提出多个步骤时，必须完整列出所有步骤，不能遗漏后半句。"
@@ -79,6 +82,10 @@ def plan_business_actions(http, key, model, thinking, request, context):
     response = http.post_json(
         operation="assistant_turn",
         path="/chat/completions",
+        # Multi-action planning carries the full tool catalog and authorized
+        # objects. Give it the same minimum window as discovery planning,
+        # without shortening a deliberately larger configured timeout.
+        timeout=max(20.0, getattr(http, "_timeout", 20.0)),
         headers={"Authorization": f"Bearer {key}"},
         json_body={
             "model": model,
@@ -112,6 +119,7 @@ def plan_business_actions(http, key, model, thinking, request, context):
         calls = message.get("tool_calls") or []
         if calls:
             actions = []
+            explicit_action_plan = False
             for call in calls:
                 function = call["function"]
                 if call["type"] != "function" or len(function["arguments"]) > 8000:
@@ -119,7 +127,9 @@ def plan_business_actions(http, key, model, thinking, request, context):
                 if function["name"] == "plan_business_actions":
                     if len(calls) != 1:
                         raise ValueError("mixed sequence and individual calls")
-                    plan = BusinessPlan.model_validate(json.loads(function["arguments"]))
+                    payload = json.loads(function["arguments"])
+                    plan = BusinessPlan.model_validate(payload)
+                    explicit_action_plan = 'question' in payload and payload['question'] is None
                     break
                 actions.append(
                     {"tool": function["name"], "arguments": json.loads(function["arguments"])}
@@ -127,7 +137,10 @@ def plan_business_actions(http, key, model, thinking, request, context):
             else:
                 plan = BusinessPlan(actions=actions)
             rejection = "mixed_question_and_execution"
-            if message.get("content") and message["content"].strip() and plan.actions:
+            # A sequence explicitly declares its mode in question/actions.
+            # Incidental assistant prose is not shown or used as an instruction.
+            # Legacy individual calls lack that declaration and stay strict.
+            if message.get("content") and message["content"].strip() and plan.actions and not explicit_action_plan:
                 raise ValueError("mixed question and execution")
         else:
             plan = BusinessPlan(question=message["content"])

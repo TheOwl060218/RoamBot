@@ -10,7 +10,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from roambot.domain.models import Destination
+from roambot.domain.models import Destination, PlaceIdentity
 from roambot.persistence.tables import (
     ApiCacheTable,
     FavoriteTable,
@@ -215,7 +215,7 @@ class PlaceRepository:
         self,
         *,
         provider: str,
-        destination: Destination,
+        destination: Destination | PlaceIdentity,
         updated_at: datetime,
         favorite_user_id: str | None = None,
     ) -> PlaceRecord:

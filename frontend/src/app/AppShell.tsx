@@ -11,7 +11,8 @@ import { RouteTransitionFrame } from './RouteTransitionFrame'
 import { useCommandTarget } from '../features/commands/commandContext'
 
 const navigation = [
-  { label: '推荐', to: '/recommend' },
+  { label: '推荐', to: '/explore' },
+  { label: '原有查询', to: '/recommend' },
   { label: '收藏', to: '/favorites' },
   { label: '历史', to: '/history' },
 ]

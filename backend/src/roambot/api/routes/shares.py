@@ -18,6 +18,7 @@ from roambot.domain.models import (
     ScoreBreakdown,
 )
 from roambot.services.personal_data import PersonalDataService, ResourceNotFoundError
+from roambot.domain.discovery_snapshot import PublicDiscoverySnapshot
 
 router = APIRouter(tags=["shares"])
 
@@ -74,7 +75,7 @@ class PublicSnapshotResponse(BaseModel):
 class PublicShareEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    snapshot: PublicSnapshotResponse
+    snapshot: PublicSnapshotResponse | PublicDiscoverySnapshot
 
 
 PERSONAL_DATA_DEPENDENCY = Depends(get_personal_data_service)

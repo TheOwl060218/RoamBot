@@ -31,7 +31,7 @@ async function submitLogin() {
 describe('HomePage', () => {
   it('allows guests to start querying without an account or navigation header', () => {
     mount()
-    expect(screen.getByRole('link', { name: '开始查询' })).toHaveAttribute('href', '/recommend')
+    expect(screen.getByRole('link', { name: '开始查询' })).toHaveAttribute('href', '/explore')
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
     expect(screen.getByAltText('福州海湾，远山、沙滩与礁石')).toBeInTheDocument()
   })

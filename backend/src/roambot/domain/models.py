@@ -197,6 +197,19 @@ class Origin(DomainModel):
     coordinate: Coordinate
 
 
+class PlaceIdentity(DomainModel):
+    """A verified place can be saved without inventing category or ranking scores."""
+
+    provider_id: str
+    name: str
+    address: str
+    city: str
+    coordinate: Coordinate
+    type_name: str
+    type_code: str = ""
+    scenery_tags: frozenset[SceneryType] = frozenset()
+
+
 class Destination(DomainModel):
     provider_id: str
     name: str
