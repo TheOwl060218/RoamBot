@@ -247,7 +247,7 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
     <div className='studio-query-page' aria-hidden={stage.phase !== 'query'} inert={stage.phase !== 'query'}>
     <StudioStage state={state}>
       <div className='studio-stage-copy'>
-        <header className='studio-intro'><p className='eyebrow'>ROAMBOT · 一起出发</p><h1>先说一个想法，<br />一起找到想去的地方。</h1><p>天气、路程和同行出发地，会在确认推荐时一起计算。</p></header>
+        <header className='studio-intro'><h1>想去哪儿？</h1></header>
         {recentMessages.length > 0 && <section className='studio-conversation studio-conversation-current' aria-label='最近对话'>{recentMessages.map(m => <p key={m.id} className={m.role}>{m.content}</p>)}</section>}
       </div>
         {state.queryStatus && !state.queryRequestId && <p className='studio-query-feedback'>{state.queryStatus}</p>}

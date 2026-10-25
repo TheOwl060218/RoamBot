@@ -11,20 +11,25 @@
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 40px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
-  min-height: 60px;
-  padding: 8px max(24px, calc((100vw - 1520px) / 2));
+  min-height: 84px;
+  padding: 20px max(24px, calc((100vw - 1520px) / 2)) 14px;
   border-bottom: 1px solid var(--border);
   background: rgb(255 255 255 / 94%);
   backdrop-filter: blur(12px);
 }
-/* Fade only scrolling content. The scenery and navigation are separate siblings,
-   so no rectangular backdrop blur or second veil survives underneath a modal. */
-.coastal-shell .shell-main.is-scrolled {
-  mask-image: linear-gradient(to bottom, transparent var(--shell-fade-start), #000 var(--shell-fade-end));
+.coastal-shell .shell-header { isolation: isolate; }
+.coastal-shell .shell-header::before {
+  content: ''; position: absolute; z-index: -1; inset: 0 0 -32px; pointer-events: none;
+  background: rgb(225 241 241 / 66%); backdrop-filter: blur(14px);
+  mask-image: linear-gradient(to bottom,#000 0%,#000 55%,transparent 100%);
+  opacity: 0; transition: opacity 200ms ease;
 }
+.coastal-shell .shell-header.is-scrolled { background: transparent; box-shadow: none; }
+.coastal-shell .shell-header.is-scrolled::before { opacity: 1; }
+@media(prefers-reduced-motion:reduce) { .coastal-shell .shell-header::before { transition: none; } }
 
 .brand-navigation { display: flex; align-items: center; gap: 16px; min-width: 0; }
 .shell-home-link { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; color: var(--primary); background: var(--surface); font-size: .94rem; font-weight: 600; line-height: 20px; white-space: nowrap; text-decoration: none; transition: transform 140ms ease, background-color 140ms ease; }
@@ -38,28 +43,28 @@
   gap: 10px;
   min-width: 0;
   color: var(--ink);
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 700;
   text-decoration: none;
 }
 
 .brand-mark {
   display: inline-grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
   place-items: center;
   border-radius: var(--radius);
   color: var(--surface);
   background: var(--primary);
-  font-size: 0.92rem;
+  font-size: 1.05rem;
 }
 
 .primary-nav {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -68,7 +73,7 @@
   padding: 8px 14px;
   border-radius: 999px;
   color: var(--muted);
-  font-size: 0.94rem;
+  font-size: .94rem;
   font-weight: 600;
   line-height: 20px;
   text-decoration: none;
@@ -109,6 +114,13 @@
   color: var(--primary);
   background: var(--primary-soft);
 }
+.shell-account-actions { display: flex; align-items: center; gap: 8px; }
+.shell-assistant-anchor:empty { display: none; }
+.shell-assistant-anchor .business-command-layer { position: static; }
+.layer-conversation-header { position: relative; width: 40px; height: 40px; transition: none; }
+.layer-conversation-header .studio-chat-orb { width: 40px; height: 40px; color: var(--coastal-ink); background: rgb(248 253 252 / 62%); border-color: var(--coastal-line); box-shadow: none; cursor: pointer; touch-action: auto; }
+.layer-conversation-header .studio-chat-orb svg { width: 20px; height: 20px; }
+.layer-conversation-header .layer-chat-panel { left: auto; right: -48px; top: calc(100% + 16px); width: min(420px,calc(100vw - 32px)); max-height: min(56svh,480px); transform-origin: top right; }
 
 @media (hover: hover) and (pointer: fine) {
   .account-button:hover { transform: scale(1.05); }
@@ -154,21 +166,25 @@
 }
 
 @media (max-width: 600px) {
+  .brand { font-size: 1.05rem; }
+  .brand-mark { width: 32px; height: 32px; flex-basis: 32px; font-size: .94rem; }
   .brand-navigation { gap: 8px; }
   .shell-home-link { padding-inline: 10px; }
   .shell-header {
-    grid-template-columns: auto 1fr 40px;
+    min-height: 60px;
+    grid-template-columns: auto 1fr auto;
     gap: 8px 12px;
     padding: 9px 16px 8px;
   }
 
   .primary-nav {
+    gap: 3px;
     grid-column: 1 / -1;
     grid-row: 2;
     justify-content: stretch;
   }
 
-  .account-button {
+  .shell-account-actions {
     grid-column: 3;
     grid-row: 1;
     justify-self: end;

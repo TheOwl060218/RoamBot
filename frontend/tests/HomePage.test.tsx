@@ -31,7 +31,7 @@ async function submitLogin() {
 describe('HomePage', () => {
   it('allows guests to start querying without an account or navigation header', () => {
     mount()
-    expect(screen.getByRole('link', { name: '开始查询' })).toHaveAttribute('href', '/explore')
+    expect(screen.getByRole('link', { name: '开始探索' })).toHaveAttribute('href', '/explore')
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
     expect(screen.getByAltText('福州海湾，远山、沙滩与礁石')).toBeInTheDocument()
   })
@@ -52,18 +52,18 @@ describe('HomePage', () => {
     expect(screen.getByLabelText('路径')).toHaveTextContent(/^\/$/)
     expect(screen.getByRole('link', { name: '收藏' })).toHaveAttribute('href', '/favorites')
     expect(screen.getByRole('link', { name: '历史' })).toHaveAttribute('href', '/history')
-    expect(screen.getByRole('link', { name: '我的计划' })).toHaveAttribute('href', '/plans')
+    expect(screen.getByRole('link', { name: '同行计划' })).toHaveAttribute('href', '/plans')
     expect(screen.getByText('alice')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '注册', exact: true })).not.toBeInTheDocument()
   })
   it('continues to plans after login initiated from my plans', async () => {
-    mount(); await userEvent.setup().click(screen.getByRole('button', { name: '我的计划' }))
+    mount(); await userEvent.setup().click(screen.getByRole('button', { name: '同行计划' }))
     await submitLogin()
     await waitFor(() => expect(screen.getByLabelText('路径')).toHaveTextContent('/plans'))
   })
   it('cancels a protected intent without changing the homepage', async () => {
     mount(); const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: '我的计划' }))
+    await user.click(screen.getByRole('button', { name: '同行计划' }))
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByLabelText('路径')).toHaveTextContent(/^\/$/)
@@ -75,7 +75,7 @@ describe('HomePage', () => {
     mount({ initializing: true })
     expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('正在确认登录状态')
     expect(screen.queryByRole('button', { name: '登录', exact: true })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '开始查询' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '开始探索' })).toBeInTheDocument()
   })
   it('restores guest actions after a successful logout', async () => {
     mount({ user: { id: 'home-user', username: 'alice' } })

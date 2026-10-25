@@ -38,7 +38,7 @@ function Guest() {
 }
 it('enters plan center for a guest without forcing an authentication overlay', () => {
   render(<Guest />)
-  fireEvent.click(screen.getByRole('link', { name: '计划中心', exact: true }))
+  fireEvent.click(screen.getByRole('link', { name: '同行计划', exact: true }))
   expect(screen.getByLabelText('当前位置')).toHaveTextContent('/plans')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })

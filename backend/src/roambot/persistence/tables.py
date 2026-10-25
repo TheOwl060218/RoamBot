@@ -27,6 +27,21 @@ class UserTable(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class ItineraryTable(Base):
+    __tablename__ = "itineraries"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(100), index=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    document_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ItineraryWorkspaceTable(Base):
+    __tablename__ = "itinerary_workspaces"
+    owner: Mapped[str] = mapped_column(String(100), primary_key=True)
+    current_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
 class UserSessionTable(Base):
     __tablename__ = "user_sessions"
 

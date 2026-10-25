@@ -68,7 +68,42 @@ class JoinArgs(Parameters):
 
 
 class NavigateArgs(Parameters):
-    page: Literal["home", "explore", "recommend", "favorites", "history", "plans"]
+    page: Literal["home", "explore", "recommend", "favorites", "history", "plans", "itineraries"]
+
+
+class ItineraryScope(Parameters):
+    itinerary: Reference | None = None
+
+
+class CreateItineraryArgs(Parameters):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class AddItineraryStopArgs(ItineraryScope, PlaceTarget):
+    pass
+
+
+class EditItineraryArgs(ItineraryScope):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    date_quote: str | None = Field(default=None, max_length=200)
+    travel_mode: Literal['walking', 'bicycling', 'driving'] | None = None
+
+
+class MoveItineraryStopArgs(ItineraryScope, PlaceTarget):
+    day: date | None = None
+    date_quote: str | None = Field(default=None, max_length=200)
+    position: int = Field(ge=1, le=60)
+
+
+class GenerateItineraryArgs(ItineraryScope):
+    optimize: bool = False
+
+
+class ItineraryMapArgs(ItineraryScope):
+    day: date | None = None
+    day_number: int | None = Field(default=None, ge=1, le=30)
 
 
 class EditArgs(Parameters):
@@ -113,6 +148,14 @@ def _tool(name, description, parameters=Parameters, *, kind="backend", destructi
 
 
 _TOOLS = [
+    _tool('create_itinerary', '创建独立的旅行行程，不是同行投票计划；不必在收集地点时填写日期。', CreateItineraryArgs),
+    _tool('open_itinerary', '打开当前或具名的旅行行程。', ItineraryScope),
+    _tool('show_itinerary_map', '查看旅行行程某天的地图及路线；day是具体日期，day_number是第几天，从1开始。不重新查询路线。', ItineraryMapArgs),
+    _tool('add_to_itinerary', '把当前推荐或收藏中的一个真实地点加入最近创建的行程，或指定行程；不等同于收藏。', AddItineraryStopArgs),
+    _tool('edit_itinerary', '修改旅行行程名称、完整起止日期或交通方式，不影响同行投票计划。日期修改要date_quote原文。', EditItineraryArgs),
+    _tool('move_itinerary_stop', '把行程内真实地点移到指定日期及从1开始的位置；只保存顺序，不查询路线。day为空表示待安排；日期要原文quote。', MoveItineraryStopArgs),
+    _tool('remove_itinerary_stop', '把行程中的地点移出，不取消收藏、不删除历史。', AddItineraryStopArgs),
+    _tool('generate_itinerary', '用户明确要生成/更新路线才调用。optimize=true自动分天和重排；false严格保留用户手动顺序更新路线。需要已确定日期，会请求路线天气。', GenerateItineraryArgs),
     _tool(
         "update_search_conditions",
         "无入参，arguments必须为{}。程序按本轮原文修改条件，保留未提及条件。",
@@ -219,6 +262,8 @@ class VisibleResources(Parameters):
 
 
 class CommandContext(Parameters):
+    itinerary_id: str | None = Field(default=None, max_length=100)
+    itinerary_version: int | None = Field(default=None, ge=1)
     page_loading: bool = False
     page: str = Field(default="/recommend", max_length=300)
     history_id: str | None = Field(default=None, max_length=100)

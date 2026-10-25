@@ -221,7 +221,7 @@ export function TravelForm({
       ) : null}
       <div className="form-heading">
         <div>
-          <p className="eyebrow">天气感知的风景出行推荐</p>
+          
           <h1>想去哪里走走？</h1>
         </div>
         <div className="mode-switch" role="radiogroup" aria-label="查询模式">

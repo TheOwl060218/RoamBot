@@ -60,12 +60,27 @@ class DiscoveryArchiveRequest(SnapshotModel):
     conversation: list[AssistantMessage] = Field(default_factory=list, max_length=10)
 
 
+class ExploredPlace(SnapshotModel):
+    id: str
+    name: str
+    city: str
+    coordinate: Coordinate
+    facts: dict[str, str] = Field(default_factory=dict)
+
+
+class ExplorationState(SnapshotModel):
+    seen: list[ExploredPlace] = Field(default_factory=list, max_length=1536)
+    reserve: list[StoredCard] = Field(default_factory=list, max_length=24)
+    created_at: float
+
+
 class DiscoveryArchive(SnapshotModel):
     schema_version: Literal["discovery-v1"] = "discovery-v1"
     generated_at: datetime
     source: Literal["live", "demo"]
     status: Literal["completed", "partial"]
     cards: list[StoredCard] = Field(min_length=1, max_length=24)
+    exploration_state: ExplorationState | None = None
 
 
 class PublicPlace(SnapshotModel):

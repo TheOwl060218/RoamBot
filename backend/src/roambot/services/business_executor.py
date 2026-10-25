@@ -93,6 +93,8 @@ class BusinessExecutor:
         return (await self.call("GET", "/history/" + segment(history_id)))["history"]
 
     async def places(self):
+        if self.context.get('page') == '/favorites':
+            return [{'id': r['id'], 'name': r['name']} for r in await self.resource_list('favorites')]
         discovery = await self.discovery_data()
         if discovery is not None:
             return [{"id": c["place"]["id"], "name": c["place"]["name"],
@@ -226,6 +228,13 @@ class BusinessExecutor:
                     out["stale_list"] = True
         turn = self.context.get("assistant_turn") or {}
         out["draft"] = turn.get("draft", {})
+        from roambot.services.itinerary_commands import public_itineraries, describe
+        itinerary_data = await public_itineraries(self)
+        out['itineraries'] = [{k: v[k] for k in ('id', 'name', 'version', 'start_date', 'end_date')}
+            | {'stop_count': len(v['stops'])} for v in itinerary_data['itineraries']]
+        out['current_itinerary_id'] = self.context.get('itinerary_id') or itinerary_data['current_id']
+        current_trip = next((v for v in itinerary_data['itineraries'] if v['id']==out['current_itinerary_id']), None)
+        if current_trip: out['itinerary'] = describe(current_trip)
         out["conversation"] = (self.context.get("conversation") or turn.get("history", []))[-6:]
         return out
 
@@ -322,10 +331,14 @@ class BusinessExecutor:
         spec = TOOL_CATALOG[action.tool]
         args = action.validated_arguments().model_dump(mode="json", exclude_none=True)
         name = action.tool
+        if name in {'create_itinerary', 'open_itinerary', 'show_itinerary_map', 'add_to_itinerary', 'edit_itinerary',
+                    'move_itinerary_stop', 'remove_itinerary_stop', 'generate_itinerary'}:
+            from roambot.services.itinerary_commands import execute
+            return await execute(self, name, args, message)
         if name == "describe_capabilities":
             return {
                 "reply": "可以直接修改条件并查询、查看详情和地图、选择或比较地点、管理收藏和历史，"
-                "以及创建和管理计划、邀请、本人投票、天气复查与定案。可随时说返回、刷新、"
+                "以及收集地点到旅行行程、调整分天顺序和更新路线，创建和管理同行计划、邀请、本人投票、天气复查与定案。可随时说返回、刷新、"
                 "向下看、打开更多功能；Alt+/ 回到当前对话。登录密码在安全表单中输入。"
             }
         if spec.kind == "ui":

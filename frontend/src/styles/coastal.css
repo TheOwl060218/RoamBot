@@ -38,12 +38,12 @@
 
 .coastal-backdrop-wash {
   background:
-    linear-gradient(110deg, rgb(219 237 236 / 84%) 0%, rgb(228 242 241 / 66%) 46%, rgb(211 229 231 / 58%) 100%),
-    linear-gradient(180deg, rgb(246 251 249 / 20%), rgb(133 168 173 / 18%));
+    linear-gradient(110deg, rgb(219 237 236 / 68%) 0%, rgb(228 242 241 / 46%) 46%, rgb(211 229 231 / 40%) 100%),
+    linear-gradient(180deg, rgb(246 251 249 / 10%), rgb(133 168 173 / 12%));
 }
 
 .coastal-backdrop-light {
-  background: radial-gradient(circle at 72% 15%, rgb(255 255 242 / 55%), transparent 32%);
+  background: radial-gradient(circle at 72% 15%, rgb(255 255 242 / 30%), transparent 32%);
 }
 
 .coastal-shell .shell-header {

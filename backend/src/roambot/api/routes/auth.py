@@ -153,11 +153,15 @@ def _adopt_guest_discovery(request: Request, response: Response, grant: SessionG
     identity = request.cookies.get(COOKIE)
     if not identity:
         return
-    jobs = getattr(request.app.state, 'discovery_jobs', None)
-    if jobs is not None:
-        guest = 'guest:' + hashlib.sha256(identity.encode()).hexdigest()
-        scope = hashlib.sha256(grant.session_token.encode()).hexdigest()[:32]
-        jobs.adopt_guest(guest, 'user:' + grant.user_id + ':' + scope)
+    from roambot.services.itineraries import ItineraryService
+    factory = getattr(request.app.state, 'session_factory', None)
+    if factory:
+        ItineraryService(factory).adopt('guest:' + hashlib.sha256(identity.encode()).hexdigest(), 'user:' + grant.user_id)
+    from roambot.api.routes.discovery import get_jobs
+    jobs = get_jobs(request)
+    guest = 'guest:' + hashlib.sha256(identity.encode()).hexdigest()
+    scope = hashlib.sha256(grant.session_token.encode()).hexdigest()[:32]
+    jobs.adopt_guest(guest, 'user:' + grant.user_id + ':' + scope)
     # The old guest credential cannot be reused to move these results to another account.
     response.delete_cookie(COOKIE, path='/', httponly=True, secure=settings.secure_cookies, samesite='lax')
 

@@ -119,10 +119,10 @@ export class ApiClient {
       ...init,
       credentials: 'include',
       headers,
-    })
+    }).catch(error => this.transportError(error))
 
     if (response.status === 204) return undefined as T
-    const payload = await this.readJson(response)
+    const payload = await this.readJson(response).catch(error => this.transportError(error))
     if (response.ok) return payload as T
 
     const apiError = this.toApiError(response.status, payload)
@@ -132,6 +132,13 @@ export class ApiClient {
       return this.request<T>(path, init, false)
     }
     throw apiError
+  }
+
+  private transportError(error: unknown): never {
+    if (error instanceof TypeError) {
+      throw new ApiError(0, 'network_unavailable', '暂时连接不上服务，请稍后重试。')
+    }
+    throw error
   }
 
   private refreshCsrf() {

@@ -92,8 +92,8 @@ export function ResultList({
     <section className="results-panel" aria-live="polite">
       <div className="results-heading">
         <div>
-          <p className="eyebrow">查询结果</p>
-          <h2>{items.length ? `${items.length} 个地点值得考虑` : '规定范围内无检索结果'}</h2>
+          
+          <h2>{items.length ? `${items.length} 个推荐地点` : '暂未找到合适地点'}</h2>
         </div>
         <time dateTime={generatedAt}>{new Date(generatedAt).toLocaleString('zh-CN')}</time>
       </div>

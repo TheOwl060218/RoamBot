@@ -98,7 +98,7 @@ export function HistoryPage() {
   return (
     <section className="personal-page">
       <header className="page-heading">
-        <div><p className="eyebrow">不可变结果记录</p><h1>历史</h1></div>
+        <div><h1>历史</h1></div>
         {histories.length > 0 && (
           <button className="icon-text-button" type="button" onClick={clear}><Trash2 aria-hidden="true" size={16} />清空历史</button>
         )}

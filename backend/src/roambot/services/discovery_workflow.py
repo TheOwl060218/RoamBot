@@ -18,7 +18,7 @@ from roambot.domain.discovery import (
 )
 from roambot.domain.models import Coordinate
 from roambot.domain.business_tools import INTAKE_TOOLS
-from roambot.providers.discovery import source_mentions_place
+from roambot.providers.discovery import arrival_coordinate, source_mentions_place
 from roambot.providers.protocols import ProviderError
 from roambot.services.discovery import DiscoveryRun, model_tool_view
 from roambot.services.discovery_grounding import (
@@ -522,7 +522,7 @@ class DiscoveryWorkflow(DiscoveryRun):
                 cache_key = [
                     key,
                     self.center.model_dump(),
-                    place["coordinate"],
+                    arrival_coordinate(place).model_dump(),
                     self.context.travel_mode,
                 ]
                 return self.cached(
@@ -665,19 +665,28 @@ class DiscoveryWorkflow(DiscoveryRun):
             and (not plan.travel_mode_quote or plan.travel_mode_quote not in original)
         ):
             updates.pop("travel_mode")
-        if plan.clear_fields:
+        # A delete of an already absent optional value is a no-op, not a user
+        # intent requiring evidence. Keep evidence checks for every real delete
+        # and for deletes that would override a value set in the same patch.
+        effective_clears = [name for name in plan.clear_fields
+                            if getattr(self.context, name) is not None or updates.get(name) is not None]
+        if effective_clears:
             if not plan.clear_quote or plan.clear_quote not in original:
                 raise ValueError("清空条件需要明确原文依据。")
-            updates.update(dict.fromkeys(plan.clear_fields))
+            updates.update(dict.fromkeys(effective_clears))
         for i, requirement in enumerate(plan.requirements):
             if requirement.quote not in original:
                 raise ValueError(f"requirements[{i}].quote需要逐字引用用户原文。")
         if plan.nearby_quote:
             if plan.nearby_quote not in original:
                 raise ValueError("nearby_quote需要逐字引用用户原文，仅指定城市不等于请求附近。")
-            if ("max_distance_km" not in updates and self.context.max_distance_km is None
-                    and "max_distance_km" not in plan.clear_fields):
-                updates.update(max_distance_km=5, distance_quote=plan.nearby_quote)
+            # Nearby uses the map search's local retrieval radius. Only an
+            # explicit user distance becomes a hard measured-route constraint.
+        chosen = self.body.location_details if self.body.use_location else None
+        if chosen and chosen.source == 'selected':
+            updates.update(origin=chosen.name, origin_quote=None)
+        elif chosen and chosen.replace_origin:
+            updates.update(origin=None, origin_quote=None)
         value = SearchContext.model_validate(updates)
         self.validate_context_evidence(value)
         return value
@@ -685,11 +694,19 @@ class DiscoveryWorkflow(DiscoveryRun):
     def configure_plan(self):
         value = self.plan_context(self.plan)
         updates = value.model_dump(exclude_unset=True)
-        if self.location is not None and not updates.get("origin", self.context.origin):
+        if (self.location is not None or not self.body.use_location) and not updates.get("origin", self.context.origin):
             self.center = None
+            self.center_name = None
         return self.configure(value)
 
     def load_plan(self, context, previous_cards):
+        if (self.body.location_details or not self.body.use_location) and self.previous.get('_location_plan'):
+            # The owned prior search supplies its intent; an explicit location
+            # button does not need another model to reinterpret the same wish.
+            plan = RetrievalPlan.model_validate(self.previous['_location_plan'])
+            plan.context = SearchContext.model_validate(self.context.model_dump())
+            plan.clear_fields = []
+            return plan.model_dump(mode='json')
         plan = self.model_call("planning", lambda: self.model.plan(
             self.turns, context, self.location is not None, previous_cards,
             {**self.body.view.model_dump(), "recent_conversation": [

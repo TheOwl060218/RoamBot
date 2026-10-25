@@ -1,0 +1,40 @@
+/* Standalone actions share the capsule treatment. Full-card click surfaces,
+   calendar cells and form suggestions retain their own interaction shapes. */
+.plan-back, .place-map-link, .business-result-link,
+.history-menu-action, .history-menu-popover .share-actions button,
+.studio-result-navigation button, .studio-team-mode button, .studio-undo-query button,
+.studio-assistant-recovery button, .studio-tool-menu button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: fit-content;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 160ms ease;
+}
+.business-result-link { max-width: 100%; overflow-wrap: anywhere; }
+.studio-tool-menu button { width: 100%; }
+.coastal-shell .nav-link { border: 1px solid var(--coastal-line); background: rgb(248 253 252 / 42%); }
+.coastal-shell .nav-link.active { background: rgb(248 253 252 / 92%); color: var(--primary); }
+.itinerary-switcher a { border: 1px solid var(--coastal-line, var(--border)); border-radius: 999px; }
+.itinerary-stop .itinerary-grip { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 58px; height: 32px; padding: 0 6px; border: 1px solid #bad6dd; border-radius: 999px; background: #edf7f8; color: #4f7884; font-size: .72rem; }
+.password-toggle { border: 1px solid var(--border); border-radius: 50%; background: var(--surface); }
+@media (hover: hover) and (pointer: fine) {
+  :is(.text-button, .icon-text-button, .plan-back, .place-map-link, .business-result-link,
+    .history-menu-action, .studio-result-navigation button, .studio-team-mode button,
+    .studio-undo-query button, .studio-assistant-recovery button, .studio-tool-menu button):not(:disabled):hover {
+    transform: scale(1.03); border-color: var(--border-strong); background: var(--surface-muted); text-decoration: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.text-button, .icon-text-button, .plan-back, .place-map-link, .business-result-link,
+    .history-menu-action, .studio-result-navigation button, .studio-team-mode button,
+    .studio-undo-query button, .studio-assistant-recovery button, .studio-tool-menu button) { transition: none; }
+}

@@ -42,13 +42,13 @@ export function PlanNavigation({ mobile = false }: { mobile?: boolean }) {
     return () => { window.clearTimeout(begin); window.clearTimeout(end) }
   }, [activeId])
 
-  if (!active) return mobile ? null : <NavLink viewTransition className={({ isActive }) => `nav-link plan-nav-plain${isActive ? ' active' : ''}`} to='/plans'>计划中心</NavLink>
+  if (!active) return mobile ? null : <NavLink viewTransition className={({ isActive }) => `nav-link plan-nav-plain${isActive ? ' active' : ''}`} to='/plans'>同行计划</NavLink>
   const label = `${active.city} ${compactDates(active.start_date, active.end_date)}`
   const state = active.status === 'decided' ? `已决定 ${active.candidates.find(c => c.id === active.final_candidate_id)?.snapshot.destination.name ?? ''}` : `${active.status === 'closed' ? '待决定' : '投票中'} ${planProgress(active)}`
   return <div className={mobile ? 'mobile-plan-anchor' : 'plan-nav-anchor'}>
     <NavLink viewTransition to={`/plans/${active.id}`} className={`plan-status-link${expanded ? ' expanded' : ''}`}
-      aria-label={`计划中心：${label}，${state}`} title={`${label} ${state}`}>
-      <CalendarDays size={16} aria-hidden='true' /><span className='plan-status-title'>{label}</span><span className='plan-status-detail'>{state}</span>
+      aria-label={`同行计划：${label}，${state}`} title={`同行计划 · ${label} ${state}`}>
+      <CalendarDays size={16} aria-hidden='true' /><span className='plan-status-title'>同行计划</span><span className='plan-status-detail'>{label} · {state}</span>
     </NavLink>
   </div>
 }

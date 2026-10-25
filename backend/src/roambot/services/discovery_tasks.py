@@ -7,6 +7,7 @@ It reuses context validation, provider adapters, ownership and publication stora
 import copy
 import hashlib
 import json
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Literal
@@ -25,6 +26,8 @@ from roambot.services.discovery_execution import ExecutionBudget, ExecutionStopp
 from roambot.services.discovery_grounding import map_fact_passages, passage_view
 from roambot.services.discovery_selection import select_retrieved_places
 from roambot.services.discovery_task_evidence import selection_facts, task_model_facts
+
+logger = logging.getLogger(__name__)
 from roambot.services.discovery_workflow import DiscoveryWorkflow, Stopped
 
 
@@ -238,8 +241,9 @@ class DiscoveryTaskWorkflow(DiscoveryWorkflow):
                 raise ValueError("任务或事实已变化，不能发布旧结果。")
             available = {c["place"]["id"]: c for c in cards}
             shown = {c["place"]["id"] for c in self.cards}
-            pending = []
-            for item in selected.cards:
+            pending, reserve = [], []
+            primary_ids = {item.place_id for item in selected.cards}
+            for item in selected.cards + getattr(selected, 'reserve_cards', []):
                 card = available.get(item.place_id)
                 if item.place_id in shown:
                     continue
@@ -259,10 +263,12 @@ class DiscoveryTaskWorkflow(DiscoveryWorkflow):
                         source["excerpt"] = "\n\n".join(
                             fact["label"] + "：" + fact["text"] for fact in selected_facts)
                     published_sources.append(source)
-                pending.append({"place": card["place"], "experience": item.experience, "reason": item.reason,
+                (pending if item.place_id in primary_ids else reserve).append({"place": card["place"], "experience": item.experience, "reason": item.reason,
                                 "sources": published_sources,
                                 "route": card["route"], "weather": card["weather"]})
                 shown.add(item.place_id)
+            if hasattr(self, 'prepare_publication'):
+                pending = self.prepare_publication(pending, reserve)
             self._append_cards(pending, [], reviewed=False)
         return selected
 
@@ -275,10 +281,18 @@ class DiscoveryTaskWorkflow(DiscoveryWorkflow):
                    self.location.model_dump() if self.location else None,
                    self.body.view.model_dump(), [m.model_dump() for m in self.body.conversation], previous_cards,
                    self.search_request]
+            key.append(self.body.explore_mode)
+            if self.body.location_details and (self.body.location_details.source == 'selected' or self.body.location_details.replace_origin):
+                key.append(self.body.location_details.model_dump())
             self.plan = RetrievalPlan.model_validate(self.cached("task-plan-v1", key, 300,
                 lambda: self.load_plan(self.context.model_dump(mode="json"), previous_cards)))
+            if hasattr(self, 'explore_mode'):
+                self.explore_mode = self.plan.explore_mode if self.previous.get('cards') else None
+                self.update_exploration_context()
             if self.plan.intent == "business":
                 self.status = "completed"
+                return
+            if getattr(self, 'use_exploration_reserve', lambda: False)():
                 return
             self.configure_plan()
             if not self.center and (not self.context.region or self.context.max_distance_km is not None):
@@ -304,6 +318,8 @@ class DiscoveryTaskWorkflow(DiscoveryWorkflow):
                 self.choose_and_publish(ids[self.selection_window:])
             self.status = "completed" if self.cards and not self.errors else "partial" if self.cards else "failed"
         except (ProviderError, ValueError, KeyError, Stopped, ExecutionStopped) as error:
+            logger.warning('discovery_task_failed stage=%s error_type=%s code=%s',
+                self.stage, type(error).__name__, getattr(error, 'code', 'invalid_result'))
             self.errors.append({"tool": "task_workflow", "code": getattr(error, "code", type(error).__name__)})
             self.status = "cancelled" if self.cancelled.is_set() else "partial" if self.cards else "failed"
         finally:

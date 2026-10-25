@@ -1,4 +1,96 @@
 import { test, expect } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { workbenchPlan } from '../tests/fixtures/workbenchPlan'
+
+const preserved = JSON.parse(readFileSync(new URL('./fixtures/discovery-preserved.json', import.meta.url), 'utf8'))
+
+test('preserved real place facts stay compact, submitting does not shift the dock, and buttons bypass chat', async ({ page }, testInfo) => {
+  let jobs = 0, assistantRequests = 0
+  const plans: Record<string, unknown>[] = []
+  await page.route('**/api/v1/**', async route => {
+    const r = route.request(), path = new URL(r.url()).pathname
+    if (path === '/api/v1/auth/me') return route.fulfill({ json: { user: { username: 'layout_owner' }, csrf_token: 'isolated-csrf' } })
+    if (path.includes('/assistant/')) { assistantRequests++; return route.fulfill({ status: 500, json: {} }) }
+    if (path === '/api/v1/discovery/jobs' && r.method() === 'POST') return route.fulfill({ json: { id: 'preserved-' + (++jobs) } })
+    if (path.endsWith('/history')) return route.fulfill({ json: { history_id: 'owned-history' } })
+    if (path.startsWith('/api/v1/discovery/jobs/')) return route.fulfill({ json: { ...preserved, id: 'preserved-' + jobs } })
+    if (path === '/api/v1/plans' && r.method() === 'POST') { plans.push(r.postDataJSON()); return route.fulfill({ json: { plan: { id: 'direct-plan' } } }) }
+    if (path === '/api/v1/plans') return route.fulfill({ json: { plans: [] } })
+    if (path === '/api/v1/plans/direct-plan') return route.fulfill({ json: { plan: { ...workbenchPlan(), id: 'direct-plan' } } })
+    return route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'not configured' } } })
+  })
+  await page.goto('/explore')
+  const idea = '杭州赏秋，想在户外轻松走走，不去商场'
+  const input = page.getByRole('textbox', { name: '继续补充条件' })
+  await input.fill(idea); await input.press('Enter')
+  const cards = page.locator('.discovery-card')
+  await expect(cards).toHaveCount(10)
+  await page.locator('.route-content').evaluate(async node => {
+    await Promise.all(node.getAnimations({ subtree: true }).filter(a => a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => undefined)))
+  })
+  const first = cards.first()
+  const measurements = await cards.evaluateAll(nodes => nodes.map(n => ({ height: n.getBoundingClientRect().height,
+    footerBottom: n.querySelector('footer')!.getBoundingClientRect().bottom, bottom: n.getBoundingClientRect().bottom })))
+  expect(measurements.every(n => n.height <= 335 && n.footerBottom <= n.bottom)).toBe(true)
+  const y = (await first.boundingBox())!.y, dock = (await page.locator('.discovery-input').boundingBox())!
+  await input.fill(idea); await input.press('Enter')
+  await expect.poll(() => jobs).toBe(2)
+  await expect(page.getByRole('button', { name: '停止查找' })).toHaveCount(0)
+  expect(Math.abs((await first.boundingBox())!.y - y)).toBeLessThan(2)
+  expect(Math.abs((await page.locator('.discovery-input').boundingBox())!.y - dock.y)).toBeLessThan(2)
+  await first.getByRole('button', { name: '加入比较', exact: true }).click()
+  await cards.nth(1).getByRole('button', { name: '加入比较', exact: true }).click()
+  const selection = page.locator('.discovery-selection')
+  await selection.scrollIntoViewIfNeeded()
+  expect((await selection.boundingBox())!.y + (await selection.boundingBox())!.height).toBeLessThan((await page.locator('.discovery-input').boundingBox())!.y)
+  await page.screenshot({ path: testInfo.outputPath('preserved-results.png') })
+  await page.getByRole('button', { name: '查看对比', exact: true }).click()
+  const compare = page.getByRole('dialog', { name: '地点对比' })
+  await expect(compare.getByRole('rowheader', { name: '开放时间' })).toBeVisible()
+  await compare.evaluate(async node => { await Promise.all(node.parentElement!.getAnimations({ subtree: true }).map(a => a.finished.catch(() => undefined))) })
+  await page.screenshot({ path: testInfo.outputPath('comparison-table.png') })
+  await compare.getByRole('button', { name: '返回推荐' }).click()
+  await page.getByRole('button', { name: '发起同行计划', exact: true }).click()
+  const form = page.getByRole('dialog', { name: '创建同行计划' })
+  await expect(form).toBeVisible()
+  expect(assistantRequests).toBe(0); expect(jobs).toBe(2); expect(plans).toHaveLength(0)
+  const date = new Date(); date.setDate(date.getDate() + 1)
+  const text = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  await form.getByLabel('出发日期').fill(text); await form.getByLabel('结束日期').fill(text)
+  await form.getByRole('button', { name: '确认创建' }).click()
+  await expect(page).toHaveURL(/\/plans\/direct-plan$/)
+  expect(plans).toHaveLength(1)
+  expect(plans[0]).toMatchObject({ history_id: 'owned-history', candidate_ids: preserved.cards.slice(0, 2).map((c: { place: { id: string } }) => c.place.id), start_date: text, end_date: text })
+  expect(assistantRequests).toBe(0)
+})
+
+test('vote panel has a readable surface and owns mobile interaction above the assistant', async ({ page }, testInfo) => {
+  const plan = workbenchPlan()
+  plan.summary = { voted_count: 1, joined_count: 1, complete: false, candidates: [] }; plan.expected_count = 2
+  await page.route('**/api/v1/**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/api/v1/auth/me') return route.fulfill({ json: { user: { username: 'layout_owner' }, csrf_token: 'isolated-csrf' } })
+    if (path === '/api/v1/plans') return route.fulfill({ json: { plans: [plan] } })
+    if (path === '/api/v1/plans/workbench') return route.fulfill({ json: { plan } })
+    return route.fulfill({ status: 404, json: {} })
+  })
+  await page.goto('/plans/workbench')
+  await page.getByRole('button', { name: '去投票', exact: true }).click()
+  const vote = page.getByRole('dialog', { name: '我的投票' })
+  await expect(vote).toBeVisible()
+  expect(await vote.evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(244, 250, 251)')
+  const first = vote.getByLabel('首选 苏州博物馆', { exact: true })
+  await first.check()
+  expect(await first.evaluate(node => { const r = node.getBoundingClientRect(); return node === document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) })).toBe(true)
+  if (page.viewportSize()!.width <= 700) {
+    await expect(page.getByRole('button', { name: '打开操作助手', exact: true })).toHaveCount(0)
+    await page.keyboard.press('Tab')
+    expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true)
+  }
+  await page.screenshot({ path: testInfo.outputPath('vote-surface.png') })
+  await vote.getByRole('button', { name: '收起投票面板' }).click()
+  await expect(page.getByRole('button', { name: '打开操作助手', exact: true })).toBeVisible()
+})
 
 for (const cancelFirst of [false, true]) test(`guest favorites after login ${cancelFirst ? 'cancelled' : 'continued'} without losing results`, async ({ page }, testInfo) => {
   let loggedIn = false, jobs = 0, executions = 0
@@ -100,8 +192,9 @@ test('card rail and chat dock scroll independently without bars or blocked actio
   await expect(rail).toHaveCSS('scrollbar-width', 'none')
   await expect(page.getByRole('log')).toHaveCSS('scrollbar-width', 'none')
   const card = rail.locator('.discovery-card').first()
-  await expect(card).toHaveCSS('padding', (testInfo.project.name === 'mobile' ? '22' : '24') + 'px')
-  await expect(card).toHaveCSS('min-height', '230px')
+  await expect(card).toHaveCSS('padding', (testInfo.project.name === 'mobile' ? '18' : '22') + 'px')
+  await expect(card).toHaveCSS('min-height', '260px')
+  expect((await card.boundingBox())!.height).toBeLessThanOrEqual(350)
   expect(Math.round((await card.boundingBox())!.width)).toBe(Math.round(Math.min(310, page.viewportSize()!.width * .82)))
   await rail.scrollIntoViewIfNeeded(); await rail.focus(); await page.keyboard.press('ArrowRight')
   await expect.poll(() => rail.evaluate(node => node.scrollLeft)).toBeGreaterThan(100)
@@ -135,7 +228,7 @@ test('card rail and chat dock scroll independently without bars or blocked actio
   const log = page.getByRole('log')
   await log.hover(); await page.mouse.wheel(0, -600)
   await expect.poll(() => log.evaluate(node => node.scrollTop)).toBeLessThan(5)
-  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }))
+  await page.locator('.discovery-selection').scrollIntoViewIfNeeded()
   const dock = (await page.locator('.discovery-input').boundingBox())!
   const selection = (await page.locator('.discovery-selection').boundingBox())!
   expect(selection.y + selection.height + 12).toBeLessThan(dock.y)

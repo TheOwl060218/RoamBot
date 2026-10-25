@@ -57,7 +57,7 @@ export function FavoritesPage() {
 
   return (
     <section className="personal-page">
-      <header className="page-heading"><div><p className="eyebrow">个人地点库</p><h1>收藏</h1></div></header>
+      <header className="page-heading"><div><h1>收藏</h1></div></header>
       {error && <div className="error-banner" role="alert">{error}</div>}
       {loading ? <p className="loading-state">正在加载收藏…</p> : favorites.length ? (
         <div className="favorites-workspace">

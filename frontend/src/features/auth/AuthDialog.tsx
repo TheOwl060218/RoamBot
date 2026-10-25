@@ -145,7 +145,7 @@ function AuthDialogContent({ open, onClose, onAuthenticated, onStatus, initialMo
       >
         <header>
           <div>
-            <p className="eyebrow">RoamBot 账户</p>
+            
             <h2>{user ? user.username : mode === 'login' ? '登录 RoamBot' : '创建账户'}</h2>
           </div>
           <button className="icon-button" type="button" aria-label="关闭" onClick={closeDialog}>

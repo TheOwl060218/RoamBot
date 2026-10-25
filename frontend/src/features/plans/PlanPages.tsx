@@ -70,7 +70,7 @@ export function PlansPage() {
     return () => { active = false }
   }, [businessRevision])
   return <section className='plan-page'>
-    <header className='plan-page-heading'><div><p className='eyebrow'>从候选到共同决定</p><h1>计划中心</h1><p>选 2–3 个地点，邀请同行者投票，共同决定目的地。</p></div><Link viewTransition className='primary-button plan-start' to='/recommend' state={{ startTeamPick: true }}>发起同行计划</Link></header>
+    <header className='plan-page-heading'><div><h1>同行计划</h1><p>选择 2–3 个地点，邀请同行者投票。</p></div><Link viewTransition className='primary-button plan-start' to='/explore' state={{ startTeamPick: true }}>发起同行计划</Link></header>
     {error && <p role='alert' className='error-banner'>{error}</p>}
     {!plans && !error && <p className='loading-state'>正在加载计划…</p>}
     {plans && <>
@@ -119,9 +119,9 @@ function PlanHeader({ plan, owner }: { plan: TravelPlan; owner: boolean }) {
   const known = joined !== undefined && voted !== undefined
   const remaining = known ? Math.max(0, joined - voted) : 0
   const destination = plan.candidates.find(candidate => candidate.id === plan.final_candidate_id)?.snapshot.destination.name
-  let progress = known ? `${voted}/${joined} 人已投票` : plan.me ? '先投票，再查看进展' : '加入计划，一起选目的地'
+  let progress = known ? planProgress(plan) : plan.me ? '先投票，再查看进展' : '加入计划，一起选目的地'
   let next = known
-    ? remaining ? `还有 ${remaining} 位同行者未投票，可先比较候选。` : joined ? '已加入的同行者都已投票。' : '邀请同行者加入，一起选择目的地。'
+    ? remaining ? `已加入 ${joined} 人，其中 ${remaining} 人尚未投票。` : joined && joined < plan.expected_count ? `已加入 ${joined} 人，预计 ${plan.expected_count} 人同行，可继续邀请。` : joined ? `已加入 ${joined} 人，均已投票。` : '邀请同行者加入，一起选择目的地。'
     : '投票后查看结果。'
   if (plan.ended) { progress = '出行已结束'; next = destination ? `最终目的地：${destination}，计划已留档。` : '计划已留档，可回顾候选与投票记录。' }
   else if (plan.status === 'decided') { progress = destination ?? '目的地已确定'; next = '出行前可以按需再检查一次天气。' }
@@ -229,7 +229,7 @@ export function PlanDetailPage() {
     })
   }
   return <section className='plan-page plan-detail-page'>
-    <Link to='/plans' className='plan-back'><ArrowLeft size={16} aria-hidden='true' />计划中心</Link>
+    <Link to='/plans' className='plan-back'><ArrowLeft size={16} aria-hidden='true' />同行计划</Link>
     {error && <p role='alert' className='error-banner'>{error}</p>}
     {!plan && !error && <p>正在加载计划…</p>}
     {plan && <PlanWorkbench key={plan.id} plan={plan} busy={busy} error={error}

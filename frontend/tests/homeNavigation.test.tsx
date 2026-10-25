@@ -23,21 +23,21 @@ it('shows the date action returned for an expired history rerun', async () => {
   expect(await screen.findByRole('status')).toHaveTextContent('请选择新的出行日期。')
 })
 
-it('sends a favorite evaluation to the query page while preserving its target', async () => {
+it('opens discovery from a favorite with its place prefilled rather than executing a chat command', async () => {
   render(<MemoryRouter><FavoriteDetail favorite={{ id: 'favorite', created_at: '2026-10-08', place: {
     provider_id: 'poi', name: '西湖', address: '西湖入口', city: '杭州', type_name: '湖景', type_code: '110000',
     coordinate: { longitude: 120, latitude: 30, system: 'gcj02' }, scenery_tags: ['lake'], popularity_rank: 1, rating: 4.8,
   } }} onDelete={() => undefined} /><Destination /></MemoryRouter>)
-  await userEvent.setup().click(screen.getByRole('link', { name: '重新评估' }))
-  expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"path":"/recommend"')
-  expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"evaluationTarget":"西湖"')
+  await userEvent.setup().click(screen.getByRole('link', { name: '继续探索' }))
+  expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"path":"/explore"')
+  expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"initialIdea":"想去杭州西湖，看看怎样游玩"')
 })
 
 it('starts a recommendation from plans without navigating to the photo homepage', async () => {
   vi.spyOn(apiClient, 'get').mockResolvedValue({ plans: [] })
   render(<MemoryRouter><PlansPage /><Destination /></MemoryRouter>)
   await userEvent.setup().click(screen.getByRole('link', { name: '发起同行计划' }))
-  expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"path":"/recommend"')
+  expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"path":"/explore"')
   expect(screen.getByLabelText('跳转结果')).toHaveTextContent('"startTeamPick":true')
 })
 

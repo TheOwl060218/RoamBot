@@ -92,14 +92,14 @@ describe('personal and shared pages', () => {
 
     function ReevaluateTarget() {
       const location = useLocation()
-      return <p>{String((location.state as { evaluationTarget?: string } | null)?.evaluationTarget)}</p>
+      return <p>{String((location.state as { initialIdea?: string } | null)?.initialIdea)}</p>
     }
 
     render(
       <MemoryRouter initialEntries={['/favorites']}>
         <Routes>
           <Route path="/favorites" element={<FavoritesPage />} />
-          <Route path="/recommend" element={<ReevaluateTarget />} />
+          <Route path="/explore" element={<ReevaluateTarget />} />
         </Routes>
       </MemoryRouter>,
     )
@@ -110,8 +110,8 @@ describe('personal and shared pages', () => {
     await userEvent.click(screen.getByRole('button', { name: '查看 苏州博物馆' }))
     expect(screen.getByRole('heading', { name: '苏州博物馆' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '查看 苏州博物馆' })).toHaveAttribute('aria-pressed', 'true')
-    await userEvent.click(screen.getByRole('link', { name: '重新评估' }))
-    expect(screen.getByText('苏州博物馆')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: '继续探索' }))
+    expect(screen.getByText('想去苏州苏州博物馆，看看怎样游玩')).toBeInTheDocument()
     expect(screen.queryByText(/推荐指数/)).not.toBeInTheDocument()
   })
 
@@ -182,7 +182,7 @@ describe('personal and shared pages', () => {
       })
 
     const historyView = render(<MemoryRouter><HistoryPage /></MemoryRouter>)
-    expect(await screen.findByText('历史快照')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '历史' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /地点推荐 · 苏州/ })).toHaveAttribute('href', '/history/history-1')
     expect(screen.queryByRole('button', { name: '创建分享' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: '更多历史操作' }))
@@ -281,7 +281,7 @@ describe('personal and shared pages', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('heading', { name: '历史快照' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '历史推荐' })).toBeInTheDocument()
     expect(screen.getByText('演示数据')).toBeInTheDocument()
     expect(document.querySelector('.history-detail-heading')).toBeInTheDocument()
     expect(document.querySelector('.history-detail-share-slot')).toBeInTheDocument()

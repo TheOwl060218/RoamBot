@@ -25,9 +25,9 @@ export function PublicSharePage() {
   }, [token])
 
   if (unavailable) return <section className="access-state"><h1>分享链接不可用或已撤销</h1></section>
-  if (!snapshot) return <p className="loading-state">正在加载分享快照…</p>
+  if (!snapshot) return <p className="loading-state">正在加载分享…</p>
   if (snapshot.mode === 'discovery') return <section className='public-share-page'>
-    <header className='page-heading'><div><p className='eyebrow'>RoamBot 分享</p><h1>{snapshot.city}休闲去处</h1></div>
+    <header className='page-heading'><div><h1>{snapshot.city}休闲去处</h1></div>
       {snapshot.start_date && snapshot.end_date && <span>{snapshot.start_date} 至 {snapshot.end_date}</span>}
     </header><DiscoveryArchiveCards snapshot={snapshot} />
   </section>
@@ -35,7 +35,7 @@ export function PublicSharePage() {
   return (
     <section className="public-share-page">
       <header className="page-heading">
-        <div><p className="eyebrow">RoamBot 匿名分享</p><h1>{snapshot.city}出行结果</h1></div>
+        <div><h1>{snapshot.city}出行结果</h1></div>
         <span>{snapshot.start_date} 至 {snapshot.end_date}</span>
       </header>
       <div className="personal-list">

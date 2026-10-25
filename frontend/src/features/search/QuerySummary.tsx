@@ -39,7 +39,7 @@ export function QuerySummary({ draft: storedDraft, request, onEdit }: QuerySumma
     <section className="query-summary" aria-label="当前查询条件">
       <div className="query-summary-heading">
         <div>
-          <p className="eyebrow">当前查询</p>
+          
           <h1>{draft?.mode === 'place_evaluation' ? '评估指定地点' : '推荐出行地点'}</h1>
         </div>
         <button className="icon-text-button" type="button" onClick={onEdit}>

@@ -1,6 +1,7 @@
 """Real, category-free map tools and public search. No arbitrary URL fetching."""
 
 import json
+import math
 import re
 import threading
 import time
@@ -238,6 +239,18 @@ def normalized_arguments(model, data, *, user_texts=()):
     return result
 
 
+def arrival_coordinate(place: dict) -> Coordinate:
+    """Use the provider's entrance when present; preserve the POI's identity point."""
+    entrance = place.get('facts', {}).get('entr_location')
+    if isinstance(entrance, str):
+        try:
+            lng, lat = map(float, entrance.split(','))
+            return Coordinate(longitude=lng, latitude=lat)
+        except (ValueError, TypeError):
+            pass
+    return Coordinate(**place['coordinate'])
+
+
 class DiscoveryMap:
     def __init__(self, amap):
         self.amap = amap
@@ -324,6 +337,8 @@ class DiscoveryMap:
             except (KeyError, TypeError, ValueError):
                 continue
             business = raw.get("business") if isinstance(raw.get("business"), dict) else {}
+            navi = raw.get('navi') if isinstance(raw.get('navi'), dict) else {}
+            extra = {'district': raw.get('adname'), 'entr_location': navi.get('entr_location')}
             result.append(
                 {
                     "id": "amap:" + raw["id"],
@@ -335,17 +350,18 @@ class DiscoveryMap:
                     "parent_id": raw.get("parent") or None,
                     "verified_at": time.time(),
                     "facts": {
-                        key: business[key]
+                        **{key: value.strip() for key, value in extra.items() if isinstance(value, str) and value.strip()},
+                        **{key: business[key]
                         for key in ("opentime_today", "opentime_week", "rating", "cost", "tel")
-                        if isinstance(business.get(key), (str, int, float))
+                        if isinstance(business.get(key), (str, int, float))},
                     },
                     "map_url": "https://www.amap.com/detail/" + raw["id"],
                 }
             )
         return result
 
-    def route(self, center: Coordinate, place: dict, mode: str) -> dict:
-        target = Coordinate(**place["coordinate"])
+    def route(self, center: Coordinate, place: dict, mode: str, *, geometry: bool = False) -> dict:
+        target = arrival_coordinate(place)
         paths = {
             "walking": "/v3/direction/walking",
             "bicycling": "/v4/direction/bicycling",
@@ -371,12 +387,24 @@ class DiscoveryMap:
         if not paths_data:
             raise ProviderError("not_found", "未取得实际路线。")
         best = min(paths_data, key=lambda p: float(p["distance"]))
-        return {
+        result = {
             "mode": mode,
             "distance_km": float(best["distance"]) / 1000,
             "duration_minutes": round(float(best["duration"]) / 60, 1),
             "estimated": False,
         }
+        if geometry:
+            points = []
+            for step in best.get('steps', []):
+                for encoded in str(step.get('polyline', '')).split(';'):
+                    try:
+                        x, y = map(float, encoded.split(','))
+                        if math.isfinite(x) and math.isfinite(y) and -180 <= x <= 180 and -90 <= y <= 90:
+                            if not points or points[-1] != [x, y]: points.append([x, y])
+                    except (ValueError, TypeError):
+                        continue
+            result['path'] = points
+        return result
 
 
 def model_step(provider, messages, allowed=None):

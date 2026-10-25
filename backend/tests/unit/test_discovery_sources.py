@@ -54,6 +54,90 @@ def workflow(tmp_path):
         model, DiscoveryCache(tmp_path / 'source.sqlite3'), 'isolated-source-actor'), model
 
 
+def test_followup_region_update_ignores_clearing_already_empty_conditions(tmp_path):
+    run, _ = workflow(tmp_path)
+    run.context = SearchContext(region='北京')
+    # Shape returned by the approved real-model diagnostic: valid region update,
+    # but redundant deletes of two absent optional conditions without a quote.
+    plan = RetrievalPlan(context=SearchContext(region='苏州'), goal='去苏州赏秋',
+        clear_fields=['origin', 'max_distance_km'])
+    value = run.plan_context(plan)
+    assert value.region == '苏州'
+    assert value.origin is None and value.max_distance_km is None
+    assert 'origin' not in value.model_fields_set
+    assert 'max_distance_km' not in value.model_fields_set
+
+
+@pytest.mark.parametrize('field,context', [
+    ('origin', {'origin': '已有出发地'}), ('region', {'region': '已有地区'}),
+    ('max_distance_km', {'max_distance_km': 5}),
+])
+def test_effective_condition_delete_still_requires_user_evidence(tmp_path, field, context):
+    run, _ = workflow(tmp_path)
+    run.context = SearchContext(**context)
+    with pytest.raises(ValueError, match='清空条件需要明确原文依据'):
+        run.plan_context(RetrievalPlan(context=SearchContext(), goal='看看去处', clear_fields=[field]))
+
+
+def test_clear_cannot_silently_override_a_newly_set_value(tmp_path):
+    run, _ = workflow(tmp_path)
+    with pytest.raises(ValueError, match='清空条件需要明确原文依据'):
+        run.plan_context(RetrievalPlan(context=SearchContext(origin='新出发地'), goal='看看去处', clear_fields=['origin']))
+
+
+def test_quoted_clear_keeps_existing_clear_behavior(tmp_path):
+    run, _ = workflow(tmp_path)
+    run.context = SearchContext(region='已有地区')
+    run.turns = [{'role': 'user', 'content': '取消地区限制'}]
+    value = run.plan_context(RetrievalPlan(context=SearchContext(), goal='看看去处',
+        clear_fields=['region', 'origin'], clear_quote='取消地区限制'))
+    assert value.region is None
+    assert 'region' in value.model_fields_set
+    assert 'origin' not in value.model_fields_set
+
+
+def test_public_progress_is_optional_and_cannot_change_execution(tmp_path):
+    run, model = workflow(tmp_path)
+    model.public_note = '这次想换个环境，我会先看看能轻松停留的去处。'
+    nominate = model.nominate_sources
+    def narrated(*args):
+        return nominate(*args).model_copy(update={'public_note': '接下来会核对这些候选的具体位置，再比较适合的去处。'})
+    model.nominate_sources = narrated
+    run.run()
+    assert run.status == 'completed', run.errors
+    assert model.calls == ['plan', 'nominate', 'choose']
+    assert run.budget.counts == {'model': 3, 'search': 1}
+    assert run.context.region == '苏州'
+    assert run.search.queries == ['苏州 换个环境放松']
+    assert run.cards[0]['place']['id'] == 'amap:1'
+    notes = run.snapshot()['progress_notes']
+    assert notes[0] == model.public_note
+    assert notes[2] == '接下来会核对这些候选的具体位置，再比较适合的去处。'
+    assert len(notes) > 3
+    assert any('2 个候选' in note for note in notes)
+    count = len(notes)
+    notes.clear()
+    assert len(run.snapshot()['progress_notes']) == count
+    assert 'public_note' not in run.plan.model_dump()
+
+
+def test_progress_stays_per_run_and_bounded_without_discarding_after_three_lines(tmp_path):
+    run, _ = workflow(tmp_path)
+    other, _ = workflow(tmp_path)
+    for i in range(30):
+        run.note_progress(f'实际阶段{i}')
+    assert len(run.snapshot()['progress_notes']) == 24
+    assert run.snapshot()['progress_notes'][0] == '实际阶段6'
+    assert other.snapshot()['progress_notes'] == []
+
+
+@pytest.mark.parametrize('invalid', [None, 123, [], {'text': 'ignored'}, ' ', '字' * 101])
+def test_bad_decorative_copy_does_not_reject_valid_nomination(invalid):
+    value = SourceNomination(venues=[{'name': '独立书店'}], public_note=invalid)
+    assert value.public_note is None
+    assert value.venues[0].name == '独立书店'
+
+
 def test_source_first_binds_public_evidence_and_never_reselects_omitted_venues(tmp_path):
     run, model = workflow(tmp_path)
     run.run()

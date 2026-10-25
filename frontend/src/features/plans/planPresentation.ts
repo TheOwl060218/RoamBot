@@ -27,6 +27,8 @@ export function planStatus(plan: TravelPlan) {
 export function planError(error: unknown) {
   const messages: Record<string, string> = {
     plan_not_found: '计划不存在，或当前账户没有访问权限。',
+    plan_dates_required: '请选择出行日期。',
+    plan_dates_invalid: '出行日期请选在未来七天内。',
     history_not_eligible: '请先确认使用原条件重新推荐。',
     candidate_not_in_history: '候选已变化，请重新选择候选。',
     nickname_taken: '这个昵称已有人使用，请换一个。',

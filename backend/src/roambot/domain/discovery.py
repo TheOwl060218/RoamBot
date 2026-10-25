@@ -20,12 +20,33 @@ class DiscoveryView(Contract):
     layer: str = Field(default="results", max_length=40)
 
 
+class DiscoveryLocationDetails(Contract):
+    source: Literal['device', 'selected'] = 'device'
+    accuracy_m: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    captured_at: int | None = Field(default=None, gt=0)
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    replace_origin: bool = False
+
+
 class DiscoveryRequest(Contract):
     message: str = Field(min_length=1, max_length=2000)
     previous_id: str | None = Field(default=None, max_length=64)
+    explore_mode: Literal['batch', 'area'] | None = None
     location: Coordinate | None = None
+    use_location: bool = True
+    location_details: DiscoveryLocationDetails | None = None
     view: DiscoveryView = Field(default_factory=DiscoveryView)
     conversation: list[AssistantMessage] = Field(default_factory=list, max_length=6)
+
+    @model_validator(mode='after')
+    def location_metadata(self):
+        if self.explore_mode and not self.previous_id:
+            raise ValueError('继续探索需要原推荐会话。')
+        if self.location_details and not self.location:
+            raise ValueError('定位信息需要对应坐标。')
+        if self.location_details and self.location_details.source == 'selected' and not self.location_details.name:
+            raise ValueError('所选位置需要地点名称。')
+        return self
 
 
 class SearchContext(Contract):
@@ -227,6 +248,7 @@ class CollectionIntent(Contract):
 
 
 class RetrievalPlan(Contract):
+    explore_mode: Literal['batch', 'area'] | None = None
     temporal: TemporalIntent | None = None
     activity_relation: ActivityRelation | None = None
     collection_intent: CollectionIntent | None = None

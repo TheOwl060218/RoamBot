@@ -10,6 +10,25 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe('ApiClient', () => {
+  it('reports a network interruption without retrying or clearing the signed-in session', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ user: { username: 'traveler' }, csrf_token: 'csrf-1' }))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const client = new ApiClient(fetchMock)
+    await client.login('traveler', 'password123')
+    await expect(client.post('/discovery/jobs', { message: '换一个地方' })).rejects.toMatchObject({
+      status: 0, code: 'network_unavailable', message: '暂时连接不上服务，请稍后重试。',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(client.authSession?.user.username).toBe('traveler')
+  })
+
+  it('reports an interrupted response body as a network interruption', async () => {
+    const response = jsonResponse({})
+    vi.spyOn(response, 'text').mockRejectedValue(new TypeError('Failed to fetch'))
+    const client = new ApiClient(vi.fn<typeof fetch>().mockResolvedValue(response))
+    await expect(client.get('/history')).rejects.toMatchObject({ code: 'network_unavailable' })
+  })
   it('calls fetch without binding the ApiClient instance as this', async () => {
     const fetchMock = vi.fn(function (this: unknown) {
       if (this !== undefined) throw new TypeError('Illegal invocation')

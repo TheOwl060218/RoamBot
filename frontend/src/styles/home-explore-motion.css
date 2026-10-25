@@ -1,0 +1,55 @@
+/* Shared snapshots use the actual destination bounds, including restored results
+   and responsive headers. No fixed coordinates or delayed navigation. */
+html[data-home-explore-transition] :is(.home-scene, .app-shell) { view-transition-name: home-explore-scene; }
+html[data-home-explore-transition] :is(.home-brand, .shell-header .brand) { view-transition-name: home-explore-brand; }
+html[data-home-explore-transition] :is(.home-start, .discovery-input .studio-composer form) { view-transition-name: home-explore-composer; }
+html[data-home-explore-transition] .home-shortcuts { view-transition-name: home-explore-shortcuts; }
+html[data-home-explore-transition] :is(.home-guest-account, .home-account-state, .shell-header .account-button) { view-transition-name: home-explore-account; }
+html[data-home-explore-transition] :is(.home-account-bar, .primary-nav) > a[href='/favorites'] { view-transition-name: home-explore-favorites; }
+html[data-home-explore-transition] :is(.home-account-bar, .primary-nav) > a[href='/history'] { view-transition-name: home-explore-history; }
+html[data-home-explore-transition] .primary-nav { view-transition-name: home-explore-navigation; }
+
+html[data-home-explore-transition]::view-transition-group(home-explore-brand),
+html[data-home-explore-transition]::view-transition-group(home-explore-account),
+html[data-home-explore-transition]::view-transition-group(home-explore-favorites),
+html[data-home-explore-transition]::view-transition-group(home-explore-history) {
+  animation-duration: 760ms; animation-timing-function: cubic-bezier(.22,.75,.18,1);
+}
+html[data-home-explore-transition]::view-transition-group(home-explore-composer) {
+  animation-duration: 620ms; animation-delay: 60ms; animation-timing-function: cubic-bezier(.22,.75,.18,1);
+}
+html[data-home-explore-transition]::view-transition-image-pair(home-explore-composer) { background: #f5fafb; border-radius: 26px; overflow: clip; }
+html[data-home-explore-transition]::view-transition-old(home-explore-composer) {
+  animation: home-explore-hide 160ms ease-out both; mix-blend-mode: normal;
+}
+html[data-home-explore-transition]::view-transition-new(home-explore-composer) {
+  animation: home-explore-show 340ms 180ms ease-out both; mix-blend-mode: normal;
+}
+html[data-home-explore-transition]::view-transition-old(home-explore-shortcuts) {
+  animation: home-explore-hide 100ms ease-out both;
+}
+html[data-home-explore-transition]::view-transition-group(home-explore-shortcuts) { animation-duration: 100ms; }
+html[data-home-explore-transition]::view-transition-old(home-explore-account),
+html[data-home-explore-transition]::view-transition-new(home-explore-account),
+html[data-home-explore-transition]::view-transition-old(home-explore-favorites),
+html[data-home-explore-transition]::view-transition-new(home-explore-favorites),
+html[data-home-explore-transition]::view-transition-old(home-explore-history),
+html[data-home-explore-transition]::view-transition-new(home-explore-history) { animation-duration: 760ms; }
+html[data-home-explore-transition]::view-transition-old(home-explore-scene) { animation: home-explore-hide 420ms ease-out both; }
+html[data-home-explore-transition]::view-transition-new(home-explore-scene) { animation: home-explore-show 600ms ease-out both; }
+html[data-home-explore-transition]::view-transition-new(coastal-content),
+html[data-home-explore-transition]::view-transition-new(home-explore-navigation) { animation: home-explore-show 420ms 260ms ease-out both; }
+@keyframes home-explore-hide { to { opacity: 0; } }
+@keyframes home-explore-show { from { opacity: 0; } to { opacity: 1; } }
+
+/* A home entry lands at the bottom conversation position from the first frame.
+   Suggestions sit above it so restoring a previous result cannot move it down. */
+.discovery-workspace[data-home-entry=true][data-landing=true] { grid-template-rows: minmax(0,1fr) auto; padding-top: clamp(32px,8svh,90px); }
+.discovery-workspace[data-home-entry=true][data-landing=true] .studio-composer { display: flex; flex-direction: column; }
+.discovery-workspace[data-home-entry=true][data-landing=true] .composer-suggestions { order: -1; margin: 0 0 18px; }
+.discovery-workspace[data-home-entry=true][data-landing=true] .studio-composer form { min-height: 64px; padding: 10px 14px; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-home-explore-transition]::view-transition-group(*),
+  html[data-home-explore-transition]::view-transition-old(*),
+  html[data-home-explore-transition]::view-transition-new(*) { animation: none !important; }
+}

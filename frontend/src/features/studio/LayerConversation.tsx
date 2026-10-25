@@ -3,10 +3,11 @@ import { MessageCircle, X } from 'lucide-react'
 import { Composer } from './Composer'
 import { FOCUS_CHAT, usable } from '../commands/chatFocus'
 
-export function LayerConversation({ label, focusedPlace, messages, status, busy, onSend, children }: {
+export function LayerConversation({ label, focusedPlace, messages, status, busy, onSend, children, placement = 'floating' }: {
   label: string; focusedPlace: string; messages: readonly { id: string; role: string; content: string }[]
   status: string; busy: boolean; onSend: (message: string) => Promise<void>
   children?: ReactNode
+  placement?: 'floating' | 'header'
 }) {
   const [open, setOpen] = useState(false)
   const [viewport, setViewport] = useState(() => ({ width: document.documentElement.clientWidth || innerWidth, height: innerHeight }))
@@ -14,6 +15,7 @@ export function LayerConversation({ label, focusedPlace, messages, status, busy,
   const [dragging, setDragging] = useState(false), [panelHeight, setPanelHeight] = useState(300)
   const drag = useRef<{ id: number; x: number; y: number; originX: number; originY: number; moved: boolean } | null>(null)
   const skipClick = useRef(false)
+  const [manuallyPlaced, setManuallyPlaced] = useState(false)
   const id = useId(), panel = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null)
   const records = useRef<HTMLElement>(null), follow = useRef(true)
   useEffect(() => {
@@ -28,7 +30,8 @@ export function LayerConversation({ label, focusedPlace, messages, status, busy,
   const panelWidth = Math.min(420, Math.max(200, viewport.width - 88))
   const clamp = (value: number, max: number) => Math.max(12, Math.min(value, Math.max(12, max)))
   const maxX = viewport.width - 64 - (open ? panelWidth + 12 : 0)
-  const x = clamp(anchor.x, maxX), y = clamp(anchor.y, viewport.height - 64)
+  const mobileDock = viewport.width <= 600 && !manuallyPlaced
+  const x = clamp(mobileDock ? viewport.width - 68 : anchor.x, maxX), y = clamp(mobileDock ? viewport.height - 76 : anchor.y, viewport.height - 64)
   const panelY = clamp(y + 52 - panelHeight, viewport.height - panelHeight - 12)
   useLayoutEffect(() => {
     const measure = () => { if (panel.current) setPanelHeight(panel.current.offsetHeight) }
@@ -41,7 +44,7 @@ export function LayerConversation({ label, focusedPlace, messages, status, busy,
     return () => { observer?.disconnect(); window.removeEventListener('resize', resize); window.visualViewport?.removeEventListener('resize', resize) }
   }, [])
   function startDrag(event: PointerEvent<HTMLButtonElement>) {
-    if (event.button !== 0) return
+    if (placement === 'header' || event.button !== 0) return
     skipClick.current = false
     drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, originX: x, originY: y, moved: false }
     event.currentTarget.setPointerCapture?.(event.pointerId)
@@ -51,7 +54,7 @@ export function LayerConversation({ label, focusedPlace, messages, status, busy,
     if (!current || current.id !== event.pointerId) return
     const dx = event.clientX - current.x, dy = event.clientY - current.y
     if (!current.moved && Math.hypot(dx, dy) < 6) return
-    current.moved = true; setDragging(true)
+    current.moved = true; setManuallyPlaced(true); setDragging(true)
     setAnchor({ x: clamp(current.originX + dx, maxX), y: clamp(current.originY + dy, viewport.height - 64) })
   }
   function finishDrag(event: PointerEvent<HTMLButtonElement>) {
@@ -80,11 +83,11 @@ export function LayerConversation({ label, focusedPlace, messages, status, busy,
     return () => document.removeEventListener('keydown', escape, true)
   }, [open])
   function collapse() { setOpen(false); trigger.current?.focus({ preventScroll: true }) }
-  return <div className='layer-conversation' data-open={open} data-dragging={dragging}
-    style={{ left: x, top: y, '--orb-roll': `${open ? Math.round((x - anchor.x) / 52) * 360 : 0}deg` } as CSSProperties} onKeyDown={event => {
+  return <div className={`layer-conversation${placement === 'header' ? ' layer-conversation-header' : ''}`} data-open={open} data-dragging={dragging}
+    style={placement === 'header' ? undefined : { left: x, top: y, '--orb-roll': `${open ? Math.round((x - anchor.x) / 52) * 360 : 0}deg` } as CSSProperties} onKeyDown={event => {
     if (open && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); collapse() }
   }}>
-    <div ref={panel} id={id} className='layer-chat-panel glass-panel' style={{ width: panelWidth, top: panelY - y }} role='region' aria-label={label} aria-hidden={!open} inert={!open}>
+    <div ref={panel} id={id} className='layer-chat-panel glass-panel' style={placement === 'header' ? undefined : { width: panelWidth, top: panelY - y }} role='region' aria-label={label} aria-hidden={!open} inert={!open}>
       <header><strong>{focusedPlace}</strong><button type='button' className='icon-button' aria-label={`收起${label}`} onClick={collapse}><X size={18} aria-hidden='true' /></button></header>
       <section ref={records} className='layer-chat-messages studio-conversation' aria-label={`${label}记录`} aria-live='polite' onScroll={event => {
         const element = event.currentTarget
@@ -98,10 +101,11 @@ export function LayerConversation({ label, focusedPlace, messages, status, busy,
       {children}
     </div>
     <button ref={trigger} className='studio-chat-orb' type='button' aria-label={open ? `收起${label}` : `打开${label}`} aria-expanded={open} aria-controls={id}
+      title={open ? `收起${label}` : `打开${label}`}
       onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag}
       onKeyDown={event => {
         const move = { ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] }[event.key]
-        if (!move) return
+        if (placement === 'header' || !move) return
         event.preventDefault(); event.stopPropagation(); setAnchor({ x: clamp(x + move[0], maxX), y: clamp(y + move[1], viewport.height - 64) })
       }}
       onClick={() => { if (skipClick.current) { skipClick.current = false; return }; if (open) collapse(); else setOpen(true) }}>

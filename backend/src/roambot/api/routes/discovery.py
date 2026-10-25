@@ -15,7 +15,7 @@ from roambot.api.dependencies import (
     get_personal_data_service,
 )
 from roambot.api.errors import error_response
-from roambot.api.routes.commands import actor_for
+from roambot.api.routes.commands import actor_for, COOKIE
 from roambot.domain.discovery import DiscoveryRequest
 from roambot.persistence.discovery_cache import DiscoveryCache
 from roambot.persistence.discovery_knowledge import DiscoveryKnowledge
@@ -42,7 +42,8 @@ SESSION = Depends(get_optional_session)
 def get_jobs(request: Request):
     with _lock:
         if not hasattr(request.app.state, "discovery_jobs"):
-            request.app.state.discovery_jobs = DiscoveryJobs()
+            from roambot.persistence.discovery_sessions import DiscoverySessions
+            request.app.state.discovery_jobs = DiscoveryJobs(DiscoverySessions(request.app.state.settings.data_dir / 'discovery-sessions.sqlite3'))
         return request.app.state.discovery_jobs
 
 
@@ -162,6 +163,8 @@ def save_history(job_id: str, request: Request, response: Response, session=OWNE
                 run.history_id = personal.capture_discovery(user_id=session.authenticated.user_id,
                     body=run.body, snapshot={**run.snapshot(), "status": run.status}).id
             personal.get_history(user_id=session.authenticated.user_id, history_id=run.history_id)
+            if jobs.sessions and jobs.sessions.load(job_id, actor_for(request, response, session)):
+                jobs.sessions.save(job_id, actor_for(request, response, session), run.body.model_dump(mode='json'), run.snapshot())
         return {"history_id": run.history_id}
     except (LookupError, ResourceNotFoundError):
         return error_response(status_code=404, code="discovery_not_found", message="推荐会话不可用。")
@@ -174,7 +177,8 @@ def history_run(personal, user_id, history_id):
     body = DiscoveryRequest(message=history.request["message"], location=history.request.get("location"))
     run = DiscoveryRun(body, None, None, None, None, previous={
         "context": history.request["context"], "cards": history.result["cards"],
-        "search_request": history.request.get('search_request')},
+        "search_request": history.request.get('search_request'),
+        "exploration_state": history.result.get('exploration_state')},
         source=history.result["source"])
     run.cards = history.result["cards"]
     # Preserve the actual bounded dialogue that produced this snapshot. The
@@ -231,6 +235,10 @@ def read(job_id: str, request: Request, response: Response, session=SESSION, job
     response.headers["Cache-Control"] = "no-store"
     try:
         run = jobs.owned(actor_for(request, response, session), job_id)
+        identity = request.cookies.get(COOKIE)
+        if session is None and identity:
+            response.set_cookie(COOKIE, identity, httponly=True, samesite='lax',
+                secure=request.app.state.settings.secure_cookies, max_age=86400)
         return {"id": job_id, **run.snapshot()}
     except LookupError:
         return error_response(

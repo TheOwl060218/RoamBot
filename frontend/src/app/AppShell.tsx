@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { UserRound } from 'lucide-react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 import { AuthDialog } from '../features/auth/AuthDialog'
 import { useAuth } from '../features/auth/authContext'
@@ -8,11 +8,11 @@ import { ACCOUNT_DIALOG_REQUEST_EVENT } from './accountDialog'
 import { PlanNavigation } from '../features/plans/PlanNavigation'
 import { CoastalBackdrop } from './CoastalBackdrop'
 import { RouteTransitionFrame } from './RouteTransitionFrame'
-import { useCommandTarget } from '../features/commands/commandContext'
+import { useBusinessAssistant, useCommandTarget } from '../features/commands/commandContext'
 
 const navigation = [
+  { label: '行程中心', to: '/itineraries' },
   { label: '推荐', to: '/explore' },
-  { label: '原有查询', to: '/recommend' },
   { label: '收藏', to: '/favorites' },
   { label: '历史', to: '/history' },
 ]
@@ -25,6 +25,8 @@ export function AppShell({ children }: PropsWithChildren) {
   const main = useRef<HTMLElement>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
+  const assistant = useBusinessAssistant()
+  const { pathname } = useLocation()
   useCommandTarget('shell', () => ({}), effect => {
     if (effect.tool !== 'open_account') return false
     setAccountMode(effect.arguments.mode === 'register' ? 'register' : 'login')
@@ -37,17 +39,21 @@ export function AppShell({ children }: PropsWithChildren) {
       const content = main.current
       const header = document.querySelector<HTMLElement>('.shell-header')
       if (!content || !header) return
-      const overlap = header.getBoundingClientRect().bottom - content.getBoundingClientRect().top
-      content.style.setProperty('--shell-fade-end', `${Math.max(0, overlap) + 72}px`)
-      content.style.setProperty('--shell-fade-start', `${Math.max(0, overlap)}px`)
-      content.classList.toggle('is-scrolled', window.scrollY > 8)
+      content.style.setProperty('--shell-header-height', `${header.offsetHeight}px`)
+      const browse = content.querySelector<HTMLElement>('.discovery-browse')
+      browse?.classList.toggle('is-scrolled', browse.scrollTop > 8)
+      header.classList.toggle('is-scrolled', window.scrollY > 8 || (browse?.scrollTop ?? 0) > 8)
     }
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onScroll)
     if (main.current) resize?.observe(main.current)
+    const header = document.querySelector<HTMLElement>('.shell-header')
+    if (header) resize?.observe(header)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
+    const scrollRegion = main.current
+    scrollRegion?.addEventListener('scroll', onScroll, { capture: true, passive: true })
     window.addEventListener('resize', onScroll)
-    return () => { resize?.disconnect(); window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll) }
+    return () => { resize?.disconnect(); scrollRegion?.removeEventListener('scroll', onScroll, true); window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll) }
   }, [])
 
   useEffect(() => {
@@ -86,7 +92,6 @@ export function AppShell({ children }: PropsWithChildren) {
           {navigation.map((item) => (
             <NavLink
               className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-              end={item.to === '/recommend'}
               key={item.label}
               to={item.to}
               viewTransition
@@ -96,6 +101,8 @@ export function AppShell({ children }: PropsWithChildren) {
           ))}
         </nav>
 
+        <div className='shell-account-actions'>
+        {!['/explore', '/recommend'].includes(pathname) && <div ref={assistant?.setChatAnchor} className='shell-assistant-anchor' />}
         <button
           className="account-button"
           type="button"
@@ -107,6 +114,7 @@ export function AppShell({ children }: PropsWithChildren) {
             <UserRound aria-hidden="true" size={20} strokeWidth={1.8} />
           )}
         </button>
+        </div>
       </header>
 
       <main ref={main} className="shell-main"><RouteTransitionFrame>{children}</RouteTransitionFrame></main>

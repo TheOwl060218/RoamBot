@@ -6,6 +6,7 @@ import { apiClient } from '../src/api/client'
 import { AuthContext } from '../src/features/auth/authContext'
 import { PlansPage } from '../src/features/plans/PlanPages'
 import { SearchPage } from '../src/pages/SearchPage'
+import { DiscoveryPage } from '../src/pages/DiscoveryPage'
 import { saveSearchResult } from '../src/features/search/formState'
 import { seedStudioDraft, studioResponse } from './fixtures/studio'
 
@@ -18,14 +19,16 @@ function mount(path='/recommend') {
   return render(<AuthContext.Provider value={{user:{username:'owner'},initializing:false,login:vi.fn(),register:vi.fn(),logout:vi.fn()}}>
     <MemoryRouter initialEntries={[path]}><Routes>
       <Route path='/plans' element={<PlansPage/>}/><Route path='/recommend' element={<SearchPage/>}/>
+      <Route path='/explore' element={<DiscoveryPage/>}/>
       <Route path='/plans/new-plan' element={<h1>新计划详情</h1>}/>
     </Routes></MemoryRouter></AuthContext.Provider>)
 }
-it('starts picking from the empty plan center and reuses cached candidates',async()=>{
+it('starts picking from the plan center in discovery while keeping legacy queries separate',async()=>{
   mount('/plans');await screen.findByText('还没有进行中的计划')
   await userEvent.click(screen.getByRole('link',{name:'发起同行计划'}))
-  expect(await screen.findByText('同行挑选中')).toBeVisible()
-  expect(screen.getAllByTestId('destination-card')).toHaveLength(4)
+  expect(await screen.findByRole('heading',{name:'想去哪儿？'})).toBeVisible()
+  expect(screen.getByText('找几个去处，和同行的人一起决定。')).toBeVisible()
+  expect(screen.queryByText('同行挑选中')).not.toBeInTheDocument()
   expect(screen.getByRole('textbox',{name:'继续补充条件'})).toBeVisible()
 })
 it('creates directly from comparison candidates and continues after refreshing cache',async()=>{

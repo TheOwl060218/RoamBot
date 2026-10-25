@@ -71,12 +71,12 @@ test('a dialog opened on a clean result cannot submit after conditions change', 
   expect(post).not.toHaveBeenCalled()
 })
 
-test('header reports votes against joined members rather than expected guests', async () => {
+test('header uses the same expected total as results and separately explains joined members', async () => {
   vi.spyOn(apiClient, 'get').mockResolvedValue({ plan: { ...plan, expected_count: 5, summary: { ...plan.summary, voted_count: 2, joined_count: 3 } } })
   wrap(<Routes><Route path='/plans/:planId' element={<PlanDetailPage />} /></Routes>, '/plans/p1')
   const header = (await screen.findByRole('heading', { name: plan.name })).closest('header')!
-  expect(within(header).getByText('2/3 人已投票')).toBeVisible()
-  expect(within(header).getByText(/还有 1 位同行者未投票/)).toBeVisible()
+  expect(within(header).getByText('2/5 人已投票')).toBeVisible()
+  expect(within(header).getByText('已加入 3 人，其中 1 人尚未投票。')).toBeVisible()
   expect(within(header).getByText('2 个候选')).toBeVisible()
 })
 

@@ -1,5 +1,6 @@
 import type { Favorite } from '../../api/types'
 import { scenerySummary } from './favoritePresentation'
+import { AddToItinerary } from '../itineraries/ItineraryProvider'
 
 type FavoriteListProps = {
   favorites: Favorite[]
@@ -12,10 +13,10 @@ export function FavoriteList({ favorites, selectedId, onSelect }: FavoriteListPr
   return (
     <div className="favorite-list" aria-label="收藏地点列表">
       {favorites.map((favorite) => (
+        <div className='favorite-itinerary-row' key={favorite.id}>
         <button
           className="favorite-list-item"
           type="button"
-          key={favorite.id}
           aria-label={`查看 ${favorite.place.name}`}
           aria-pressed={favorite.id === selectedId}
           onClick={() => onSelect(favorite.id)}
@@ -24,6 +25,8 @@ export function FavoriteList({ favorites, selectedId, onSelect }: FavoriteListPr
           <span>{favorite.place.city} · {scenerySummary(favorite.place.scenery_tags)}</span>
           <small>{favorite.place.address}</small>
         </button>
+        <AddToItinerary source={{ favorite_id: favorite.id }} />
+        </div>
       ))}
     </div>
   )

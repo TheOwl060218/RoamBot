@@ -1,67 +1,65 @@
 html:has(.home-scene) { scrollbar-gutter: auto; }
 .home-scene {
-  --home-ink: #f4f8fa;
-  --home-secondary: #e7f0f3;
-  position: relative;
-  isolation: isolate;
-  min-height: 100vh;
-  min-height: 100svh;
-  overflow: clip;
-  color: var(--home-ink);
-  background: #225a70;
-  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  -webkit-font-smoothing: antialiased;
+  --home-ink: #f5fbfb;
+  position: relative; isolation: isolate; display: flex; flex-direction: column;
+  min-height: 100vh; min-height: 100svh; overflow: clip; color: var(--home-ink); background: #c5dce1;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; -webkit-font-smoothing: antialiased;
 }
 .home-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 56%; z-index: -3; }
-.home-blur { position: absolute; inset: 0; z-index: -2; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); mask-image: linear-gradient(90deg, #000 15%, #000c 30%, transparent 59%); -webkit-mask-image: linear-gradient(90deg, #000 15%, #000c 30%, transparent 59%); }
-.home-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #08202991, #08202945 35%, transparent 66%), linear-gradient(0deg, #08161c2e, transparent 30%); }
-.home-content { width: 48%; min-width: 420px; padding: max(140px, calc(50svh - 180px)) 0 100px 10.5%; }
-.home-brand { display: flex; align-items: center; gap: 22px; margin-bottom: 64px; }
-.home-logo { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 18px; background: #196c80; font-size: 29px; font-weight: 700; box-shadow: 0 4px 18px #082b3c1a; flex-shrink: 0; }
-.home-brand h1 { margin: 0; font-size: 44px; line-height: 1.2; letter-spacing: .2px; font-weight: 500; color: var(--home-ink); text-shadow: 0 2px 15px #153c4726; }
-.home-actions { width: 300px; max-width: 100%; }
+.home-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg,#0820298f,#08202920 58%,transparent 85%); pointer-events: none; }
+.home-shade::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(6px); mask-image: linear-gradient(90deg,#000,#0009 30%,transparent 64%); }
 .home-scene a { color: inherit; text-decoration: none; }
-.home-scene button { padding: 0; font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-.home-scene .home-start { display: flex; justify-content: space-between; align-items: center; padding: 0 30px; width: 100%; min-height: 60px; border-radius: 32px; background: #f5fafb; color: #205565; font-size: 18px; font-weight: 500; letter-spacing: 1px; box-shadow: 0 5px 24px #10374516; transition: transform .18s, background .18s; }
-.home-first-row { display: flex; align-items: center; min-height: 44px; margin-top: 34px; color: var(--home-secondary); text-shadow: 0 1px 8px #133b4959; }
-.home-second-row { min-height: 44px; margin-top: 28px; }
-.home-account { justify-content: center; gap: 28px; }
-.home-account button { min-width: 86px; min-height: 44px; font-size: 16px; letter-spacing: 2px; }
-.home-account > span { height: 16px; width: 1px; background: #ffffff52; }
-.home-scene .home-plan { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; color: var(--home-secondary); font-size: 15px; letter-spacing: 1px; text-shadow: 0 1px 8px #133b4959; }
-.home-shortcuts { justify-content: space-between; gap: 16px; }
-.home-shortcuts a { display: flex; align-items: center; justify-content: center; min-height: 44px; font-size: 15px; padding: 0 5px; }
-.home-account-state { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 13px; color: var(--home-secondary); }
-.home-username { max-width: 170px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-account-state button { min-height: 44px; padding-inline: 4px; flex-shrink: 0; }
-.home-session-placeholder .home-first-row { justify-content: center; font-size: 13px; }
-.home-error { margin: 16px 0 0; color: #fff; font-size: 14px; text-shadow: 0 1px 8px #082029; }
-.home-location { position: absolute; right: 14px; bottom: 12px; font-size: 11.5px; line-height: 1.5; letter-spacing: .3px; color: #e5ecefcc; text-shadow: 0 1px 3px #102b3a66; }
+.home-scene button { font: inherit; cursor: pointer; }
+.home-header { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-height: 88px; padding: max(24px,env(safe-area-inset-top)) 56px 20px 32px; }
+.home-account-bar { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; min-height: 40px; }
+.home-guest-account { display: flex; align-items: center; gap: 10px; }
+.home-account-bar > :is(a,button), .home-guest-account button, .home-account-state button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 17px;
+  border: 1px solid #ffffff80; border-radius: 999px; color: #2d5965; background: #f5fbfa30; font-size: 14px; line-height: 20px;
+  transition: background 160ms ease, transform 160ms ease;
+}
+.home-account-state { display: flex; align-items: center; gap: 12px; padding-left: 8px; }
+.home-username { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.home-session-placeholder { font-size: 13px; color: #edf6f7; min-width: 150px; text-align: right; }
+.home-error { margin: 0; color: #862f32; font-size: 13px; }
+.home-content { width: min(340px,calc(100% - 48px)); margin: auto 0 auto 14%; padding: 40px 0 100px; }
+.home-brand { display: flex; align-items: center; gap: 17px; margin-bottom: 74px; width: fit-content; }
+.home-logo { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 19px; background: #196c80; color: #f4fafa; font-size: 29px; font-weight: 700; box-shadow: 0 6px 24px #123d4b1a; flex-shrink: 0; }
+.home-brand h1 { margin: 0; font-size: 40px; line-height: 1.2; letter-spacing: .2px; font-weight: 500; text-shadow: 0 2px 16px #153c473b; }
+.home-actions { display: grid; gap: 30px; width: 100%; }
+.home-scene .home-start {
+  position: relative; display: flex; justify-content: flex-start; align-items: center; padding: 0 25px; width: 100%; min-height: 58px;
+  border: 1px solid #ffffff99; border-radius: 999px; background: #f5fafb; color: #174653; font-size: 17px; font-weight: 500; letter-spacing: 1px;
+  box-shadow: 0 8px 30px #174c5a26; transition: transform 180ms ease, background 180ms ease;
+}
+.home-start > svg { position: absolute; right: 25px; }
+.home-shortcuts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.home-scene .home-shortcuts > :is(a,button) {
+  display: inline-flex; align-items: center; justify-content: center; width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px;
+  border: 1px solid #eff8f78c; border-radius: 999px; color: #f5fbfb; background: #e8f4f52b; font-size: 15px; line-height: 22px;
+  box-shadow: 0 3px 15px #173f4a09; transition: background 160ms ease, transform 160ms ease;
+}
+.home-scene :is(a,button):focus-visible { outline: 2px solid #166d83; outline-offset: 4px; }
+.home-location { position: absolute; right: 18px; bottom: 14px; font-size: 11.5px; line-height: 1.5; letter-spacing: .3px; color: #edf3f2; text-shadow: 0 1px 4px #102b3a99; }
 .home-location > span { display: none; }
-.home-scene button, .home-shortcuts a { transition: transform .16s ease-out; transform-origin: center; }
-@media (hover: hover) and (pointer: fine) {
-  .home-scene button:not(:disabled):hover, .home-shortcuts a:hover, .home-scene .home-start:hover { transform: scale(1.01); text-decoration: none; }
-  .home-scene .home-start:hover { background: #f0fafc; }
+@media (hover:hover) and (pointer:fine) {
+  .home-scene .home-start:hover { transform: translateY(-2px); background: #e7f2f5; }
+  .home-account-bar :is(a,button):not(:disabled):hover, .home-scene .home-shortcuts > :is(a,button):hover { background: #f5fbfa40; transform: translateY(-1px); }
 }
-@media (min-width: 601px) and (hover: hover) and (pointer: fine) {
-  .home-scene .home-account button:not(:disabled):hover, .home-scene button.home-plan:not(:disabled):hover, .home-shortcuts a:hover { transform: scale(1.08); }
-}
-@media (max-width: 600px) {
-  .home-photo { object-position: 66% center; }
-  .home-blur, .home-shade { display: none; }
-  .home-content { width: 100%; min-width: 0; padding: 108px 26px 100px; }
-  .home-brand { gap: 18px; justify-content: center; }
-  .home-brand h1 { font-size: 36px; }
-  .home-logo { width: 50px; height: 50px; border-radius: 15px; font-size: 25px; }
-  .home-actions { width: 280px; margin-inline: auto; }
-  .home-scene .home-start { position: relative; justify-content: center; width: calc(100% - 20px); margin-inline: auto; min-height: 54px; padding-inline: 48px; border-radius: 28px; }
-  .home-start > svg { position: absolute; right: 22px; }
-  .home-first-row { margin-top: 42px; }
-  .home-second-row { margin-top: 36px; }
-  .home-account { gap: 20px; }
-  .home-location { right: 12px; bottom: 10px; }
+@media (max-width:600px) {
+  .home-photo { object-position: 62% center; }
+  .home-header { min-height: 76px; padding: max(18px,env(safe-area-inset-top)) 24px 18px 18px; }
+  .home-account-bar { gap: 7px; }
+  .home-account-bar > :is(a,button), .home-guest-account button, .home-account-state button { padding: 7px 12px; font-size: 13px; }
+  .home-account-state { gap: 7px; padding-left: 2px; }
+  .home-username { max-width: 80px; font-size: 13px; }
+  .home-content { width: min(360px,calc(100% - 40px)); margin-left: auto; margin-right: auto; padding: 40px 0 120px; }
+  .home-brand { gap: 16px; margin: 0 auto 54px; justify-content: center; }
+  .home-brand h1 { font-size: 40px; }
+  .home-logo { width: 50px; height: 50px; border-radius: 16px; font-size: 25px; }
+  .home-actions { gap: 20px; }
+  .home-shortcuts { gap: 12px; }
+  .home-scene .home-start { min-height: 58px; justify-content: center; padding-inline: 48px; }
   .home-location > span { display: inline; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .home-scene .home-start, .home-scene button, .home-shortcuts a { transition: none; }
-}
+@media (prefers-reduced-motion:reduce) { .home-scene :is(a,button) { transition: none !important; } }

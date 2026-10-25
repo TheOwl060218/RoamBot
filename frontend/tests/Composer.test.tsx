@@ -27,3 +27,13 @@ it('does not send Enter during composition or send twice in flight', () => {
   expect(onSend).toHaveBeenCalledTimes(1)
   expect(input).toBeVisible()
 })
+
+it('uses the send position to cancel while busy without submitting the next draft', () => {
+  const onCancel = vi.fn(), onSend = vi.fn()
+  render(<Composer busy onSend={onSend} onCancel={onCancel} />)
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: '下一次想法' } })
+  fireEvent.click(screen.getByRole('button', { name: '停止查找' }))
+  expect(onCancel).toHaveBeenCalledOnce()
+  expect(onSend).not.toHaveBeenCalled()
+  expect(screen.getByRole('textbox')).toHaveValue('下一次想法')
+})

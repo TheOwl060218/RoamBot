@@ -12,8 +12,10 @@ import { AppShell } from './AppShell'
 import { PlansPage, PlanDetailPage, JoinPlanPage } from '../features/plans/PlanPages'
 import { coordinateRouteTransitions } from './routeTransitionPolicy'
 import { CommandRoot } from '../features/commands/CommandRoot'
+import { ItineraryProvider } from '../features/itineraries/ItineraryProvider'
+import { ItineraryCenter } from '../features/itineraries/ItineraryCenter'
 
-const router = coordinateRouteTransitions(createBrowserRouter([{ element: <CommandRoot />, children: [
+const router = coordinateRouteTransitions(createBrowserRouter([{ element: <ItineraryProvider><CommandRoot /></ItineraryProvider>, children: [
   { path: '/', element: <HomePage /> },
   {
     element: (
@@ -24,6 +26,8 @@ const router = coordinateRouteTransitions(createBrowserRouter([{ element: <Comma
     children: [
       { path: 'recommend', element: <SearchPage /> },
       { path: 'explore', element: <DiscoveryPage /> },
+      { path: 'itineraries', element: <ItineraryCenter /> },
+      { path: 'itineraries/:itineraryId', element: <ItineraryCenter /> },
       { path: 'favorites', element: <RequireAuth><FavoritesPage /></RequireAuth> },
       { path: 'history', element: <RequireAuth><HistoryPage /></RequireAuth> },
       { path: 'history/:historyId', element: <RequireAuth><HistoryDetailPage /></RequireAuth> },

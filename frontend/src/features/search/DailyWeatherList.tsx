@@ -37,10 +37,10 @@ export function DailyWeatherList({ weather, suitability, showSummary = true }: D
             </div>
             <div className="weather-facts">
               <div className="weather-temperature"><span>温度</span><strong>{day.temp_min_c}–{day.temp_max_c}°C</strong></div>
-              <div className="weather-advice">
+              {advice && <div className="weather-advice">
                 <span>出行建议</span>
-                <strong>{advice ? adviceLabels[advice.status] : '暂无判断'}</strong>
-              </div>
+                <strong>{adviceLabels[advice.status]}</strong>
+              </div>}
             </div>
             {showSummary && advice?.summary && <p className="weather-summary">{advice.summary}</p>}
           </article>

@@ -129,7 +129,7 @@ export function CreatePlanControl(props: Props) {
           navigate(`/plans/${response.plan.id}`)
         })
       }}>
-        <p className='eyebrow'>同行决策</p><h2 id={titleId}>创建同行计划</h2>
+        <h2 id={titleId}>创建同行计划</h2>
         {checking ? <p role='status'>正在确认查询…</p> : !trusted || !props.historyId ? <>
           <p>请更新推荐后创建计划。</p>
           <button className='primary-button' type='button' disabled={busy} onClick={() => void run(async () => {

@@ -22,7 +22,8 @@ from roambot.api.routes.discovery import router as discovery_router
 from roambot.api.routes.favorites import router as favorites_router
 from roambot.api.routes.health import router as health_router
 from roambot.api.routes.history import router as history_router
-from roambot.api.routes.maps import router as maps_router
+from roambot.api.routes.itineraries import router as itineraries_router
+from roambot.api.routes.maps import router as maps_router, sdk_router as maps_sdk_router
 from roambot.api.routes.places import router as places_router
 from roambot.api.routes.plans import public_router as public_plans_router
 from roambot.api.routes.plans import router as plans_router
@@ -103,11 +104,13 @@ def create_app(
     app.include_router(commands_router, prefix="/api/v1")
     app.include_router(discovery_router, prefix="/api/v1")
     app.include_router(maps_router, prefix="/api/v1")
+    app.include_router(maps_sdk_router)
     app.include_router(regions_router, prefix="/api/v1")
     app.include_router(recommendations_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(favorites_router, prefix="/api/v1")
     app.include_router(history_router, prefix="/api/v1")
+    app.include_router(itineraries_router, prefix="/api/v1")
     app.include_router(places_router, prefix="/api/v1")
     app.include_router(shares_router, prefix="/api/v1")
     app.include_router(plans_router, prefix="/api/v1")
@@ -130,7 +133,7 @@ def create_app(
                     code="not_found",
                     message="Resource was not found.",
                 )
-            return FileResponse(index_path)
+            return FileResponse(index_path, headers={"Cache-Control": "no-cache"})
 
     return app
 

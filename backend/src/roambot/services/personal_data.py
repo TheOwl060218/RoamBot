@@ -139,7 +139,8 @@ class PersonalDataService:
     def capture_discovery(self, *, user_id, body, snapshot):
         archive = DiscoveryArchive.model_validate({**snapshot, "generated_at": self._now()})
         request = DiscoveryArchiveRequest(message=body.message, context=snapshot["context"],
-            location=body.location, conversation=snapshot.get("conversation", []),
+            location=None if not body.use_location or (snapshot.get('position') or {}).get('approximate') else body.location,
+            conversation=snapshot.get("conversation", []),
             search_request=snapshot.get('search_request'))
         with self._session_factory.begin() as db:
             record = HistoryRepository(db).create(user_id=user_id, mode="discovery",

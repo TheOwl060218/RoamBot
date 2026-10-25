@@ -8,6 +8,7 @@ import { announcePlanChange } from '../plans/planPresentation'
 import { BusinessAssistantContext } from './commandContext'
 import { CommandBridge, contextFingerprint, type CommandContext, type CommandEffect } from './commandBridge'
 import { BUSINESS_CHANGED } from './commandEvents'
+import { useSessionMessages } from './useSessionMessages'
 import { LayerConversation } from '../studio/LayerConversation'
 import { focusConversation, usable } from './chatFocus'
 import { AuthContext } from '../auth/authContext'
@@ -41,7 +42,8 @@ export function CommandRoot() {
   useLayoutEffect(() => { authReady.current = !auth?.initializing }, [auth?.initializing])
   const [bridge] = useState(() => new CommandBridge(() => apiClient.authSession?.user.username ?? null))
   const [busy, setBusy] = useState(false)
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([])
+  const [chatAnchor, setChatAnchor] = useState<HTMLDivElement | null>(null)
+  const [messages, setMessages, chatStorageUnavailable] = useSessionMessages<{ role: string; content: string }>('business', auth?.user?.username ?? null, !auth?.initializing)
   const [pending, setPending] = useState<Pending | null>(null)
   const [lastLink, setLastLink] = useState('')
   const [lastLinkAccount, setLastLinkAccount] = useState<string | null>(null)
@@ -84,7 +86,7 @@ export function CommandRoot() {
     const guestLogin = observedOwner.current === null && next !== null
     observedOwner.current = next
     latest.current = { ...latest.current, ...(guestLogin ? {} : { messages: [] }), lastLink: '' }
-    if (!guestLogin) { setMessages([]); awaitingLogin.current = null }
+    if (!guestLogin) awaitingLogin.current = null
     setLastLink(''); setPending(null)
     setLastLinkAccount(next)
     selection.current = null; attempt.current = null; deferred.current = null
@@ -135,11 +137,18 @@ export function CommandRoot() {
   async function globalEffect(effect: CommandEffect) {
     const args = effect.arguments
     const pages: Record<string, string> = { home: '/', explore: '/explore', recommend: '/recommend', favorites: '/favorites',
-      history: '/history', plans: '/plans' }
+      history: '/history', plans: '/plans', itineraries: '/itineraries' }
     if (effect.tool === 'navigate') {
       const path = pages[String(args.page)]
       if (!path) throw new Error('未知的站内页面。')
       navigate(path, { viewTransition: true })
+    } else if (effect.tool === 'open_itinerary') {
+      navigate('/itineraries/' + encodeURIComponent(String(args.id)), { viewTransition: true })
+    } else if (effect.tool === 'show_itinerary_map') {
+      if (getContext().itinerary_id !== args.itinerary_id) navigate('/itineraries/' + encodeURIComponent(String(args.itinerary_id)), { viewTransition: true })
+      await bridge.waitFor('itinerary')
+      await bridge.whenReady(() => bridge.context().itinerary_id === args.itinerary_id)
+      await bridge.perform(effect)
     } else if (effect.tool === 'open_plan' || effect.tool === 'open_history') {
       navigate('/' + (effect.tool === 'open_plan' ? 'plans' : 'history') + '/' +
         encodeURIComponent(String(args.id)), { viewTransition: true })
@@ -176,7 +185,7 @@ export function CommandRoot() {
       const direction = String(args.direction)
       const horizontal = direction === 'left' || direction === 'right'
       const selectors = horizontal ? '.destination-grid,.discovery-rail,.plan-comparison-rail,.plan-collection-rail' :
-        '[role="dialog"],.location-dialog,.studio-detail-host'
+        '.discovery-browse,[role="dialog"],.location-dialog,.studio-detail-host'
       const elements = [...document.querySelectorAll<HTMLElement>(selectors)].filter(element =>
         usable(element) && (horizontal ? element.scrollWidth > element.clientWidth : element.scrollHeight > element.clientHeight))
       const element = elements.at(-1)
@@ -205,7 +214,7 @@ export function CommandRoot() {
     await frame()
   }
   function say(message: string) {
-    setMessages(current => [...current, { role: 'assistant', content: message }].slice(-24))
+    setMessages(current => [...current, { role: 'assistant', content: message }])
   }
   async function perform(saved: Pending, confirmed: boolean) {
     if (saved.fingerprint !== contextFingerprint(getContext()) || saved.owner !== owner())
@@ -229,6 +238,10 @@ export function CommandRoot() {
       if (sessionStorage.getItem('roambot.effect.' + marker) === 'done') continue
       if (data.plan) {
         await bridge.dispatch({ tool: 'plan_result', arguments: { plan: data.plan } })
+        await frame()
+      }
+      if (data.itinerary) {
+        await bridge.dispatch({ tool: 'itinerary_result', arguments: { itinerary: data.itinerary } })
         await frame()
       }
       if (data.assistant) {
@@ -318,7 +331,7 @@ export function CommandRoot() {
     attempt.current = task
     const { requestId, context, fingerprint, owner: startedOwner } = task
     if (!resumingLogin) {
-      setMessages(current => [...current, { role: 'user', content: message }].slice(-24))
+      setMessages(current => [...current, { role: 'user', content: message }])
       await bridge.dispatch({ tool: 'chat_started', arguments: { requestId, message } })
     }
     try {
@@ -365,11 +378,12 @@ export function CommandRoot() {
       else restoreChatFocus()
     }
   }
-  const conversation = <LayerConversation label='操作助手' focusedPlace='RoamBot' busy={busy} onSend={send} status=''
+  const conversation = (placement: 'floating' | 'header' = 'floating') => <LayerConversation placement={placement} label='操作助手' focusedPlace='RoamBot' busy={busy} onSend={send} status=''
     messages={messages.map((message, index) => ({ ...message, id: 'business-' + index }))}>
+    {chatStorageUnavailable && <p role='status'>当前浏览器无法保存聊天，刷新前请保留需要的内容。</p>}
     {lastLink && <a className='business-result-link' href={lastLink} target='_blank' rel='noreferrer'>打开刚生成的链接</a>}
   </LayerConversation>
-  return <BusinessAssistantContext.Provider value={{ bridge, send, busy, chat: conversation,
+  return <BusinessAssistantContext.Provider value={{ bridge, send, busy, chat: conversation(), setChatAnchor,
     resultLink: lastLinkAccount === owner() ? lastLink : '',
     recallSelection: (history, version) => {
       const saved = selection.current
@@ -378,9 +392,9 @@ export function CommandRoot() {
     rememberSelection: (history, version, ids) => { selection.current = { owner: owner(), history, version, ids } },
   }}>
     <Outlet />
-    {!['/recommend', '/explore'].includes(location.pathname) && createPortal(<div className='business-command-layer'>
-      {conversation}
-    </div>, document.body)}
+    {!['/', '/recommend', '/explore'].includes(location.pathname) && createPortal(<div className='business-command-layer'>
+      {conversation(chatAnchor ? 'header' : 'floating')}
+    </div>, chatAnchor ?? document.body)}
     {pending && createPortal(<ConfirmDialog open title='确认执行这些操作？'
       message={pending.proposal.actions.map(a => labels[a.tool] ?? a.tool).join(' → ')}
       confirmLabel='确认执行' onConfirm={() => void confirm()}

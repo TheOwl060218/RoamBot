@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { TravelPlan } from '../../api/types'
+import { OverlayHost } from '../studio/OverlayHost'
 
 export type VoteBody = { preferred_id: string; acceptable_ids: string[] }
 type Props = { plan: TravelPlan; open: boolean; busy: boolean; error: string; onClose: () => void; onVote: (body: VoteBody) => Promise<boolean> }
@@ -13,6 +14,14 @@ function VotePanelBody({ plan, open, busy, error, onClose, onVote }: Props) {
   const [preferred, setPreferred] = useState(plan.me?.preferred_id ?? '')
   const [acceptable, setAcceptable] = useState(plan.me?.acceptable_ids ?? [])
   const [saving, setSaving] = useState(false)
+  const [mobile, setMobile] = useState(() => window.matchMedia?.('(max-width: 700px)').matches ?? false)
+  useEffect(() => {
+    const query = window.matchMedia?.('(max-width: 700px)')
+    if (!query) return
+    const update = () => setMobile(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
   const lock = useRef(false), panel = useRef<HTMLElement>(null), wasOpen = useRef(false)
   const titleId = useId()
   const validIds = new Set(plan.candidates.map(c => c.id)), selected = validIds.has(preferred) ? preferred : ''
@@ -34,8 +43,7 @@ function VotePanelBody({ plan, open, busy, error, onClose, onVote }: Props) {
       if (saved) onClose()
     } finally { lock.current = false; setSaving(false) }
   }
-  return <aside className='plan-vote-slot' inert={!open} aria-hidden={!open}>
-    <section className='plan-vote-workbench-panel' role='dialog' aria-modal='false' aria-labelledby={titleId} ref={panel}>
+  const content = <>
       <div className='plan-vote-panel-heading'><h2 id={titleId}>我的投票</h2><button className='icon-button' type='button' aria-label='收起投票面板' onClick={onClose}><X size={18} aria-hidden='true' /></button></div>
       <p className='muted'>选一个首选，也可以接受其他地点。</p>
       {error && <p className='error-banner' aria-live='polite'>{error}</p>}
@@ -49,6 +57,9 @@ function VotePanelBody({ plan, open, busy, error, onClose, onVote }: Props) {
         </fieldset>
         <button className='primary-button' type='submit' disabled={disabled || !selected}>{disabled ? '正在保存…' : plan.me?.preferred_id ? '保存修改' : '提交投票'}</button>
       </form>
-    </section>
+  </>
+  if (mobile) return open ? <OverlayHost label='我的投票' onClose={onClose} panelClassName='plan-vote-workbench-panel plan-mobile-vote'>{content}</OverlayHost> : null
+  return <aside className='plan-vote-slot' inert={!open} aria-hidden={!open}>
+    <section className='plan-vote-workbench-panel' role='dialog' aria-modal='false' aria-labelledby={titleId} ref={panel}>{content}</section>
   </aside>
 }

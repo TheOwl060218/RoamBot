@@ -65,6 +65,19 @@ def test_selection_cannot_bind_unknown_or_other_city_destination(tmp_path, monke
         DiscoverySourceModel(SimpleNamespace(_model='offline')).choose([], {}, cards, [])
 
 
+def test_reserve_uses_same_identity_binding_without_automatically_accepting_omissions(tmp_path, monkeypatch):
+    run, places = candidates(tmp_path)
+    cards = run.candidate_facts([p['id'] for p in places])
+    monkeypatch.setattr('roambot.services.discovery_sources.structured_call', lambda *args: PlacePicks(
+        cards=[{'ref': 'p1', 'destination_ref': 'p1', 'experience': '湖畔'}],
+        reserve_cards=[{'ref': 'p2', 'destination_ref': 'p1', 'experience': '湖畔'},
+                       {'ref': 'p3', 'destination_ref': 'p3', 'experience': '用餐'}]))
+    selected = DiscoverySourceModel(SimpleNamespace(_model='offline')).choose([], {}, cards, [])
+    assert [c.place_id for c in selected.cards] == ['amap:1']
+    assert [c.place_id for c in selected.reserve_cards] == ['amap:3']
+    assert 'amap:4' not in [c.place_id for c in selected.cards + selected.reserve_cards]
+
+
 def test_same_target_shares_measurement_without_merging_place_identity(tmp_path):
     run, places = candidates(tmp_path)
     run.center = Coordinate(longitude=120, latitude=31, system='gcj02')

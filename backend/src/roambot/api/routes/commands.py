@@ -182,6 +182,8 @@ async def propose(
                 "run_recommendation",
                 "join_plan",
                 "describe_capabilities",
+                'create_itinerary', 'open_itinerary', 'show_itinerary_map', 'add_to_itinerary', 'edit_itinerary',
+                'move_itinerary_stop', 'remove_itinerary_stop', 'generate_itinerary',
             }
             guest_vote = action.tool == "submit_vote" and body.context.invite_token
             if (

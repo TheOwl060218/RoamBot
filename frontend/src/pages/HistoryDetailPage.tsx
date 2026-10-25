@@ -18,11 +18,11 @@ export function HistoryDetailPage() {
   useEffect(() => {
     void apiClient.get<{ history: HistoryDetail }>(`/history/${historyId}`)
       .then((response) => setHistory(response.history))
-      .catch(() => setError('历史快照不可用或已被删除。'))
+      .catch(() => setError('这条历史已不存在。'))
   }, [historyId, businessRevision])
 
   if (error) return <div className="error-banner" role="alert">{error}</div>
-  if (!history) return <p className="loading-state">正在加载历史快照…</p>
+  if (!history) return <p className="loading-state">正在加载历史…</p>
   if (history.mode === 'discovery') return <DiscoveryHistoryView history={history} />
 
   const result = history.result
@@ -35,8 +35,8 @@ export function HistoryDetailPage() {
     <section className="personal-page history-detail">
       <header className="page-heading history-detail-heading">
         <div>
-          <p className="eyebrow">不可变结果记录</p>
-          <h1>历史快照</h1>
+          
+          <h1>历史推荐</h1>
           <time dateTime={history.created_at}>
             保存于 {new Date(history.created_at).toLocaleString('zh-CN')}
           </time>

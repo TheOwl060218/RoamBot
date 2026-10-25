@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { apiClient, ApiError } from '../src/api/client'
 import { CommandRoot } from '../src/features/commands/CommandRoot'
+import { AppShell } from '../src/app/AppShell'
+import { AuthProvider } from '../src/features/auth/AuthProvider'
 import { useCommandTarget } from '../src/features/commands/commandContext'
 
 afterEach(() => vi.restoreAllMocks())
@@ -34,6 +36,47 @@ async function input(message: string) {
 }
 
 describe('business chat execution', () => {
+  it('removes the home launcher and docks the assistant in the shell on other pages', async () => {
+    vi.spyOn(apiClient, 'me').mockResolvedValue(null)
+    render(<AuthProvider><MemoryRouter initialEntries={['/']}><Routes><Route element={<CommandRoot />}>
+      <Route path='/' element={<Link to='/itineraries'>行程入口</Link>} />
+      <Route path='/itineraries' element={<AppShell><h1>行程</h1></AppShell>} />
+      <Route path='/explore' element={<AppShell><h1>探索</h1></AppShell>} />
+    </Route></Routes></MemoryRouter></AuthProvider>)
+    expect(screen.queryByRole('button', { name: '打开操作助手' })).not.toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('link', { name: '行程入口' }))
+    const trigger = await screen.findByRole('button', { name: '打开操作助手' })
+    expect(trigger.closest('.shell-account-actions')).not.toBeNull()
+    await user.click(trigger)
+    expect(screen.getByRole('textbox', { name: '继续补充条件' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(trigger).toHaveFocus()
+    await user.click(screen.getByRole('link', { name: '推荐' }))
+    expect(screen.queryByRole('button', { name: '打开操作助手' })).not.toBeInTheDocument()
+  })
+  it('opens the requested itinerary day map from another page without route generation', async () => {
+    function DayMap() {
+      const [day, setDay] = useState('')
+      useCommandTarget('itinerary', () => ({ itinerary_id: 'owned-trip', itinerary_version: 1, page_loading: false }), effect => {
+        if (effect.tool !== 'show_itinerary_map') return false
+        setDay(String(effect.arguments.date)); return true
+      })
+      return <h1>{day ? `${day}的路线地图` : '行程页面'}</h1>
+    }
+    const post = vi.spyOn(apiClient, 'post').mockImplementation(async path => path.endsWith('/proposals')
+      ? { ...proposal(), actions: [{ tool: 'show_itinerary_map', arguments: { day_number: 2 } }] } as never
+      : { status: 'completed', steps: [{ tool: 'show_itinerary_map', result: {
+        effect: { tool: 'show_itinerary_map', arguments: { itinerary_id: 'owned-trip', date: '2026-10-26' } },
+      } }] } as never)
+    render(<MemoryRouter initialEntries={['/favorites']}><Routes><Route element={<CommandRoot />}>
+      <Route path='/favorites' element={<h1>收藏页面</h1>} />
+      <Route path='/itineraries/owned-trip' element={<DayMap />} />
+    </Route></Routes></MemoryRouter>)
+    await input('看看第二天的行程地图')
+    await screen.findByRole('heading', { name: '2026-10-26的路线地图' })
+    expect(post.mock.calls.map(([path]) => path)).toEqual(['/assistant/commands/proposals', '/assistant/commands/execute'])
+  })
   it('keeps discovery object references when continuing a task from another page', async () => {
     function DiscoveryResults() {
       useCommandTarget('discovery', () => ({ discovery_job_id: 'owned-job', history_id: 'owned-history',

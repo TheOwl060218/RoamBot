@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { useLocation, useNavigationType, UNSAFE_ViewTransitionContext as ViewTransitionContext } from 'react-router-dom'
 import { routeMotion } from './routeMotion'
 
@@ -9,6 +9,9 @@ export function RouteTransitionFrame({ children }: { children: ReactNode }) {
   const { isTransitioning: viewTransition } = useContext(ViewTransitionContext)
   const previous = useRef<string | null>(null)
   const content = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!viewTransition) document.documentElement.removeAttribute('data-home-explore-transition')
+  }, [viewTransition])
   useLayoutEffect(() => {
     if (previous.current === location.pathname) return
     const reverse = navigation === 'POP'

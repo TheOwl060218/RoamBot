@@ -7,6 +7,7 @@ export type BusinessAssistantValue = {
   send: (message: string, options?: { intakeId: string }) => Promise<void>
   busy: boolean
   chat?: ReactNode
+  setChatAnchor?: (element: HTMLDivElement | null) => void
   resultLink?: string
   recallSelection?: (history: string | null, version: number) => string[]
   rememberSelection?: (history: string | null, version: number, ids: string[]) => void

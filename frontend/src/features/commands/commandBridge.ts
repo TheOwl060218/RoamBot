@@ -5,6 +5,7 @@ type Target = { context: () => CommandContext; handle: (effect: CommandEffect) =
 export function contextFingerprint(context: CommandContext) {
   const turn = context.assistant_turn as { revision?: number } | undefined
   return JSON.stringify([context.page, context.history_id, context.discovery_job_id, context.plan_id, context.invite_token,
+    context.itinerary_id, context.itinerary_version,
     context.result_version, context.focused_id, context.selected_ids, context.layer,
     context.resource_version, context.visible_resources, context.weather_date, context.all_dates,
     context.dirty, turn?.revision])

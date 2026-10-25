@@ -160,7 +160,7 @@
   .primary-nav .plan-nav-anchor { flex: 1 1 0; height: auto; }
   .primary-nav .plan-nav-anchor .plan-status-link { position: static; display: block; width: auto; min-height: 38px; padding: 8px; text-align: center; border: 0; box-shadow: none; background: transparent; }
   .primary-nav .plan-nav-anchor .plan-status-title { font-size: 0; }
-  .primary-nav .plan-nav-anchor .plan-status-title::after { content: '计划'; font-size: .94rem; }
+  .primary-nav .plan-nav-anchor .plan-status-title::after { content: '同行计划'; font-size: .94rem; }
   .primary-nav .plan-nav-anchor .plan-status-detail, .primary-nav .plan-nav-anchor svg { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .plan-status-link, .plan-status-detail, .plan-list-card { transition: none; animation: none; } }
@@ -250,7 +250,8 @@
 .plan-comparison-region > .plan-empty { border: 0; padding: 16px 0; }
 .plan-vote-slot { min-width: 0; width: 100%; overflow: hidden; opacity: 0; visibility: hidden; pointer-events: none; position: sticky; top: calc(var(--shell-header-height, 76px) + 16px); }
 .plan-decision-workspace.voting .plan-vote-slot { opacity: 1; visibility: visible; pointer-events: auto; }
-.plan-vote-workbench-panel { width: var(--vote-width); padding: 18px; border: 1px solid var(--border-strong); border-radius: 22px; background: var(--surface); max-height: calc(100dvh - var(--shell-header-height, 76px) - 36px); overflow-y: auto; overscroll-behavior: contain; }
+.plan-vote-workbench-panel { width: var(--vote-width); padding: 18px; border: 1px solid var(--border-strong); border-radius: 22px; background: #f4fafb; max-height: calc(100dvh - var(--shell-header-height, 76px) - 36px); overflow-y: auto; overscroll-behavior: contain; box-shadow: 0 12px 38px #19485318; }
+.plan-mobile-vote { width: min(460px,calc(100vw - 24px)); max-height: min(80svh,660px); }
 .plan-vote-workbench-panel h2 { font-size: 1.1rem; margin: 0; }
 .plan-vote-workbench-panel .muted { font-size: .8rem; }
 .plan-compact-vote { margin: 16px 0; border: 0; padding: 0; min-width: 0; }
@@ -289,6 +290,7 @@
   .plan-comparison-cards.plan-candidate-count-1 { grid-template-columns: minmax(0, 1fr); }
   .plan-vote-slot { position: fixed; width: auto; left: 16px; right: 16px; top: auto; bottom: max(16px, env(safe-area-inset-bottom)); max-height: 60dvh; z-index: 40; transform: translateY(calc(100% + 32px)); border-radius: 22px; }
   .plan-vote-workbench-panel { width: 100%; max-height: 60dvh; }
+  .plan-vote-workbench-panel.plan-mobile-vote { width: min(460px,calc(100vw - 24px)); max-height: 80svh; }
   .plan-decision-workspace.voting .plan-vote-slot { transform: translateY(0); }
   .plan-check-controls { justify-items: start; }
 }

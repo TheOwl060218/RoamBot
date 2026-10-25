@@ -20,7 +20,7 @@ describe('AppShell', () => {
     )
 
     expect(screen.getByRole('link', { name: 'RoamBot' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '推荐' })).toHaveAttribute('href', '/recommend')
+    expect(screen.getByRole('link', { name: '推荐' })).toHaveAttribute('href', '/explore')
     expect(screen.getByRole('link', { name: '收藏' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '历史' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '账户' })).toBeInTheDocument()

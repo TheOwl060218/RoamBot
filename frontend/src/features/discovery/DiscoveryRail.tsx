@@ -1,12 +1,37 @@
-import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
+import { useEffect, useRef, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-export function DiscoveryRail({ children, label = '推荐去处' }: PropsWithChildren<{ label?: string }>) {
+export function DiscoveryRail({ children, label = '推荐去处', actions, resetKey, focusRequest }: PropsWithChildren<{
+  label?: string; actions?: ReactNode; resetKey?: string; focusRequest?: { id: string; revision: number }
+}>) {
   const rail = useRef<HTMLElement>(null)
   const gesture = useRef<{ id: number; x: number; y: number; scroll: number; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
   const [edges, setEdges] = useState({ left: false, right: false })
   const [dragging, setDragging] = useState(false)
+  useEffect(() => { if (rail.current) rail.current.scrollLeft = 0 }, [resetKey])
+  useEffect(() => {
+    const element = rail.current
+    const card = Array.from(element?.children ?? []).find(node => (node as HTMLElement).dataset.placeId === focusRequest?.id) as HTMLElement | undefined
+    if (!element || !card) return
+    const frame = requestAnimationFrame(() => {
+      const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+      const bounds = element.getBoundingClientRect(), target = card.getBoundingClientRect()
+      const left = element.scrollLeft + target.left - bounds.left
+      if (element.scrollTo) element.scrollTo({ left, behavior })
+      else element.scrollLeft = left
+      const browse = element.closest<HTMLElement>('[data-command-scroll]')
+      if (browse) {
+        const viewport = browse.getBoundingClientRect()
+        if (target.top < viewport.top || target.bottom > viewport.bottom)
+          browse.scrollTo?.({ top: browse.scrollTop + target.top - viewport.top - 12, behavior })
+      }
+      card.dataset.mapFocused = 'true'
+      card.querySelector<HTMLElement>('.discovery-card-open')?.focus({ preventScroll: true })
+    })
+    const timer = window.setTimeout(() => { delete card.dataset.mapFocused }, 2200)
+    return () => { cancelAnimationFrame(frame); clearTimeout(timer); delete card.dataset.mapFocused }
+  }, [focusRequest, resetKey])
   useEffect(() => {
     const element = rail.current
     if (!element) return
@@ -18,6 +43,14 @@ export function DiscoveryRail({ children, label = '推荐去处' }: PropsWithChi
     const resized = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(update) }
     const wheel = (event: WheelEvent) => {
       if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return
+      const browse = element.closest<HTMLElement>('[data-command-scroll]')
+      if (browse && browse.scrollHeight > browse.clientHeight + 2) {
+        const viewport = browse.getBoundingClientRect(), bounds = element.getBoundingClientRect()
+        const below = event.deltaY > 0 && bounds.bottom > viewport.bottom + 2
+          && browse.scrollTop < browse.scrollHeight - browse.clientHeight - 2
+        const above = event.deltaY < 0 && bounds.top < viewport.top - 2 && browse.scrollTop > 2
+        if (below || above) return
+      }
       const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientWidth : 1)
       const next = Math.max(0, Math.min(element.scrollWidth - element.clientWidth, element.scrollLeft + delta))
       if (Math.abs(next - element.scrollLeft) < 1) return
@@ -81,9 +114,12 @@ export function DiscoveryRail({ children, label = '推荐去处' }: PropsWithChi
       }}>
       {children}
     </section>
-    {(edges.left || edges.right) && <div className='discovery-rail-controls' aria-label={`${label}翻页`}>
+    {(actions || edges.left || edges.right) && <div className='discovery-rail-controls' aria-label={`${label}操作`}>
+      {actions && <div className='discovery-explore-actions'>{actions}</div>}
+      <div className='discovery-rail-pagination'>
       <button type='button' className='icon-button' aria-label={`${label}向左滑动`} disabled={!edges.left} onClick={() => move(-1)}><ChevronLeft size={18} /></button>
       <button type='button' className='icon-button' aria-label={`${label}向右滑动`} disabled={!edges.right} onClick={() => move(1)}><ChevronRight size={18} /></button>
+      </div>
     </div>}
   </div>
 }

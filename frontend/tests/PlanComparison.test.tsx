@@ -90,7 +90,8 @@ test('never borrows old suitability for newly checked weather, including a faile
   plan.candidates[0].latest_weather = { checked_at: '2026-10-06T00:00:00Z', status: 'failed', source: 'demo', change: 'unavailable', risk: null, weather: plan.candidates[0].snapshot.weather, last_success_at: '2026-10-05T00:00:00Z' }
   render(<PlanComparison plan={plan} />)
   const card = screen.getByRole('heading', { name: '苏州博物馆' }).closest('.plan-comparison-card') as HTMLElement
-  expect(within(card).getByText('暂无判断')).toBeVisible()
+  expect(within(card).queryByText('出行建议')).not.toBeInTheDocument()
+  expect(within(card).queryByText('适合前往')).not.toBeInTheDocument()
   expect(within(card).getByText(/检查失败/)).toBeVisible()
   expect(within(card).queryByText('当日出行说明')).not.toBeInTheDocument()
   expect(within(card).queryByRole('button', { name: '查看苏州博物馆详情' })).not.toBeInTheDocument()

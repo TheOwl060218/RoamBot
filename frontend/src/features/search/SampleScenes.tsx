@@ -118,7 +118,7 @@ export function SampleScenes({ onExplore, isSubmitting = false }: SampleScenesPr
   return (
     <section className="sample-scenes" aria-label="示例玩法">
       <div className="sample-scenes-heading">
-        <p className="eyebrow">从什么开始？</p>
+        
         <h2>选一种想要的出行方式</h2>
       </div>
 

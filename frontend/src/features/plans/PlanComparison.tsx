@@ -74,7 +74,7 @@ function ComparisonBody({ plan, hideHeading, decisionAction, toolbarActions }: P
     {candidates.length > 1 && <p className='muted plan-rail-hint'>空间不足时，可左右滑动比较候选。</p>}
     {allDates && <div ref={allDatesRef} id={allId} className='plan-all-dates'><table><caption>全部日期天气对比</caption><thead><tr><th scope='col'>日期</th>{candidates.map(c => <th key={c.id} scope='col'>{c.snapshot.destination.name}</th>)}</tr></thead><tbody>{dates.map(date => <tr key={date}><th scope='row'><time dateTime={date}>{shortDate(date)}</time></th>{candidates.map(c => {
       const data = weatherData(c), day = data.weather.find(w => w.date === date), advice = data.suitability.find(w => w.date === date)
-      return <td key={c.id}>{day ? <>{day.condition} · {day.temp_min_c}–{day.temp_max_c}°C<br />{advice ? { suitable: '适合前往', caution: '谨慎考虑', not_recommended: '不建议当日前往' }[advice.status] : '暂无判断'}</> : '该日暂无天气记录'}</td>
+      return <td key={c.id}>{day ? <>{day.condition} · {day.temp_min_c}–{day.temp_max_c}°C{advice && <><br />{{ suitable: '适合前往', caution: '谨慎考虑', not_recommended: '不建议当日前往' }[advice.status]}</>}</> : '—'}</td>
     })}</tr>)}</tbody></table></div>}
     <RevealNotice notice={notice} />
   </section>
@@ -88,10 +88,9 @@ function ComparisonCard({ candidate, date, final, children, expanded, onToggle, 
   return <article className={`plan-card plan-comparison-card${final ? ' plan-final' : ''}`}>
     <div className='plan-card-heading'><div className='plan-comparison-title'><h3 title={item.destination.name}>{item.destination.name}</h3>{final && <span className='plan-final-marker'><Check size={14} aria-hidden='true' />最终目的地</span>}</div>{!('schema_version' in item) && <div className='plan-comparison-score'><strong className='plan-score'>{Math.round(item.score.total)}</strong><small>匹配指数</small></div>}</div>
     <p className='muted plan-candidate-address'>{item.destination.address}</p>
-    {'schema_version' in item ? <><p className='eyebrow'>{item.experience}</p><p className='discovery-reason'>{item.reason}</p>
-      <div className='item-actions'>{item.sources.filter(s => s.url).slice(0, 2).map(s => <a href={s.url} key={s.id} target='_blank' rel='noreferrer'>{s.title || '推荐依据'}</a>)}</div></>
+    {'schema_version' in item ? <p className='eyebrow'>{item.experience}</p>
       : <dl className='plan-metrics'><div><dt>平均路程</dt><dd>{item.group_accessibility.average_distance_km.toFixed(1)} km</dd></div><div><dt>最大路程</dt><dd>{item.group_accessibility.max_distance_km.toFixed(1)} km</dd></div><div><dt>多人公平性</dt><dd>{item.group_accessibility.fairness_score.toFixed(0)}</dd></div></dl>}
-    {(check || data.weather.length > 0) && <p className='muted plan-weather-source'>{check ? `最近检查 · ${sources[check.source] ?? '服务不可用'}` : `创建时天气 · ${sources['schema_version' in item ? item.source : item.source_state?.kind ?? ''] ?? '来源见原推荐记录'}`}</p>}
+    {(check || data.weather.length > 0) && <p className='muted plan-weather-source'>{check ? `最近检查 · ${sources[check.source] ?? '服务不可用'}` : '创建时保存的天气'}</p>}
     {check && <p className={check.status === 'failed' ? 'field-error' : 'muted'}>{check.status === 'failed' ? '检查失败，保留已有天气记录' : '检查于'} · {new Date(check.checked_at).toLocaleString()}{check.status === 'failed' && check.last_success_at && ` · 上次成功：${new Date(check.last_success_at).toLocaleString()}`}</p>}
     <div className='plan-selected-weather'>
       {weather.length ? <DailyWeatherList weather={weather} suitability={data.suitability.filter(day => day.date === date)} showSummary={false} /> : <p className='plan-missing-weather'>该日暂无天气记录</p>}

@@ -22,7 +22,7 @@ INSTRUCTIONS = """你是RoamBot休闲出游助手，理解完整原话，主动�
 先理解想做的活动、接受的替代方向、限制和否定；所有判断始终参考完整原话及最近对话。
 有日期才查天气；有出发地才查路线。未提供的维度不补默认日期、不要求填齐表单。
 set_context可设置已表达的信息：origin_quote、distance_quote、date_quote必须摘录对话原文。
-本次指定出发地优先于定位；仅请求附近而未给距离时采用产品默认5km，可由用户随时修改。
+本次指定出发地优先于定位；仅请求附近而未给距离时按周边检索，不自行设置硬性距离上限。
 附近默认步行，可根据原话选骑行/驾车。region是目的地区域，不要误用成出发地。
 仅日期或中心位置确实影响任务且无法获取时才追问；地区明确就可以直接推荐，不强求出发地。
 按需求自行组织检索词，多次搜索可覆盖不同方向；不得只搜索博物馆来代替含糊需求。
@@ -84,7 +84,7 @@ class DiscoveryRun:
         self.context = SearchContext()
         self.center = None
         self.center_name = None
-        self.location = body.location
+        self.location = body.location if body.use_location else None
         self.evidence_serial = 0
         self.places, self.evidence = {}, {}
         self.research_sources = []
@@ -100,6 +100,7 @@ class DiscoveryRun:
         self.first_batch_ms = None
         self.history_id = None
         self.search_request = (previous or {}).get('search_request')
+        self.restored_exploration = copy.deepcopy((previous or {}).get('exploration_state'))
         self.persistence_pending = False
         self.cancelled = threading.Event()
         self.lock = threading.RLock()
@@ -125,7 +126,7 @@ class DiscoveryRun:
                     {
                         "conversation": self.turns,
                         "current_context": self.context.model_dump(mode="json"),
-                        "location_available": body.location is not None,
+                        "location_available": self.location is not None,
                         "previous_results": [
                             {
                                 "id": c["place"]["id"],
@@ -162,6 +163,7 @@ class DiscoveryRun:
                     "first_batch_ms": self.first_batch_ms,
                     "elapsed_ms": round((time.monotonic() - self.started) * 1000),
                     "issues": self.errors,
+                    **({'exploration_state': self.restored_exploration} if self.restored_exploration else {}),
                 }
             )
 
@@ -228,6 +230,9 @@ class DiscoveryRun:
                 "date_quote": "start_date",
             }[field]
             unchanged = getattr(value, value_field) == getattr(self.context, value_field)
+            chosen = self.body.location_details if self.body.use_location else None
+            if value_field == 'origin' and chosen and chosen.source == 'selected' and value.origin == chosen.name:
+                continue  # Explicit UI selection, not a model-invented origin.
             if value_field == 'start_date':
                 unchanged = unchanged and value.end_date == self.context.end_date
             # Previously accepted context is server-owned state. Its original
@@ -241,7 +246,10 @@ class DiscoveryRun:
         value = self.validate_context_evidence(value)
         if self.cards and value != self.context:
             raise ValueError("本轮已发布结果，改变条件请留到下一轮，避免旧卡片与新条件混用。")
-        if value.origin != self.context.origin or (self.center is None and value.origin):
+        chosen = self.body.location_details if self.body.use_location else None
+        if chosen and chosen.source == 'selected' and value.origin == chosen.name:
+            self.center, self.center_name = self.maps.gps(self.location), chosen.name
+        elif value.origin != self.context.origin or (self.center is None and value.origin):
             if value.origin:
                 self.limit("geocode", 3)
                 origin = self.maps.geocode(value.origin)
@@ -697,8 +705,24 @@ class DiscoveryRun:
             self.stage = ""
 
 
+class SavedDiscoveryRun(DiscoveryRun):
+    def __init__(self, body, snapshot):
+        super().__init__(DiscoveryRequest.model_validate(body), None, None, None, None,
+                         previous=snapshot, source=snapshot['source'])
+        self.saved = copy.deepcopy(snapshot)
+        self.cards = copy.deepcopy(snapshot['cards'])
+        self.status, self.stage = snapshot['status'], ''
+        self.history_id = snapshot.get('history_id')
+
+    def snapshot(self):
+        with self.lock:
+            return copy.deepcopy(self.saved) | {'history_id': self.history_id, 'status': self.status, 'stage': self.stage}
+
+
 class DiscoveryJobs:
-    def __init__(self):
+    def __init__(self, sessions=None):
+        self.sessions = sessions
+        self.restored_deadlines = {}
         self.jobs = {}
         self.lock = threading.RLock()
         self.pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="roambot-discovery")
@@ -706,9 +730,19 @@ class DiscoveryJobs:
     def owned(self, actor, key):
         with self.lock:
             entry = self.jobs.get(key)
-            if not entry or entry[0] != actor or time.monotonic() - entry[1] > 1800:
-                raise LookupError("推荐会话不存在或已过期。")
-            return entry[2]
+            deadline = self.restored_deadlines.get(key)
+            if entry and entry[0] == actor and time.monotonic()-entry[1] <= 1800 and (deadline is None or self.sessions.clock() < deadline):
+                return entry[2]
+            saved = self.sessions.load(key, actor) if self.sessions else None
+            if saved:
+                if key not in self.jobs and len(self.jobs) >= 64:
+                    raise LookupError('推荐会话较多，请稍后重试。')
+                body, snapshot, expires = saved
+                run = SavedDiscoveryRun(body, snapshot)
+                self.jobs[key] = (actor, time.monotonic(), run)
+                self.restored_deadlines[key] = expires
+                return run
+            raise LookupError("推荐会话不存在或已过期。")
 
     def adopt_guest(self, guest, actor):
         """Move this browser's guest jobs to its newly authenticated session.
@@ -720,6 +754,8 @@ class DiscoveryJobs:
         if not guest.startswith('guest:') or not actor.startswith('user:'):
             raise ValueError('Only a guest-to-user handoff is allowed')
         with self.lock:
+            if self.sessions:
+                self.sessions.adopt(guest, actor)
             for key, (owner, created, run) in list(self.jobs.items()):
                 if owner == guest and time.monotonic() - created <= 1800:
                     self.jobs[key] = (actor, created, run)
@@ -730,24 +766,47 @@ class DiscoveryJobs:
                 if time.monotonic() - entry[1] > 1800:
                     entry[2].cancelled.set()
                     del self.jobs[key]
+                    self.restored_deadlines.pop(key, None)
             if (
                 len(self.jobs) >= 64
                 or sum(e[2].status == "running" for e in self.jobs.values()) >= 4
                 or sum(e[0] == actor and e[2].status == "running" for e in self.jobs.values()) >= 2
             ):
                 raise ValueError("当前查询仍在进行，可以等待或先停止。")
-            previous = self.owned(actor, body.previous_id).snapshot() if body.previous_id else None
+            prior = self.owned(actor, body.previous_id) if body.previous_id else None
+            previous = prior.snapshot() if prior else None
+            if prior:
+                previous['_location_input'] = prior.body.location.model_dump() if prior.body.location else None
+                previous['_location_metadata'] = prior.body.location_details.model_dump() if prior.body.location_details else None
+            if body.explore_mode:
+                if not prior or prior.status == 'running' or not prior.cards:
+                    raise ValueError('请先等待当前推荐完成。')
+                # One owned source batch and action is one exploration request.
+                # A double click/replayed POST cannot spend the pool twice.
+                token = (body.previous_id, body.explore_mode, tuple(body.view.selected_ids))
+                for existing_key, entry in self.jobs.items():
+                    if (entry[0] == actor and getattr(entry[2], 'exploration_token', None) == token
+                            and not entry[2].cancelled.is_set() and entry[2].status in {'running', 'completed', 'partial'}):
+                        return existing_key
+                if getattr(prior, 'plan', None) and prior.plan.intent == 'search':
+                    previous['_explore_plan'] = prior.plan.model_dump(mode='json')
+            if (prior and (not body.use_location or (body.location_details and (body.location_details.source == 'selected' or body.location_details.replace_origin)))
+                    and body.message == prior.body.message
+                    and getattr(prior, 'plan', None) and prior.plan.intent == 'search'):
+                previous['_location_plan'] = prior.plan.model_dump(mode='json')
             run = factory(body, previous)
+            if body.explore_mode:
+                run.exploration_token = token
             bind = getattr(run, "bind_scope", None)
             if bind:
                 bind(actor)
             key = uuid4().hex
             self.jobs[key] = (actor, time.monotonic(), run)
             run.persistence_pending = on_complete is not None
-            self.pool.submit(self.execute, run, on_complete)
+            self.pool.submit(self.execute, run, on_complete, actor, key)
             return key
 
-    def execute(self, run, on_complete):
+    def execute(self, run, on_complete, actor, key):
         try:
             run.run()
             if on_complete and run.status in {"completed", "partial"} and run.cards:
@@ -758,12 +817,20 @@ class DiscoveryJobs:
             logger.warning("discovery_history_stopped error_type=%s", type(error).__name__)
         finally:
             run.persistence_pending = False
+            if self.sessions and actor.startswith('guest:'):
+                try:
+                    with self.lock:
+                        current_actor = self.jobs.get(key, (actor,))[0]
+                        self.sessions.save(key, current_actor, run.body.model_dump(mode='json'), run.snapshot())
+                except Exception as error:
+                    logger.warning('discovery_session_save_stopped error_type=%s', type(error).__name__)
 
     def restore(self, actor, run):
         with self.lock:
             for key, entry in list(self.jobs.items()):
                 if time.monotonic() - entry[1] > 1800:
                     entry[2].cancelled.set(); del self.jobs[key]
+                    self.restored_deadlines.pop(key, None)
                 elif entry[0] == actor and entry[2].history_id == run.history_id:
                     return key
             if len(self.jobs) >= 64:
