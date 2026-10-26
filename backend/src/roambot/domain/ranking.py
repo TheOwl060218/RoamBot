@@ -36,7 +36,6 @@ def final_score(
     weighted_base = 0.0
     if available_weight > 0:
         weighted_base = sum(
-            value * getattr(weights, name) / available_weight
-            for name, value in available.items()
+            value * getattr(weights, name) / available_weight for name, value in available.items()
         )
     return clamp(weighted_base * base_fraction + fairness * fairness_fraction)

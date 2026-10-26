@@ -205,6 +205,7 @@ def test_free_form_gap_query_cannot_rewrite_its_bound_user_condition(tmp_path):
     assert need.query not in run.need_query(need)
 
     from datetime import date
+
     run.context.start_date = date(2026, 10, 18)
     run.context.end_date = date(2026, 10, 19)
     need.date_sensitive = True

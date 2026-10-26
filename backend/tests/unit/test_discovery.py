@@ -213,7 +213,11 @@ def test_public_search_returns_real_excerpt_urls_and_never_fetches_result_pages(
         calls.append(str(request.url))
         return httpx.Response(
             200,
-            text="<rss><channel><item><title>介绍</title><link>https://example.org/a</link><description>一片开放绿地</description></item></channel></rss>",
+            text=(
+                "<rss><channel><item><title>介绍</title><link>https://exam"
+                "ple.org/a</link><description>一片开放绿地</description></item"
+                "></channel></rss>"
+            ),
         )
 
     with httpx.Client(transport=httpx.MockTransport(handle)) as client:
@@ -412,32 +416,39 @@ def test_tavily_adapter_uses_fixed_endpoint_and_query_focused_chunks_without_ful
     assert result[0]["excerpt"] == "摘要"
 
 
-@pytest.mark.parametrize('status', [401, 403, 429, 500])
+@pytest.mark.parametrize("status", [401, 403, 429, 500])
 def test_tavily_preserves_http_failure_category_without_response_body_or_retry(status):
-    with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(
-            status, json={'detail': 'private-provider-body'}))) as client:
-        search = TavilySearch('not-a-credential', client)
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(status, json={"detail": "private-provider-body"})
+        )
+    ) as client:
+        search = TavilySearch("not-a-credential", client)
         with pytest.raises(ProviderError) as caught:
-            search.search('公开地点资料')
-    assert caught.value.code == 'tavily_http_' + str(status)
-    assert 'private-provider-body' not in str(caught.value)
+            search.search("公开地点资料")
+    assert caught.value.code == "tavily_http_" + str(status)
+    assert "private-provider-body" not in str(caught.value)
     assert search.request_count == 1
 
 
-@pytest.mark.parametrize(('failure', 'code'), [
-    (httpx.ReadTimeout, 'tavily_timeout'),
-    (httpx.ProxyError, 'tavily_proxy_error'),
-    (httpx.ConnectError, 'tavily_connect_error'),
-])
+@pytest.mark.parametrize(
+    ("failure", "code"),
+    [
+        (httpx.ReadTimeout, "tavily_timeout"),
+        (httpx.ProxyError, "tavily_proxy_error"),
+        (httpx.ConnectError, "tavily_connect_error"),
+    ],
+)
 def test_tavily_preserves_transport_failure_category_without_retry(failure, code):
     def fail(request):
-        raise failure('private-transport-details', request=request)
+        raise failure("private-transport-details", request=request)
+
     with httpx.Client(transport=httpx.MockTransport(fail)) as client:
-        search = TavilySearch('not-a-credential', client)
+        search = TavilySearch("not-a-credential", client)
         with pytest.raises(ProviderError) as caught:
-            search.search('公开地点资料')
+            search.search("公开地点资料")
     assert caught.value.code == code
-    assert 'private-transport-details' not in str(caught.value)
+    assert "private-transport-details" not in str(caught.value)
     assert search.request_count == 1
 
 

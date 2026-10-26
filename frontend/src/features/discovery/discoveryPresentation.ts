@@ -1,5 +1,19 @@
 import type { DiscoveryCard } from './types'
 
+export function discoveryTitle(request: string, title?: string | null,
+  conversation: readonly { role: string; content: string }[] = [], region?: string | null) {
+  if (title?.trim()) return title.trim()
+  const text = request.trim()
+  const concise = (value: string) => !!value && Array.from(value).length <= 22 && !/[\r\n]/.test(value)
+  if (concise(text)) return text
+  // Older results have no generated title. Reuse a concise, region-bound user
+  // request rather than presenting the expanded search query as a heading.
+  const places = region ? [region, region.replace(/[市区县]$/, '')].filter(Boolean) : []
+  const original = [...conversation].reverse().find(turn => turn.role === 'user'
+    && concise(turn.content.trim()) && places.some(place => turn.content.includes(place)))
+  return original?.content.trim() || text || '想去哪儿？'
+}
+
 export function placeType(value: string) {
   return [...new Set(value.split(/[;；]/).map(s => s.trim()).filter(Boolean))].slice(-2).join(' · ')
 }

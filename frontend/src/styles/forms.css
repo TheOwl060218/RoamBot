@@ -108,7 +108,7 @@
 .weight-legend span { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; font-size: 0.78rem; font-variant-numeric: tabular-nums; text-align: center; }
 .weight-swatch { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 2px; }
 
-.primary-button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--primary); border-radius: 999px; color: #fff; background: var(--primary); font-weight: 700; cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease; }
+.primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--primary); border-radius: 999px; color: #fff; background: var(--primary); font-weight: 700; line-height: 1.25; cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease; }
 .primary-button:hover { border-color: var(--primary-hover); background: var(--primary-hover); }
 .primary-button:active:not(:disabled),
 .text-button:active:not(:disabled),

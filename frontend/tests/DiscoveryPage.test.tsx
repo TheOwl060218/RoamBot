@@ -36,6 +36,21 @@ async function send(text: string) {
 }
 
 describe('open-ended discovery', () => {
+  it('uses the condensed intent title and preserves the complete request in the conversation', () => {
+    const request = '想在苏州寻找适合周末散步和摄影的公园，希望分布在不同片区，避开之前已经推荐过的地点'
+    const result = { ...snapshot([card('p1', '河边公园')], 'completed'), display_title: '苏州不同片区的公园摄影' }
+    render(<MemoryRouter><DiscoveryPage initialSnapshot={result} initialMessage={request} /></MemoryRouter>)
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('苏州不同片区的公园摄影')
+    expect(within(screen.getByRole('log', { name: '本次对话记录' })).getByText(request)).toBeInTheDocument()
+  })
+  it('keeps legacy request wording with compact styling when no condensed title exists', () => {
+    const request = '想在苏州寻找适合周末散步和摄影的公园，希望分布在不同片区，避开之前已经推荐过的地点'
+    render(<MemoryRouter><DiscoveryPage initialSnapshot={snapshot([card('p1', '河边公园')], 'completed')} initialMessage={request} /></MemoryRouter>)
+    const heading = screen.getByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent(request)
+    expect(heading).toHaveAttribute('data-long-request', 'true')
+    expect(heading).not.toHaveTextContent('苏州的去处')
+  })
   it('opens all current places on the map, shows the selected card and returns to that rail card without a new search', async () => {
     const cards = [card('p1', '湖边书店'), card('p2', '河边公园')]
     const post = vi.spyOn(apiClient, 'post')
@@ -44,6 +59,9 @@ describe('open-ended discovery', () => {
     const user = userEvent.setup()
     render(<MemoryRouter><DiscoveryPage initialSnapshot={snapshot(cards, 'completed')} /></MemoryRouter>)
     const rail = screen.getByRole('region', { name: '推荐去处' })
+    const controls = screen.getByRole('button', { name: '地图', exact: true }).closest('.discovery-results-toolbar')
+    expect(controls).not.toBeNull()
+    expect(controls?.closest('.discovery-browse')).toBeNull()
     const original = Array.from(rail.querySelectorAll('[data-place-id]'))
     await user.click(screen.getByRole('button', { name: '地图', exact: true }))
     const map = await screen.findByRole('dialog', { name: '推荐地图' })

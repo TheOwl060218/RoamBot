@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import { apiClient } from '../src/api/client'
 import { AuthContext } from '../src/features/auth/authContext'
@@ -15,11 +15,12 @@ beforeAll(() => {
   Object.defineProperty(HTMLDialogElement.prototype,'close',{configurable:true,value:function(this:HTMLDialogElement){this.removeAttribute('open')}})
 })
 beforeEach(() => { vi.restoreAllMocks(); vi.spyOn(apiClient,'get').mockResolvedValue({plans:[],favorites:[]});seedStudioDraft();saveSearchResult(studioResponse) })
+function RouteState() { const route = useLocation(); return <output aria-label='推荐入口状态'>{JSON.stringify(route.state)}</output> }
 function mount(path='/recommend') {
   return render(<AuthContext.Provider value={{user:{username:'owner'},initializing:false,login:vi.fn(),register:vi.fn(),logout:vi.fn()}}>
     <MemoryRouter initialEntries={[path]}><Routes>
       <Route path='/plans' element={<PlansPage/>}/><Route path='/recommend' element={<SearchPage/>}/>
-      <Route path='/explore' element={<DiscoveryPage/>}/>
+      <Route path='/explore' element={<><DiscoveryPage/><RouteState/></>}/>
       <Route path='/plans/new-plan' element={<h1>新计划详情</h1>}/>
     </Routes></MemoryRouter></AuthContext.Provider>)
 }
@@ -27,7 +28,7 @@ it('starts picking from the plan center in discovery while keeping legacy querie
   mount('/plans');await screen.findByText('还没有进行中的计划')
   await userEvent.click(screen.getByRole('link',{name:'发起同行计划'}))
   expect(await screen.findByRole('heading',{name:'想去哪儿？'})).toBeVisible()
-  expect(screen.getByText('找几个去处，和同行的人一起决定。')).toBeVisible()
+  expect(screen.getByLabelText('推荐入口状态')).toHaveTextContent('"startTeamPick":true')
   expect(screen.queryByText('同行挑选中')).not.toBeInTheDocument()
   expect(screen.getByRole('textbox',{name:'继续补充条件'})).toBeVisible()
 })

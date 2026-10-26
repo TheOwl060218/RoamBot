@@ -21,10 +21,12 @@ VALID_DESTINATION = DESTINATIONS[0]
 def test_optional_assistant_context_failure_does_not_break_query(monkeypatch, path):
     def unavailable(self, result):
         raise ValueError("facts too large")
+
     monkeypatch.setattr(AssistantContextSigner, "issue", unavailable)
     with TestClient(create_app(), raise_server_exceptions=False) as client:
-        response = client.post(path, json=payload() if path.endswith("recommendations")
-                               else evaluation_payload())
+        response = client.post(
+            path, json=payload() if path.endswith("recommendations") else evaluation_payload()
+        )
     assert response.status_code == 200
     assert response.json()["assistant_context"] is None
 

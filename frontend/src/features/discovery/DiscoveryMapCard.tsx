@@ -6,6 +6,8 @@ import { DiscoveryCardSummary, DiscoveryCardDetails } from './DiscoveryCardConte
 import { DiscoveryFavoriteControl } from './DiscoveryFavoriteControl'
 import { AddToItinerary } from '../itineraries/ItineraryProvider'
 import { amapSearchUrl } from '../search/amapLink'
+import { PlaceTypeArtwork } from '../../components/PlaceTypeArtwork'
+import { PlaceGuideLink } from '../../components/PlaceGuideLink'
 
 export function DiscoveryMapCard({ card, jobId, source }: { card: DiscoveryCard; jobId: string; source: 'live' | 'demo' }) {
   const [expanded, setExpanded] = useState(false)
@@ -22,7 +24,8 @@ export function DiscoveryMapCard({ card, jobId, source }: { card: DiscoveryCard;
         onClick={() => setExpanded(value => !value)}>{expanded ? '收起卡片' : '展开卡片'}<ChevronDown size={14} aria-hidden='true' /></button>
     </div>
     <div id={detailsId} hidden={!expanded} className='discovery-map-card-details'>
-      {expanded && <DiscoveryCardDetails card={card} />}
+      {expanded && <><DiscoveryCardDetails card={card} /><PlaceTypeArtwork typeName={card.place.map_type} />
+        <div className='discovery-map-card-actions'><PlaceGuideLink name={card.place.name} city={card.place.city} /></div></>}
     </div>
     <a className='text-button discovery-map-external' href={amapSearchUrl(card.place.name, card.place.city)} target='_blank' rel='noopener noreferrer'>
       <ExternalLink size={14} aria-hidden='true' />打开高德</a>

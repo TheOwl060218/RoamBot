@@ -54,12 +54,15 @@ def get_provider_bundle(request: Request) -> ProviderBundle:
 PROVIDER_BUNDLE_DEPENDENCY = Depends(get_provider_bundle)
 
 
-def get_assistant_service(request: Request,
-                          bundle: ProviderBundle = PROVIDER_BUNDLE_DEPENDENCY) -> AssistantService:
-    return AssistantService(bundle.assistant or UnavailableAssistantProvider(),
+def get_assistant_service(
+    request: Request, bundle: ProviderBundle = PROVIDER_BUNDLE_DEPENDENCY
+) -> AssistantService:
+    return AssistantService(
+        bundle.assistant or UnavailableAssistantProvider(),
         get_assistant_context_signer(request),
         today=lambda: datetime.now(timezone(timedelta(hours=8))).date(),
-        demo="demo" in bundle.trace.events)
+        demo="demo" in bundle.trace.events,
+    )
 
 
 def get_recommendation_service(
@@ -113,9 +116,7 @@ def get_session_factory(
         with _SESSION_FACTORY_LOCK:
             session_factory = getattr(request.app.state, "session_factory", None)
             if session_factory is None:
-                engine, session_factory = create_engine_and_session_factory(
-                    settings.database_path
-                )
+                engine, session_factory = create_engine_and_session_factory(settings.database_path)
                 initialize_schema(engine)
                 request.app.state.auth_engine = engine
                 request.app.state.session_factory = session_factory

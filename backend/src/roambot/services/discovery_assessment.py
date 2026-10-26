@@ -1,5 +1,6 @@
 """Resolve evidence observations against the actual user contract, not a global vote."""
 
+import contextlib
 import json
 import re
 from datetime import date, datetime, timedelta, timezone
@@ -11,27 +12,34 @@ from roambot.domain.discovery import (
     RejectedCard,
     RequirementSupport,
 )
+from roambot.domain.discovery_assessment import RequirementFinding
 from roambot.services.discovery_criteria import (
     collection_assessments,
     is_place_condition,
     supported_criteria,
 )
-from roambot.services.discovery_revision import validated_revisions
 from roambot.services.discovery_intent import requirement_groups, unmet_requirements
-from roambot.domain.discovery_assessment import RequirementFinding
+from roambot.services.discovery_revision import validated_revisions
 
 
 def display_fact_value(value):
     if isinstance(value, dict):
         # A stable human representation of the same typed record, not new prose.
-        return " ".join(str(value[key]) for key in sorted(value, key=lambda key: (key != "name", key)))
+        return " ".join(
+            str(value[key]) for key in sorted(value, key=lambda key: (key != "name", key))
+        )
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
 def literal_source_text(source):
     value = source.get("value", "")
-    return "\n".join((source.get("excerpt", ""), display_fact_value(value),
-                      json.dumps(value, ensure_ascii=False)))
+    return "\n".join(
+        (
+            source.get("excerpt", ""),
+            display_fact_value(value),
+            json.dumps(value, ensure_ascii=False),
+        )
+    )
 
 
 def quoted_event_dates(quote):
@@ -39,12 +47,12 @@ def quoted_event_dates(quote):
     result = set()
 
     def add(year, month, day):
-        try:
+        with contextlib.suppress(ValueError):
             result.add(date(int(year), int(month), int(day)))
-        except ValueError:
-            pass
 
-    for match in re.finditer(r"(?<!\d)(\d{4})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})(?!\d)", quote):
+    for match in re.finditer(
+        r"(?<!\d)(\d{4})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})(?!\d)", quote
+    ):
         add(*match.groups())
     years = {value.year for value in result}
     if len(years) == 1:
@@ -63,9 +71,12 @@ def event_period_supported(activity, check, sources, context):
     if period is None:
         return False
     source = sources.get(period.evidence_id)
-    if (not source or source["kind"] not in {"web_page", "search_excerpt"}
-            or period.evidence_id not in check.evidence_ids
-            or period.quote not in literal_source_text(source)):
+    if (
+        not source
+        or source["kind"] not in {"web_page", "search_excerpt"}
+        or period.evidence_id not in check.evidence_ids
+        or period.quote not in literal_source_text(source)
+    ):
         return False
     quoted = quoted_event_dates(period.quote)
     if period.start_date not in quoted or period.end_date not in quoted:
@@ -89,7 +100,9 @@ def decide_assessment(observations, context, cards):
     per_place = {r["index"]: r for r in criteria if r.get("scope", "place") == "place"}
     required = {i for i, r in per_place.items() if r.get("importance", "required") == "required"}
     goals = {i for i in required if per_place[i].get("role") == "goal"}
-    groups = requirement_groups(criteria, context.get("user_request", {}).get("requirement_groups", []))
+    groups = requirement_groups(
+        criteria, context.get("user_request", {}).get("requirement_groups", [])
+    )
     alternatives = {i for group in groups if group.operator == "any" for i in group.requirements}
     indices = {r["index"] for r in criteria}
     final_copy = [
@@ -114,13 +127,18 @@ def decide_assessment(observations, context, cards):
             raise ValueError("必须逐项观察必要条件，不能新加、遗漏或重复条件。")
         checks = {i: check for i, check in observed_checks.items() if i in per_place}
         for i in required - checks.keys():
-            checks[i] = RequirementFinding(requirement=i, state="unknown", note="该可选分支未有观察依据。")
+            checks[i] = RequirementFinding(
+                requirement=i, state="unknown", note="该可选分支未有观察依据。"
+            )
         sources = {source["id"]: source for source in by_id[item.place_id]["sources"]}
         for fact in item.anchored_facts:
             source = sources.get(fact.evidence_id)
-            if (not source or fact.evidence_id not in item.evidence_ids
-                    or source.get("place_id", item.place_id) != item.place_id
-                    or source["kind"] not in {"map_record", "web_page", "search_excerpt"}):
+            if (
+                not source
+                or fact.evidence_id not in item.evidence_ids
+                or source.get("place_id", item.place_id) != item.place_id
+                or source["kind"] not in {"map_record", "web_page", "search_excerpt"}
+            ):
                 raise ValueError("理由事实必须引用本地点的实际地图或网页记录。")
             if fact.quote not in literal_source_text(source):
                 raise ValueError("理由事实摘录未出现在所引用的实际资料中。")
@@ -135,7 +153,10 @@ def decide_assessment(observations, context, cards):
                 )
             ):
                 raise ValueError("条件观察引用了未知或其他地点的资料。")
-            if check.requirement not in per_place or per_place[check.requirement].get("importance") == "accepted":
+            if (
+                check.requirement not in per_place
+                or per_place[check.requirement].get("importance") == "accepted"
+            ):
                 # Permission/tolerance is not a venue claim. It contributes no
                 # approval, preference advantage or factual evidence requirement.
                 continue
@@ -152,20 +173,31 @@ def decide_assessment(observations, context, cards):
         incapable = set()
         temporal_missing = set()
         for i, check in checks.items():
-            if (check.activity is not None and check.activity.kind == "event"
-                    and not event_period_supported(check.activity, check, sources, context)):
+            if (
+                check.activity is not None
+                and check.activity.kind == "event"
+                and not event_period_supported(check.activity, check, sources, context)
+            ):
                 temporal_missing.add(i)
-            if (per_place[i].get("role") == "goal" and check.state == "supported"
-                    and check.activity is not None):
-                if check.activity.kind in {"venue_only", "unknown"}:
-                    incapable.add(i)
-                elif check.activity.kind == "event" and not event_period_supported(
-                        check.activity, check, sources, context):
-                    incapable.add(i)
-            if (per_place[i].get("role") == "goal" and check.state == "supported"
-                    and check.registration_alignment in {"inconclusive", "conflicting", "venue_only"}
-                    and not any(sources[ref]["kind"] in {"web_page", "search_excerpt"}
-                                for ref in check.evidence_ids)):
+            if (
+                per_place[i].get("role") == "goal"
+                and check.state == "supported"
+                and check.activity is not None
+            ) and (
+                check.activity.kind in {"venue_only", "unknown"}
+                or check.activity.kind == "event"
+                and not event_period_supported(check.activity, check, sources, context)
+            ):
+                incapable.add(i)
+            if (
+                per_place[i].get("role") == "goal"
+                and check.state == "supported"
+                and check.registration_alignment in {"inconclusive", "conflicting", "venue_only"}
+                and not any(
+                    sources[ref]["kind"] in {"web_page", "search_excerpt"}
+                    for ref in check.evidence_ids
+                )
+            ):
                 # A venue name cannot repair missing/conflicting registered
                 # activity evidence. This is an unknown, not a claim that the
                 # service does not exist; targeted public evidence may resolve it.
@@ -194,7 +226,12 @@ def decide_assessment(observations, context, cards):
         supported = {i for i in required if checks[i].state == "supported"} - incapable
         missing = unmet_requirements(required, groups, supported)
         concrete = item.entity_scope in {None, "place"}
-        matches = concrete and item.entity_matches and not missing and (bool(goals) or item.broad_intent_matches)
+        matches = (
+            concrete
+            and item.entity_matches
+            and not missing
+            and (bool(goals) or item.broad_intent_matches)
+        )
         if matches and item.place_id in revisions:
             approved.append(item.place_id)
         else:
@@ -207,12 +244,16 @@ def decide_assessment(observations, context, cards):
             )
             rejected.append(RejectedCard(place_id=item.place_id, note=note))
             for i in missing:
-                if concrete and item.entity_matches and (
-                    checks[i].state == "unknown" or i in incapable or i in unproven_negative
+                if (
+                    concrete
+                    and item.entity_matches
+                    and (checks[i].state == "unknown" or i in incapable or i in unproven_negative)
                 ):
                     needs.append(
                         EvidenceNeed(
-                            place_id=item.place_id, requirement=i, query=per_place[i]["text"],
+                            place_id=item.place_id,
+                            requirement=i,
+                            query=per_place[i]["text"],
                             date_sensitive=i in temporal_missing,
                         )
                     )

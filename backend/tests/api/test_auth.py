@@ -38,9 +38,7 @@ def credentials(
 
 def assert_error(response, status_code: int, code: str, message: str) -> None:
     assert response.status_code == status_code
-    assert response.json() == {
-        "error": {"code": code, "message": message, "fields": []}
-    }
+    assert response.json() == {"error": {"code": code, "message": message, "fields": []}}
 
 
 def assert_session_cookie(response, *, secure: bool = False, max_age: int = 86400) -> str:

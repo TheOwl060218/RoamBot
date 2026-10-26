@@ -59,6 +59,7 @@ export function ShareActions({ historyId, onCreated, onCopied, onStatus }: Share
 
   return (
     <div className="share-actions">
+      <div className="share-action-controls">
       {!share ? (
         <button className="icon-text-button" type="button" disabled={pending} onClick={create}>
           <Link2 aria-hidden="true" size={16} />{pending ? '正在创建…' : '创建分享'}
@@ -73,6 +74,7 @@ export function ShareActions({ historyId, onCreated, onCopied, onStatus }: Share
           </button>
         </>
       )}
+      </div>
       <small className="share-status" role="status">{status}</small>
     </div>
   )

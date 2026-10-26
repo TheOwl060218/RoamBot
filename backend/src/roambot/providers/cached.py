@@ -194,18 +194,20 @@ class CachedPlaceProvider(_CachedProvider):
     ) -> list[Destination]:
         destination_regions = tuple(normalize_destination_regions(list(destination_regions)))
         from roambot.domain.semantic_preferences import normalize_scenery_keywords
+
         scenery_keywords = tuple(sorted(normalize_scenery_keywords(list(scenery_keywords)) or []))
         params = {
             "query_kind": "search",
-            'search_version': ('destination-regions-v2' if destination_regions
-                               else 'destination-regions-v1'),
-            'region_catalog_version': region_catalog()['version'],
-            'destination_regions': list(destination_regions),
+            "search_version": (
+                "destination-regions-v2" if destination_regions else "destination-regions-v1"
+            ),
+            "region_catalog_version": region_catalog()["version"],
+            "destination_regions": list(destination_regions),
             "center": _coordinate(center, 6),
             "city": city,
             "scenery_types": list(scenery_types),
             "scenery_keywords": list(scenery_keywords),
-            "radius_km": 'unlimited' if destination_regions else f"{radius_km:.3f}",
+            "radius_km": "unlimited" if destination_regions else f"{radius_km:.3f}",
         }
         key = make_cache_key(self._provider, "poi_search", params)
         cached = self._get(key, "DestinationList", _DESTINATIONS)
@@ -213,11 +215,16 @@ class CachedPlaceProvider(_CachedProvider):
             return cached
         if cached == []:
             self._cache.delete(key)
-        value = self._inner.search(center, city, scenery_types, radius_km, destination_regions,
-                                  **({'scenery_keywords': scenery_keywords}
-                                     if scenery_keywords else {}))
+        value = self._inner.search(
+            center,
+            city,
+            scenery_types,
+            radius_km,
+            destination_regions,
+            **({"scenery_keywords": scenery_keywords} if scenery_keywords else {}),
+        )
         # Do not lose request-local exclusion notices by serializing only the item list.
-        if value and not getattr(value, 'region_metadata_missing', False):
+        if value and not getattr(value, "region_metadata_missing", False):
             self._put(key, "poi_search", "DestinationList", value)
         return value
 

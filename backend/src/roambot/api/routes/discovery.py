@@ -2,20 +2,20 @@
 
 import threading
 from datetime import datetime, timedelta, timezone
-from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Request, Response
+from pydantic import BaseModel, Field
 
 from roambot.api.dependencies import (
     AuthApiError,
     get_optional_session,
-    get_provider_bundle,
-    require_optional_csrf,
-    require_csrf,
     get_personal_data_service,
+    get_provider_bundle,
+    require_csrf,
+    require_optional_csrf,
 )
 from roambot.api.errors import error_response
-from roambot.api.routes.commands import actor_for, COOKIE
+from roambot.api.routes.commands import COOKIE, actor_for
 from roambot.domain.discovery import DiscoveryRequest
 from roambot.persistence.discovery_cache import DiscoveryCache
 from roambot.persistence.discovery_knowledge import DiscoveryKnowledge
@@ -27,10 +27,10 @@ from roambot.providers.discovery import (
 )
 from roambot.providers.discovery_workflow import DiscoveryModel
 from roambot.services.discovery import DiscoveryJobs, DiscoveryRun
-from roambot.services.personal_data import ResourceNotFoundError
-from roambot.services.discovery_workflow import DiscoveryWorkflow
-from roambot.services.discovery_orchestrator import DiscoveryOrchestrator
 from roambot.services.discovery_execution import ModelGate
+from roambot.services.discovery_orchestrator import DiscoveryOrchestrator
+from roambot.services.discovery_workflow import DiscoveryWorkflow
+from roambot.services.personal_data import ResourceNotFoundError
 
 router = APIRouter(prefix="/discovery", tags=["open discovery"])
 _lock = threading.Lock()
@@ -43,7 +43,12 @@ def get_jobs(request: Request):
     with _lock:
         if not hasattr(request.app.state, "discovery_jobs"):
             from roambot.persistence.discovery_sessions import DiscoverySessions
-            request.app.state.discovery_jobs = DiscoveryJobs(DiscoverySessions(request.app.state.settings.data_dir / 'discovery-sessions.sqlite3'))
+
+            request.app.state.discovery_jobs = DiscoveryJobs(
+                DiscoverySessions(
+                    request.app.state.settings.data_dir / "discovery-sessions.sqlite3"
+                )
+            )
         return request.app.state.discovery_jobs
 
 
@@ -77,27 +82,53 @@ def get_discovery_factory(request: Request, bundle=BUNDLE):
     def factory(body, previous):
         search = TavilySearch(key.get_secret_value())
         if getattr(request.app.state, "discovery_orchestration_mode", "legacy") == "source":
-            from roambot.services.discovery_sources import DiscoverySourceModel, DiscoverySourceWorkflow
+            from roambot.services.discovery_sources import (
+                DiscoverySourceModel,
+                DiscoverySourceWorkflow,
+            )
 
             return DiscoverySourceWorkflow(
-                body, DiscoveryMap(raw.places), bundle.weather, search,
-                DiscoverySourceModel(bundle.assistant), cache, "", previous,
-                map_interval=0.55, knowledge=request.app.state.discovery_knowledge,
+                body,
+                DiscoveryMap(raw.places),
+                bundle.weather,
+                search,
+                DiscoverySourceModel(bundle.assistant),
+                cache,
+                "",
+                previous,
+                map_interval=0.55,
+                knowledge=request.app.state.discovery_knowledge,
                 gate=request.app.state.discovery_model_gate,
             )
         if getattr(request.app.state, "discovery_orchestration_mode", "legacy") == "task":
             from roambot.services.discovery_tasks import DiscoveryTaskModel, DiscoveryTaskWorkflow
 
             return DiscoveryTaskWorkflow(
-                body, DiscoveryMap(raw.places), bundle.weather, search,
-                DiscoveryTaskModel(bundle.assistant), cache, "", previous,
-                map_interval=0.55, knowledge=request.app.state.discovery_knowledge,
+                body,
+                DiscoveryMap(raw.places),
+                bundle.weather,
+                search,
+                DiscoveryTaskModel(bundle.assistant),
+                cache,
+                "",
+                previous,
+                map_interval=0.55,
+                knowledge=request.app.state.discovery_knowledge,
                 gate=request.app.state.discovery_model_gate,
             )
-        coordinated = getattr(request.app.state, "discovery_orchestration_mode", "legacy") == "coordinated"
-        extra = {"gate": request.app.state.discovery_model_gate,
-                 "batch_reviewer": lambda conversation, context, cards: review_batch(
-                     bundle.assistant, conversation, context, cards)} if coordinated else {}
+        coordinated = (
+            getattr(request.app.state, "discovery_orchestration_mode", "legacy") == "coordinated"
+        )
+        extra = (
+            {
+                "gate": request.app.state.discovery_model_gate,
+                "batch_reviewer": lambda conversation, context, cards: review_batch(
+                    bundle.assistant, conversation, context, cards
+                ),
+            }
+            if coordinated
+            else {}
+        )
         implementation = DiscoveryOrchestrator if coordinated else DiscoveryWorkflow
         run = implementation(
             body,
@@ -139,8 +170,19 @@ def start(
     response.headers["Cache-Control"] = "no-store"
     actor = actor_for(request, response, session)
     try:
-        capture = (lambda run: personal.capture_discovery(user_id=session.authenticated.user_id,
-            body=body, snapshot={**run.snapshot(), "status": run.status}).id) if session else None
+        capture = (
+            (
+                lambda run: (
+                    personal.capture_discovery(
+                        user_id=session.authenticated.user_id,
+                        body=body,
+                        snapshot={**run.snapshot(), "status": run.status},
+                    ).id
+                )
+            )
+            if session
+            else None
+        )
         key = jobs.start(actor, body, factory, on_complete=capture)
         return {"id": key}
     except LookupError:
@@ -152,34 +194,65 @@ def start(
 
 
 @router.post("/jobs/{job_id}/history")
-def save_history(job_id: str, request: Request, response: Response, session=OWNER_WRITE,
-    jobs=JOBS, personal=PERSONAL):
+def save_history(
+    job_id: str,
+    request: Request,
+    response: Response,
+    session=OWNER_WRITE,
+    jobs=JOBS,
+    personal=PERSONAL,
+):
     try:
         run = jobs.owned(actor_for(request, response, session), job_id)
         with run.lock:
             if run.status not in {"completed", "partial"} or not run.cards:
-                return error_response(status_code=409, code="discovery_not_ready", message="推荐尚未完成。")
+                return error_response(
+                    status_code=409, code="discovery_not_ready", message="推荐尚未完成。"
+                )
             if run.history_id is None:
-                run.history_id = personal.capture_discovery(user_id=session.authenticated.user_id,
-                    body=run.body, snapshot={**run.snapshot(), "status": run.status}).id
+                run.history_id = personal.capture_discovery(
+                    user_id=session.authenticated.user_id,
+                    body=run.body,
+                    snapshot={**run.snapshot(), "status": run.status},
+                ).id
             personal.get_history(user_id=session.authenticated.user_id, history_id=run.history_id)
             if jobs.sessions and jobs.sessions.load(job_id, actor_for(request, response, session)):
-                jobs.sessions.save(job_id, actor_for(request, response, session), run.body.model_dump(mode='json'), run.snapshot())
+                jobs.sessions.save(
+                    job_id,
+                    actor_for(request, response, session),
+                    run.body.model_dump(mode="json"),
+                    run.snapshot(),
+                )
         return {"history_id": run.history_id}
     except (LookupError, ResourceNotFoundError):
-        return error_response(status_code=404, code="discovery_not_found", message="推荐会话不可用。")
+        return error_response(
+            status_code=404, code="discovery_not_found", message="推荐会话不可用。"
+        )
 
 
 def history_run(personal, user_id, history_id):
     history = personal.get_history(user_id=user_id, history_id=history_id)
     if history.mode != "discovery":
         raise LookupError()
-    body = DiscoveryRequest(message=history.request["message"], location=history.request.get("location"))
-    run = DiscoveryRun(body, None, None, None, None, previous={
-        "context": history.request["context"], "cards": history.result["cards"],
-        "search_request": history.request.get('search_request'),
-        "exploration_state": history.result.get('exploration_state')},
-        source=history.result["source"])
+    body = DiscoveryRequest(
+        message=history.request["message"], location=history.request.get("location")
+    )
+    run = DiscoveryRun(
+        body,
+        None,
+        None,
+        None,
+        None,
+        previous={
+            "context": history.request["context"],
+            "cards": history.result["cards"],
+            "search_request": history.request.get("search_request"),
+            "display_title": history.result.get("display_title"),
+            "search_scope": history.result.get("search_scope"),
+            "exploration_state": history.result.get("exploration_state"),
+        },
+        source=history.result["source"],
+    )
     run.cards = history.result["cards"]
     # Preserve the actual bounded dialogue that produced this snapshot. The
     # latest message may be only a correction, not the original leisure goal.
@@ -192,8 +265,14 @@ def history_run(personal, user_id, history_id):
 
 
 @router.post("/history/{history_id}/restore")
-def restore_history(history_id: str, request: Request, response: Response, session=OWNER_WRITE,
-    jobs=JOBS, personal=PERSONAL):
+def restore_history(
+    history_id: str,
+    request: Request,
+    response: Response,
+    session=OWNER_WRITE,
+    jobs=JOBS,
+    personal=PERSONAL,
+):
     response.headers["Cache-Control"] = "no-store"
     try:
         run = history_run(personal, session.authenticated.user_id, history_id)
@@ -210,18 +289,40 @@ class RerunDiscovery(BaseModel):
 
 
 @router.post("/history/{history_id}/rerun")
-def rerun_history(history_id: str, request: Request, response: Response, body: RerunDiscovery | None = None,
-    session=OWNER_WRITE, jobs=JOBS, personal=PERSONAL, factory=FACTORY):
+def rerun_history(
+    history_id: str,
+    request: Request,
+    response: Response,
+    body: RerunDiscovery | None = None,
+    session=OWNER_WRITE,
+    jobs=JOBS,
+    personal=PERSONAL,
+    factory=FACTORY,
+):
     try:
         previous = history_run(personal, session.authenticated.user_id, history_id)
-        if (not body or not body.message) and previous.context.start_date and previous.context.start_date < datetime.now(timezone(timedelta(hours=8))).date():
-            return error_response(status_code=422, code="history_dates_expired", message="这次改到哪天？")
+        if (
+            (not body or not body.message)
+            and previous.context.start_date
+            and previous.context.start_date < datetime.now(timezone(timedelta(hours=8))).date()
+        ):
+            return error_response(
+                status_code=422, code="history_dates_expired", message="这次改到哪天？"
+            )
         actor = actor_for(request, response, session)
         source = jobs.restore(actor, previous)
         message = body.message if body and body.message else previous.body.message
-        next_body = DiscoveryRequest(message=message, previous_id=source, location=previous.body.location)
-        capture = lambda run: personal.capture_discovery(user_id=session.authenticated.user_id,
-            body=next_body, snapshot={**run.snapshot(), "status": run.status}).id
+        next_body = DiscoveryRequest(
+            message=message, previous_id=source, location=previous.body.location
+        )
+
+        def capture(run):
+            return personal.capture_discovery(
+                user_id=session.authenticated.user_id,
+                body=next_body,
+                snapshot={**run.snapshot(), "status": run.status},
+            ).id
+
         key = jobs.start(actor, next_body, factory, on_complete=capture)
         return {"id": key, "message": message}
     except (LookupError, ResourceNotFoundError):
@@ -237,8 +338,14 @@ def read(job_id: str, request: Request, response: Response, session=SESSION, job
         run = jobs.owned(actor_for(request, response, session), job_id)
         identity = request.cookies.get(COOKIE)
         if session is None and identity:
-            response.set_cookie(COOKIE, identity, httponly=True, samesite='lax',
-                secure=request.app.state.settings.secure_cookies, max_age=86400)
+            response.set_cookie(
+                COOKIE,
+                identity,
+                httponly=True,
+                samesite="lax",
+                secure=request.app.state.settings.secure_cookies,
+                max_age=86400,
+            )
         return {"id": job_id, **run.snapshot()}
     except LookupError:
         return error_response(

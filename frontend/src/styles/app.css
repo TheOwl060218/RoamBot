@@ -201,3 +201,10 @@
     padding: 18px var(--shell-content-gutter) 40px;
   }
 }
+
+@media (max-width: 380px) {
+  .coastal-shell .primary-nav .nav-link { min-width: 0; padding-inline: 4px; font-size: .82rem; }
+  .coastal-shell .primary-nav .plan-nav-anchor { min-width: 0; }
+  .coastal-shell .primary-nav .plan-nav-anchor .plan-status-link { padding-inline: 4px; }
+  .coastal-shell .primary-nav .plan-nav-anchor .plan-status-title::after { font-size: .82rem; }
+}

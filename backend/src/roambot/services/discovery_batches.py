@@ -6,11 +6,20 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from roambot.domain.discovery import BatchReview, GroundedBatch
-from roambot.domain.discovery_execution import BatchInput, BatchResult
 from roambot.domain.discovery_assessment import CandidateBatch
+from roambot.domain.discovery_execution import BatchInput, BatchResult
 from roambot.services.discovery import model_tool_view
-from roambot.services.discovery_grounding import candidate_view, entity_supported, referenced_passages, unsuitable_ids
-from roambot.services.discovery_criteria import collection_assessments, criterion_view, supported_criteria
+from roambot.services.discovery_criteria import (
+    collection_assessments,
+    criterion_view,
+    supported_criteria,
+)
+from roambot.services.discovery_grounding import (
+    candidate_view,
+    entity_supported,
+    referenced_passages,
+    unsuitable_ids,
+)
 from roambot.services.discovery_revision import validated_revisions
 
 
@@ -58,10 +67,14 @@ def prepare_review(batch, draft):
     accepted, reviews, rejected, seen, invalid_ids = [], [], [], set(), set()
     for card in proposed.cards:
         refs = referenced_passages(card, passages)
-        support = supported_criteria(data["context"]["requirements"], card.requirement_support,
-                                     passages, card.place_id,
-                                     allow_business_inference=data["context"]["allow_business_inference"],
-                                     cited_ids=card.evidence_ids)
+        support = supported_criteria(
+            data["context"]["requirements"],
+            card.requirement_support,
+            passages,
+            card.place_id,
+            allow_business_inference=data["context"]["allow_business_inference"],
+            cited_ids=card.evidence_ids,
+        )
         if (
             card.place_id not in candidates
             or card.place_id in seen
@@ -110,8 +123,9 @@ def prepare_review(batch, draft):
             "rejections": rejected,
             "invalid_proposal_ids": sorted(invalid_ids),
             "not_suitable": sorted(unsuitable_ids(proposed, candidates.keys(), passages)),
-            "evidence_needs": [n.model_dump() for n in proposed.evidence_needs
-                               if n.place_id in candidates],
+            "evidence_needs": [
+                n.model_dump() for n in proposed.evidence_needs if n.place_id in candidates
+            ],
         },
     )
 
@@ -119,8 +133,10 @@ def prepare_review(batch, draft):
 def prepare_direct_assessment(batch, draft, data):
     selection = CandidateBatch.model_validate(draft.payload())
     candidates = {c["place"]["id"]: c for c in data["candidates"]}
-    if (len(selection.candidate_ids) != len(set(selection.candidate_ids))
-            or set(selection.candidate_ids) != candidates.keys()):
+    if (
+        len(selection.candidate_ids) != len(set(selection.candidate_ids))
+        or set(selection.candidate_ids) != candidates.keys()
+    ):
         raise ValueError("直接核验只能处理该冻结批次的全部真实候选。")
     reviews, accepted = [], []
     for key in selection.candidate_ids:
@@ -128,17 +144,39 @@ def prepare_direct_assessment(batch, draft, data):
         refs = [p for p in data["passages"].values() if p["place_id"] == key]
         if not entity_supported(candidate["place"], refs):
             raise ValueError("直接核验仍需同地点实体依据。")
-        reviews.append({"place": candidate["place"], "sources": refs,
-                        "route": candidate["route"], "weather": candidate["weather"]})
-        accepted.append({"place_id": key, "requires_final_copy": True,
-                         "evidence_ids": list(dict.fromkeys(p["evidence_id"] for p in refs))})
-    return BatchInput.freeze(batch.identity, batch.revision, batch.sequence, {
-        "parent": batch.fingerprint, "draft": draft.payload_json,
-        "conversation": data["conversation"], "context": data["review_context"],
-        "cards": reviews, "publish_cards": accepted, "rejections": [],
-        "invalid_proposal_ids": [], "not_suitable": [], "evidence_needs": [],
-        "assessment_only": True,
-    })
+        reviews.append(
+            {
+                "place": candidate["place"],
+                "sources": refs,
+                "route": candidate["route"],
+                "weather": candidate["weather"],
+            }
+        )
+        accepted.append(
+            {
+                "place_id": key,
+                "requires_final_copy": True,
+                "evidence_ids": list(dict.fromkeys(p["evidence_id"] for p in refs)),
+            }
+        )
+    return BatchInput.freeze(
+        batch.identity,
+        batch.revision,
+        batch.sequence,
+        {
+            "parent": batch.fingerprint,
+            "draft": draft.payload_json,
+            "conversation": data["conversation"],
+            "context": data["review_context"],
+            "cards": reviews,
+            "publish_cards": accepted,
+            "rejections": [],
+            "invalid_proposal_ids": [],
+            "not_suitable": [],
+            "evidence_needs": [],
+            "assessment_only": True,
+        },
+    )
 
 
 class BatchWorker:
@@ -171,9 +209,12 @@ class BatchWorker:
         self.check()
         data = batch.payload()
         if data.get("assessment_only"):
-            return BatchResult.freeze(batch, CandidateBatch(
-                candidate_ids=[c["place"]["id"] for c in data["candidates"]]
-            ).model_dump())
+            return BatchResult.freeze(
+                batch,
+                CandidateBatch(
+                    candidate_ids=[c["place"]["id"] for c in data["candidates"]]
+                ).model_dump(),
+            )
         if not data["candidates"]:
             return BatchResult.freeze(batch, {"cards": []})
         saved, hit = self.cached(batch, "approved-composition-v1", self.composition_key(batch))
@@ -199,7 +240,10 @@ class BatchWorker:
             if data.get("assessment_only"):
                 from roambot.domain.discovery_assessment import NativeBatchAssessment
                 from roambot.services.discovery_assessment import decide_assessment
-                value = decide_assessment(NativeBatchAssessment(assessments=[]), data["context"], [])
+
+                value = decide_assessment(
+                    NativeBatchAssessment(assessments=[]), data["context"], []
+                )
             else:
                 value = BatchReview(approved_ids=[], rejected=[])
         else:
@@ -228,10 +272,12 @@ class BatchWorker:
                 raise ValueError("Review must classify every actual candidate exactly once")
             if data.get("assessment_only"):
                 from roambot.services.discovery_assessment import verify_source_assessment
+
                 verify_source_assessment(value, data["context"], data["cards"])
             validated_revisions(value, data["cards"])
             collection_assessments(
-                data["context"]["user_request"]["criteria"], value.collection_assessments,
+                data["context"]["user_request"]["criteria"],
+                value.collection_assessments,
                 {c["id"] for c in data["context"]["already_published"]} | set(value.approved_ids),
             )
             directions = data["context"]["requested_directions"]

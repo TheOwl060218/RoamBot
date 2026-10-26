@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from roambot.domain.discovery_snapshot import DiscoveryPlanSnapshot
 from roambot.domain.models import (
     DailySuitability,
     DailyWeather,
@@ -12,7 +13,6 @@ from roambot.domain.models import (
     ScoreBreakdown,
     SourceState,
 )
-from roambot.domain.discovery_snapshot import DiscoveryPlanSnapshot
 
 
 class PublicDestination(BaseModel):

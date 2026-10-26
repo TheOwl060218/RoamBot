@@ -82,8 +82,7 @@ def test_model_view_separates_measurements_from_venue_evidence_without_losing_fa
     _, cards, _ = inputs()
     cards[0]["route"] = {"distance_km": 2.4, "mode": "walking", "estimated": False}
     cards[0]["weather"] = [{"date": "2026-10-17", "condition": "晴"}]
-    cards[0]["sources"].append(
-        {"id": "w", "kind": "check_weather", "place_id": "real"})
+    cards[0]["sources"].append({"id": "w", "kind": "check_weather", "place_id": "real"})
     original = copy.deepcopy(cards)
     view, references = compact_facts(cards)
 
@@ -100,9 +99,11 @@ def test_native_view_keeps_choice_logic_and_independent_limits_without_mutating_
     context, _, _ = inputs()
     context["user_request"]["criteria"][1].update(role="goal", importance="required")
     context["user_request"]["criteria"].append(
-        {"index": 4, "text": "整组要求", "scope": "collection", "importance": "required"})
+        {"index": 4, "text": "整组要求", "scope": "collection", "importance": "required"}
+    )
     context["user_request"]["requirement_groups"] = [
-        {"quote": "任选活动", "operator": "any", "requirements": [1, 2]}]
+        {"quote": "任选活动", "operator": "any", "requirements": [1, 2]}
+    ]
     before = copy.deepcopy(context)
     visible = observation_context(context)
     assert visible["acceptance_policy"] == {"all_of": [3], "any_of": [[1, 2]]}
@@ -171,9 +172,11 @@ def test_coordinate_and_nice_reason_cannot_promote_a_nonconcrete_entity(scope):
 def test_broad_request_cannot_expose_retrieval_indices_as_user_requirements():
     from roambot.providers.discovery_review import observation_context
 
-    context = {"user_request": {"messages": ["想换个环境"], "criteria": []},
-               "requested_directions": [{"index": 1, "experience": "检索假设"}],
-               "covered_direction_indices": []}
+    context = {
+        "user_request": {"messages": ["想换个环境"], "criteria": []},
+        "requested_directions": [{"index": 1, "experience": "检索假设"}],
+        "covered_direction_indices": [],
+    }
     before = copy.deepcopy(context)
     visible = observation_context(context)
     assert visible["user_request"]["criteria"] == []
@@ -183,7 +186,9 @@ def test_broad_request_cannot_expose_retrieval_indices_as_user_requirements():
     assert context == before
 
 
-@pytest.mark.parametrize("change", ["none", "missing", "past", "unquoted", "map_only", "venue_only", "forged_year"])
+@pytest.mark.parametrize(
+    "change", ["none", "missing", "past", "unquoted", "map_only", "venue_only", "forged_year"]
+)
 def test_event_requires_venue_bound_period_overlapping_the_trip(change):
     context, cards, value = inputs()
     context.update(start_date="2026-10-18", end_date="2026-10-20")
@@ -192,9 +197,15 @@ def test_event_requires_venue_bound_period_overlapping_the_trip(change):
     item["checks"] = item["checks"][:1]
     check = item["checks"][0]
     cards[0]["sources"][0]["excerpt"] = "活动于2026-10-18至2026-10-19举办。"
-    check["activity"] = {"kind": "event", "period": {
-        "start_date": "2026-10-18", "end_date": "2026-10-19",
-        "evidence_id": "p", "quote": "活动于2026-10-18至2026-10-19举办。"}}
+    check["activity"] = {
+        "kind": "event",
+        "period": {
+            "start_date": "2026-10-18",
+            "end_date": "2026-10-19",
+            "evidence_id": "p",
+            "quote": "活动于2026-10-18至2026-10-19举办。",
+        },
+    }
     if change == "missing":
         check["activity"]["period"] = None
     elif change == "past":
@@ -218,6 +229,7 @@ def test_event_requires_venue_bound_period_overlapping_the_trip(change):
 
 def test_event_numeric_date_normalization_does_not_borrow_the_requested_year():
     from datetime import date
+
     from roambot.services.discovery_assessment import quoted_event_dates
 
     assert {date(2026, 10, 18), date(2026, 10, 19)} <= quoted_event_dates("2026年10月18日至19日")
@@ -318,19 +330,23 @@ def test_source_first_review_does_not_turn_a_draft_or_proposed_support_into_fact
     assert "reason" in cards[0], "Preparing the fact view must not mutate the original draft"
 
 
-@pytest.mark.parametrize("operator,states,approved", [
-    ("any", ("supported", "unknown", "supported"), True),
-    ("any", ("unknown", "supported", "supported"), True),
-    ("any", ("supported", "supported", "unknown"), False),
-    ("any", ("unknown", "unknown", "supported"), False),
-    ("all", ("supported", "unknown", "supported"), False),
-    ("all", ("supported", "supported", "supported"), True),
-])
+@pytest.mark.parametrize(
+    "operator,states,approved",
+    [
+        ("any", ("supported", "unknown", "supported"), True),
+        ("any", ("unknown", "supported", "supported"), True),
+        ("any", ("supported", "supported", "unknown"), False),
+        ("any", ("unknown", "unknown", "supported"), False),
+        ("all", ("supported", "unknown", "supported"), False),
+        ("all", ("supported", "supported", "supported"), True),
+    ],
+)
 def test_activity_choice_does_not_drop_independent_required_facility(operator, states, approved):
     context, cards, value = inputs()
     context["user_request"]["criteria"][1].update(role="goal", importance="required")
     context["user_request"]["requirement_groups"] = [
-        {"quote": "活动选择", "operator": operator, "requirements": [1, 2]}]
+        {"quote": "活动选择", "operator": operator, "requirements": [1, 2]}
+    ]
     for check, state in zip(value["assessments"][0]["checks"], states, strict=True):
         check.update(state=state, evidence_ids=["p"] if state == "supported" else [])
     result = decide(value, context, cards)
@@ -361,7 +377,8 @@ def test_omitted_or_unproved_unused_alternative_cannot_drop_an_independent_hard_
     context, cards, value = inputs()
     context["user_request"]["criteria"][1].update(role="goal", importance="required")
     context["user_request"]["requirement_groups"] = [
-        {"quote": "活动选择", "operator": "any", "requirements": [1, 2]}]
+        {"quote": "活动选择", "operator": "any", "requirements": [1, 2]}
+    ]
     value["assessments"][0]["checks"].pop(1)
     assert decide(value, context, cards).approved_ids == ["real"]
     value["assessments"][0]["checks"][1].update(state="unknown", evidence_ids=[])
@@ -379,7 +396,16 @@ def test_uncited_negative_is_unknown_and_never_an_approval_for_a_required_fact()
 def test_citation_cardinality_can_normalize_but_conflicting_ids_cannot():
     from roambot.domain.discovery_assessment import RequirementFinding
 
-    assert RequirementFinding(requirement=1, state="supported", evidence_id="p").evidence_ids == ["p"]
-    assert RequirementFinding(requirement=1, state="unknown", evidence_id=[], evidence_ids=[]).evidence_ids == []
+    assert RequirementFinding(requirement=1, state="supported", evidence_id="p").evidence_ids == [
+        "p"
+    ]
+    assert (
+        RequirementFinding(
+            requirement=1, state="unknown", evidence_id=[], evidence_ids=[]
+        ).evidence_ids
+        == []
+    )
     with pytest.raises(ValueError):
-        RequirementFinding(requirement=1, state="supported", evidence_id="p", evidence_ids=["foreign"])
+        RequirementFinding(
+            requirement=1, state="supported", evidence_id="p", evidence_ids=["foreign"]
+        )

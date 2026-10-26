@@ -9,15 +9,18 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
+from roambot.domain.discovery_snapshot import (
+    DiscoveryArchive,
+    DiscoveryArchiveRequest,
+    PublicCard,
+    PublicDiscoverySnapshot,
+)
 from roambot.domain.models import (
     Destination,
     PlaceEvaluationRequest,
     PlaceIdentity,
     RecommendationRequest,
     RecommendationResponse,
-)
-from roambot.domain.discovery_snapshot import (
-    DiscoveryArchive, DiscoveryArchiveRequest, PublicCard, PublicDiscoverySnapshot,
 )
 from roambot.persistence.database import SessionFactory
 from roambot.persistence.repositories import (
@@ -138,14 +141,23 @@ class PersonalDataService:
 
     def capture_discovery(self, *, user_id, body, snapshot):
         archive = DiscoveryArchive.model_validate({**snapshot, "generated_at": self._now()})
-        request = DiscoveryArchiveRequest(message=body.message, context=snapshot["context"],
-            location=None if not body.use_location or (snapshot.get('position') or {}).get('approximate') else body.location,
+        request = DiscoveryArchiveRequest(
+            message=body.message,
+            context=snapshot["context"],
+            location=None
+            if not body.use_location or (snapshot.get("position") or {}).get("approximate")
+            else body.location,
             conversation=snapshot.get("conversation", []),
-            search_request=snapshot.get('search_request'))
+            search_request=snapshot.get("search_request"),
+        )
         with self._session_factory.begin() as db:
-            record = HistoryRepository(db).create(user_id=user_id, mode="discovery",
+            record = HistoryRepository(db).create(
+                user_id=user_id,
+                mode="discovery",
                 request_json=_canonical_json(request.model_dump(mode="json")),
-                result_json=_canonical_json(archive.model_dump(mode="json")), created_at=self._now())
+                result_json=_canonical_json(archive.model_dump(mode="json")),
+                created_at=self._now(),
+            )
         return _snapshot(record)
 
     def get_history(self, *, user_id: str, history_id: str) -> HistorySnapshot:
@@ -269,8 +281,11 @@ def _canonical_json(value: dict[str, object]) -> str:
 def _snapshot(record: HistoryRecord) -> HistorySnapshot:
     if record.mode not in {"recommendation", "place_evaluation", "discovery"}:
         raise ValueError("unsupported history mode")
-    result = (DiscoveryArchive.model_validate_json(record.result_json).model_dump(mode="json")
-        if record.mode == "discovery" else _normalize_history_result(_mapping(json.loads(record.result_json))))
+    result = (
+        DiscoveryArchive.model_validate_json(record.result_json).model_dump(mode="json")
+        if record.mode == "discovery"
+        else _normalize_history_result(_mapping(json.loads(record.result_json)))
+    )
     return HistorySnapshot(
         id=record.id,
         mode=record.mode,
@@ -373,20 +388,31 @@ def public_discovery_snapshot(request, result, user_id=""):
     archive = DiscoveryArchive.model_validate(result)
     query = DiscoveryArchiveRequest.model_validate(request)
     cities = list(dict.fromkeys(c.place.city for c in archive.cards))
-    cards = [PublicCard(place=c.place.model_dump(), experience=c.experience, reason=c.reason,
-        sources=[s for s in c.sources if s.kind in {"web_page", "search_excerpt"}],
-        weather=c.weather if isinstance(c.weather, list) else None).model_dump(mode="json")
-        for c in archive.cards]
+    cards = [
+        PublicCard(
+            place=c.place.model_dump(),
+            experience=c.experience,
+            reason=c.reason,
+            sources=[s for s in c.sources if s.kind in {"web_page", "search_excerpt"}],
+            weather=c.weather if isinstance(c.weather, list) else None,
+        ).model_dump(mode="json")
+        for c in archive.cards
+    ]
     private = [user_id] if user_id else []
     origin = query.context.origin
     if origin and origin.removesuffix("市") not in {c.removesuffix("市") for c in cities}:
         private.append(origin)
     if query.location:
-        private.extend(str(v) for v in (query.location.longitude, query.location.latitude) if len(str(v)) > 4)
-    public = PublicDiscoverySnapshot(city="、".join(cities),
+        private.extend(
+            str(v) for v in (query.location.longitude, query.location.latitude) if len(str(v)) > 4
+        )
+    public = PublicDiscoverySnapshot(
+        city="、".join(cities),
         start_date=query.context.start_date.isoformat() if query.context.start_date else None,
         end_date=query.context.end_date.isoformat() if query.context.end_date else None,
-        generated_at=archive.generated_at, cards=cards).model_dump(mode="json")
+        generated_at=archive.generated_at,
+        cards=cards,
+    ).model_dump(mode="json")
     return _remove_private_strings(public, tuple(sorted(private, key=len, reverse=True)))
 
 

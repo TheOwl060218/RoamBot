@@ -261,7 +261,7 @@ def test_dirty_or_invented_selection_cannot_create_plan(auth_api_fixture):
     assert client.get("/api/v1/plans").json()["plans"] == []
 
 
-@pytest.mark.parametrize('page', ['recommend', 'explore'])
+@pytest.mark.parametrize("page", ["recommend", "explore"])
 def test_anonymous_proposals_are_bound_to_their_own_cookie(auth_api_fixture, page):
     guest, _, _ = auth_api_fixture()
     setup(guest, [{"tool": "navigate", "arguments": {"page": page}}])
@@ -278,8 +278,11 @@ def test_anonymous_proposals_are_bound_to_their_own_cookie(auth_api_fixture, pag
     result = guest.post(
         BASE + "/execute", json={"request_id": p["request_id"], "proposal": p["proposal"]}
     ).json()
-    assert result['status'] == 'completed'
-    assert result['steps'][0]['result']['effect'] == {'tool': 'navigate', 'arguments': {'page': page}}
+    assert result["status"] == "completed"
+    assert result["steps"][0]["result"]["effect"] == {
+        "tool": "navigate",
+        "arguments": {"page": page},
+    }
 
 
 def run(client, csrf, tool, arguments=None, context=None):

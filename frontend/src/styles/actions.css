@@ -26,6 +26,12 @@
 .itinerary-switcher a { border: 1px solid var(--coastal-line, var(--border)); border-radius: 999px; }
 .itinerary-stop .itinerary-grip { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 58px; height: 32px; padding: 0 6px; border: 1px solid #bad6dd; border-radius: 999px; background: #edf7f8; color: #4f7884; font-size: .72rem; }
 .password-toggle { border: 1px solid var(--border); border-radius: 50%; background: var(--surface); }
+.primary-button > svg, .text-button > svg, .icon-text-button > svg { flex-shrink: 0; }
+:is(.item-actions, .confirm-actions, .itinerary-toolbar, .plan-actions, .discovery-detail-actions, .favorite-detail-actions) :is(.text-button, .icon-text-button, .primary-button, .danger-button) {
+  min-height: 44px; padding-block: 8px; line-height: 1.25;
+}
+.confirm-actions { flex-wrap: wrap; align-items: flex-start; }
+.confirm-actions > button { display: inline-flex; align-items: center; justify-content: center; }
 @media (hover: hover) and (pointer: fine) {
   :is(.text-button, .icon-text-button, .plan-back, .place-map-link, .business-result-link,
     .history-menu-action, .studio-result-navigation button, .studio-team-mode button,

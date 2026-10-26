@@ -8,6 +8,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
+from roambot.domain.business_tools import INTAKE_TOOLS
 from roambot.domain.discovery import (
     EvidenceNeed,
     ProposedCard,
@@ -17,18 +18,30 @@ from roambot.domain.discovery import (
     VenueSelection,
 )
 from roambot.domain.models import Coordinate
-from roambot.domain.business_tools import INTAKE_TOOLS
 from roambot.providers.discovery import arrival_coordinate, source_mentions_place
 from roambot.providers.protocols import ProviderError
 from roambot.services.discovery import DiscoveryRun, model_tool_view
-from roambot.services.discovery_grounding import (
-    candidate_view, can_evaluate_map, cited_sources, entity_supported, referenced_passages, unsuitable_ids,
+from roambot.services.discovery_criteria import (
+    collection_assessments,
+    criterion_view,
+    supported_criteria,
 )
-from roambot.services.discovery_criteria import collection_assessments, criterion_view, supported_criteria
-from roambot.services.discovery_selection import select_places, select_retrieved_places, select_sources
-from roambot.services.discovery_scheduling import assessment_batch_size, initial_batch_size
-from roambot.services.discovery_revision import validated_revisions
+from roambot.services.discovery_grounding import (
+    can_evaluate_map,
+    candidate_view,
+    cited_sources,
+    entity_supported,
+    referenced_passages,
+    unsuitable_ids,
+)
 from roambot.services.discovery_intent import compile_intent, requirement_groups, temporal_updates
+from roambot.services.discovery_revision import validated_revisions
+from roambot.services.discovery_scheduling import assessment_batch_size, initial_batch_size
+from roambot.services.discovery_selection import (
+    select_places,
+    select_retrieved_places,
+    select_sources,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -232,12 +245,24 @@ class DiscoveryWorkflow(DiscoveryRun):
         self.stage = "正在并行寻找适合这次想法的去处"
         previous_ids = self.seed_previous()
         indexed = []
-        queries = self.plan.map_queries if self.plan.directions else list(
-            dict.fromkeys(self.plan.map_queries or self.plan.web_queries or [self.plan.goal]))
+        queries = (
+            self.plan.map_queries
+            if self.plan.directions
+            else list(
+                dict.fromkeys(self.plan.map_queries or self.plan.web_queries or [self.plan.goal])
+            )
+        )
         if self.knowledge:
-            self.public_groups = [self.knowledge.find(query, region=self.context.region,
-                center=self.center, radius=self.context.max_distance_km, limit=12)
-                for query in queries]
+            self.public_groups = [
+                self.knowledge.find(
+                    query,
+                    region=self.context.region,
+                    center=self.center,
+                    radius=self.context.max_distance_km,
+                    limit=12,
+                )
+                for query in queries
+            ]
             # Preserve one slot per query before admitting its second hit. A large
             # single-topic corpus must not crowd out a smaller, relevant direction.
             seen_places = set()
@@ -254,8 +279,9 @@ class DiscoveryWorkflow(DiscoveryRun):
                 self.ingest([entry["place"]])
             self.research_sources = list({s["url"]: s for s in self.research_sources}.values())
             self.metrics["public_place_hits"] = len(indexed)
-            self.metrics["public_query_hits"] = {query: len(group)
-                for query, group in zip(queries, self.public_groups, strict=True)}
+            self.metrics["public_query_hits"] = {
+                query: len(group) for query, group in zip(queries, self.public_groups, strict=True)
+            }
         missing = [i for i, group in enumerate(self.public_groups) if not group]
         query = self.plan.web_queries[0] if self.plan.web_queries else None
         if missing and self.plan.directions:
@@ -265,7 +291,8 @@ class DiscoveryWorkflow(DiscoveryRun):
         # A cold request starts with one search, not three unconditional paid searches.
         tasks = [
             ("web", query)
-            for query in [query] if query
+            for query in [query]
+            if query
             if (len(indexed) < 4 or missing) and not previous_ids and not can_evaluate_map(self)
         ]
         tasks += [("map", query) for query in dict.fromkeys(self.plan.map_queries)]
@@ -294,8 +321,11 @@ class DiscoveryWorkflow(DiscoveryRun):
         for (kind, _), values in zip(tasks, results, strict=True):
             if kind == "map":
                 self.ingest(values or [])
-        self.map_results = [(query, values or []) for (kind, query), values
-                            in zip(tasks, results, strict=True) if kind == "map"]
+        self.map_results = [
+            (query, values or [])
+            for (kind, query), values in zip(tasks, results, strict=True)
+            if kind == "map"
+        ]
         self.remember_public()
         if previous_ids and not tasks:
             return previous_ids[:12]
@@ -313,11 +343,17 @@ class DiscoveryWorkflow(DiscoveryRun):
             fresh_groups = dict(self.map_results)
             groups = []
             for index, query in enumerate(queries):
-                public = ([entry["place"] for entry in self.public_groups[index]]
-                          if index < len(self.public_groups) else [])
+                public = (
+                    [entry["place"] for entry in self.public_groups[index]]
+                    if index < len(self.public_groups)
+                    else []
+                )
                 groups.append((query, [*fresh_groups.get(query, []), *public]))
-            candidates = select_retrieved_places(groups) if any(values for _, values in groups) else select_places(
-                list(self.places.values()), self.selection_queries(), limit=12)
+            candidates = (
+                select_retrieved_places(groups)
+                if any(values for _, values in groups)
+                else select_places(list(self.places.values()), self.selection_queries(), limit=12)
+            )
             self.nominated_ids = [p["id"] for p in candidates]
             return self.nominated_ids
         return self.nominate()
@@ -329,11 +365,15 @@ class DiscoveryWorkflow(DiscoveryRun):
 
     def nominate(self):
         self.stage = "正在从资料中挑选具体去处"
-        selected_sources = select_sources(self.research_sources, self.selection_queries(),
-                                          recent_urls=self.fresh_source_urls)
+        selected_sources = select_sources(
+            self.research_sources, self.selection_queries(), recent_urls=self.fresh_source_urls
+        )
         visible_sources = {id(s) for s in selected_sources}
-        source_ids = {f"s{i}": source for i, source in enumerate(self.research_sources, 1)
-                      if id(source) in visible_sources}
+        source_ids = {
+            f"s{i}": source
+            for i, source in enumerate(self.research_sources, 1)
+            if id(source) in visible_sources
+        }
         sources = [
             {"source_id": key, "title": s.get("title", ""), "excerpt": s.get("excerpt", "")[:800]}
             for key, s in source_ids.items()
@@ -373,7 +413,10 @@ class DiscoveryWorkflow(DiscoveryRun):
         for lead in selected.venues:
             if lead.place_id and (
                 lead.place_id not in {p["id"] for p in selected_places}
-                or (lead.name and not self.same_venue_name(lead.name, self.places[lead.place_id]["name"]))
+                or (
+                    lead.name
+                    and not self.same_venue_name(lead.name, self.places[lead.place_id]["name"])
+                )
             ):
                 lead.place_id = None
             if lead.place_id and not lead.name:
@@ -422,15 +465,22 @@ class DiscoveryWorkflow(DiscoveryRun):
                 ids.extend(lead_ids.get(lead.name, []))
         self.remember_public()
         published = {c["place"]["id"] for c in self.cards}
-        self.nominated_ids = [key for key in dict.fromkeys(ids)
-                              if key not in published and key not in self.structural_rejections
-                              and key not in self.unsuitable][:12]
+        self.nominated_ids = [
+            key
+            for key in dict.fromkeys(ids)
+            if key not in published
+            and key not in self.structural_rejections
+            and key not in self.unsuitable
+        ][:12]
         self.ensure_core_evidence(self.nominated_ids)
         return self.nominated_ids
 
     def selection_queries(self):
-        queries = [r.text for r in self.plan.requirements
-                   if r.scope == "place" and r.importance == "required"]
+        queries = [
+            r.text
+            for r in self.plan.requirements
+            if r.scope == "place" and r.importance == "required"
+        ]
         queries += self.plan.map_queries + self.plan.web_queries
         queries += [d.map_query for d in self.plan.directions]
         region = self.context.region
@@ -449,7 +499,9 @@ class DiscoveryWorkflow(DiscoveryRun):
 
     def record_evidence_needs(self, needs, eligible_ids):
         eligible = set(eligible_ids) & self.places.keys()
-        existing = {(n.place_id, n.requirement if n.requirement else n.query) for n in self.evidence_needs}
+        existing = {
+            (n.place_id, n.requirement if n.requirement else n.query) for n in self.evidence_needs
+        }
         for value in needs:
             need = EvidenceNeed.model_validate(value)
             key = (need.place_id, need.requirement if need.requirement else need.query)
@@ -460,26 +512,42 @@ class DiscoveryWorkflow(DiscoveryRun):
                 existing.add(key)
             elif need.place_id in eligible and need.date_sensitive:
                 for previous in self.evidence_needs:
-                    if (previous.place_id, previous.requirement if previous.requirement else previous.query) == key:
+                    if (
+                        previous.place_id,
+                        previous.requirement if previous.requirement else previous.query,
+                    ) == key:
                         previous.date_sensitive = True
 
     def pending_evidence_needs(self):
         published = {c["place"]["id"] for c in self.cards}
-        return [n for n in self.evidence_needs if n.place_id not in published
-                and n.place_id not in self.structural_rejections
-                and n.place_id not in self.unsuitable
-                and self.need_query(n) not in self.web_seen
-                and (not self.plan.requirements or (
+        return [
+            n
+            for n in self.evidence_needs
+            if n.place_id not in published
+            and n.place_id not in self.structural_rejections
+            and n.place_id not in self.unsuitable
+            and self.need_query(n) not in self.web_seen
+            and (
+                not self.plan.requirements
+                or (
                     n.requirement is not None
                     and self.plan.requirements[n.requirement - 1].scope == "place"
-                    and self.plan.requirements[n.requirement - 1].importance == "required"))]
+                    and self.plan.requirements[n.requirement - 1].importance == "required"
+                )
+            )
+        ]
 
     def need_query(self, need):
         name = self.places[need.place_id]["name"]
         dates = ""
         if need.date_sensitive:
-            dates = " ".join(dict.fromkeys(str(value) for value in
-                (self.context.start_date, self.context.end_date) if value))
+            dates = " ".join(
+                dict.fromkeys(
+                    str(value)
+                    for value in (self.context.start_date, self.context.end_date)
+                    if value
+                )
+            )
             dates = (" " + dates) if dates else ""
         if need.requirement is not None:
             # A model may mislabel its free-form query. Execute the bound user
@@ -492,13 +560,23 @@ class DiscoveryWorkflow(DiscoveryRun):
         for key in ids:
             if key in self.structural_rejections or key in self.unsuitable:
                 continue
-            if not force and any(e["place_id"] == key and e["kind"] in {"web_page", "search_excerpt"}
-                   for e in self.evidence.values()):
+            if not force and any(
+                e["place_id"] == key and e["kind"] in {"web_page", "search_excerpt"}
+                for e in self.evidence.values()
+            ):
                 continue
             for i, requirement in enumerate(self.plan.requirements, 1):
-                if (requirement.role == "condition" and requirement.scope == "place"
-                        and requirement.importance == "required" and not requirement.map_field):
-                    needs.append(EvidenceNeed(place_id=key, query=requirement.text + " 公开介绍", requirement=i))
+                if (
+                    requirement.role == "condition"
+                    and requirement.scope == "place"
+                    and requirement.importance == "required"
+                    and not requirement.map_field
+                ):
+                    needs.append(
+                        EvidenceNeed(
+                            place_id=key, query=requirement.text + " 公开介绍", requirement=i
+                        )
+                    )
         self.record_evidence_needs(needs, ids)
 
     @staticmethod
@@ -580,22 +658,32 @@ class DiscoveryWorkflow(DiscoveryRun):
         self.record_evidence_needs(result.evidence_needs, [c["place"]["id"] for c in cards])
         covered = set()
         for coverage in result.covered_directions:
-            if coverage.direction > len(self.plan.directions) or not set(coverage.place_ids) <= set(result.approved_ids):
+            if coverage.direction > len(self.plan.directions) or not set(coverage.place_ids) <= set(
+                result.approved_ids
+            ):
                 raise ValueError("体验覆盖引用了未通过的地点或未知方向。")
             covered.add(coverage.direction)
         self.covered_directions.update(covered)
         for card in cards:
             if card["place"]["id"] not in result.approved_ids:
                 continue
-            direction = next((c.direction for c in result.covered_directions
-                if card["place"]["id"] in c.place_ids), None)
+            direction = next(
+                (
+                    c.direction
+                    for c in result.covered_directions
+                    if card["place"]["id"] in c.place_ids
+                ),
+                None,
+            )
             if direction:
                 # Group by this request's verified activity, not arbitrary
                 # promotional names or the retired fixed scenery categories.
                 card["experience"] = self.plan.directions[direction - 1].experience
             selected = self.review_inputs.get(card["place"]["id"], {}).get("sources", [])
-            if (revision := revisions.get(card["place"]["id"])):
-                additional = {s["evidence_id"] for s in selected if s["id"] in revision.evidence_ids}
+            if revision := revisions.get(card["place"]["id"]):
+                additional = {
+                    s["evidence_id"] for s in selected if s["id"] in revision.evidence_ids
+                }
                 existing = {s["id"] for s in card["sources"]}
                 card["sources"] += [self.evidence[key] for key in additional - existing]
             card["sources"] = cited_sources(card["sources"], selected)
@@ -604,7 +692,8 @@ class DiscoveryWorkflow(DiscoveryRun):
     def record_collection_review(self, result, reviewed_previous):
         current = {c["place"]["id"] for c in self.cards}
         valid = collection_assessments(
-            criterion_view(self.plan.requirements), result.collection_assessments,
+            criterion_view(self.plan.requirements),
+            result.collection_assessments,
             set(reviewed_previous) | set(result.approved_ids),
         )
         # A parallel worker may have reviewed an older prefix. Its list-level
@@ -612,22 +701,32 @@ class DiscoveryWorkflow(DiscoveryRun):
         self.collection_assessments = valid if set(reviewed_previous) == current else {}
 
     def collection_gaps(self):
-        return [i for i, requirement in enumerate(self.plan.requirements, 1)
-                if requirement.scope == "collection" and requirement.importance == "required"
-                and not self.collection_assessments.get(i, {}).get("satisfied")]
+        return [
+            i
+            for i, requirement in enumerate(self.plan.requirements, 1)
+            if requirement.scope == "collection"
+            and requirement.importance == "required"
+            and not self.collection_assessments.get(i, {}).get("satisfied")
+        ]
 
     def finalize_collection(self):
         evaluate = getattr(self.model, "assess_collection", None)
-        if not (self.cards and getattr(self.model, "source_first", False)
-                and callable(evaluate) and self.collection_gaps()):
+        if not (
+            self.cards
+            and getattr(self.model, "source_first", False)
+            and callable(evaluate)
+            and self.collection_gaps()
+        ):
             return
         with self.lock:
             cards = copy.deepcopy(self.cards)
         expected = [c["place"]["id"] for c in cards]
-        result = self.model_call("collection", lambda: evaluate(
-            self.turns, self.request_context(), cards))
-        valid = collection_assessments(criterion_view(self.plan.requirements),
-                                       result.collection_assessments, set(expected))
+        result = self.model_call(
+            "collection", lambda: evaluate(self.turns, self.request_context(), cards)
+        )
+        valid = collection_assessments(
+            criterion_view(self.plan.requirements), result.collection_assessments, set(expected)
+        )
         self.check()
         with self.lock:
             if expected != [c["place"]["id"] for c in self.cards]:
@@ -635,11 +734,17 @@ class DiscoveryWorkflow(DiscoveryRun):
             self.collection_assessments = valid
 
     def review_context(self):
-        return {**self.request_context(),
-            "requested_directions": [{"index": i, **d.model_dump()} for i, d in enumerate(self.plan.directions, 1)],
+        return {
+            **self.request_context(),
+            "requested_directions": [
+                {"index": i, **d.model_dump()} for i, d in enumerate(self.plan.directions, 1)
+            ],
             "covered_direction_indices": sorted(self.covered_directions),
-            "already_published": [{"id": c["place"]["id"], "name": c["place"]["name"],
-                "experience": c["experience"]} for c in self.cards]}
+            "already_published": [
+                {"id": c["place"]["id"], "name": c["place"]["name"], "experience": c["experience"]}
+                for c in self.cards
+            ],
+        }
 
     def plan_context(self, plan):
         # Nulls produced for optional schema fields are not implicit delete commands.
@@ -653,10 +758,16 @@ class DiscoveryWorkflow(DiscoveryRun):
         ):
             raise ValueError("整组要求已表达，必须保留为scope=collection项目并引用原话，不能遗漏。")
         if plan.temporal:
-            resolved = temporal_updates(plan.temporal, self.context, original,
-                datetime.now(timezone(timedelta(hours=8))).date())
-            if any(updates.get(key) is not None and updates[key] != resolved[key]
-                   for key in ("start_date", "end_date")):
+            resolved = temporal_updates(
+                plan.temporal,
+                self.context,
+                original,
+                datetime.now(timezone(timedelta(hours=8))).date(),
+            )
+            if any(
+                updates.get(key) is not None and updates[key] != resolved[key]
+                for key in ("start_date", "end_date")
+            ):
                 raise ValueError("时间意图与context日期不一致，不能忽略或重复猜测。")
             updates.update(resolved)
         if (
@@ -668,8 +779,11 @@ class DiscoveryWorkflow(DiscoveryRun):
         # A delete of an already absent optional value is a no-op, not a user
         # intent requiring evidence. Keep evidence checks for every real delete
         # and for deletes that would override a value set in the same patch.
-        effective_clears = [name for name in plan.clear_fields
-                            if getattr(self.context, name) is not None or updates.get(name) is not None]
+        effective_clears = [
+            name
+            for name in plan.clear_fields
+            if getattr(self.context, name) is not None or updates.get(name) is not None
+        ]
         if effective_clears:
             if not plan.clear_quote or plan.clear_quote not in original:
                 raise ValueError("清空条件需要明确原文依据。")
@@ -677,13 +791,12 @@ class DiscoveryWorkflow(DiscoveryRun):
         for i, requirement in enumerate(plan.requirements):
             if requirement.quote not in original:
                 raise ValueError(f"requirements[{i}].quote需要逐字引用用户原文。")
-        if plan.nearby_quote:
-            if plan.nearby_quote not in original:
-                raise ValueError("nearby_quote需要逐字引用用户原文，仅指定城市不等于请求附近。")
+        if plan.nearby_quote and plan.nearby_quote not in original:
+            raise ValueError("nearby_quote需要逐字引用用户原文，仅指定城市不等于请求附近。")
             # Nearby uses the map search's local retrieval radius. Only an
             # explicit user distance becomes a hard measured-route constraint.
         chosen = self.body.location_details if self.body.use_location else None
-        if chosen and chosen.source == 'selected':
+        if chosen and chosen.source == "selected":
             updates.update(origin=chosen.name, origin_quote=None)
         elif chosen and chosen.replace_origin:
             updates.update(origin=None, origin_quote=None)
@@ -694,24 +807,36 @@ class DiscoveryWorkflow(DiscoveryRun):
     def configure_plan(self):
         value = self.plan_context(self.plan)
         updates = value.model_dump(exclude_unset=True)
-        if (self.location is not None or not self.body.use_location) and not updates.get("origin", self.context.origin):
+        if (self.location is not None or not self.body.use_location) and not updates.get(
+            "origin", self.context.origin
+        ):
             self.center = None
             self.center_name = None
         return self.configure(value)
 
     def load_plan(self, context, previous_cards):
-        if (self.body.location_details or not self.body.use_location) and self.previous.get('_location_plan'):
+        if (self.body.location_details or not self.body.use_location) and self.previous.get(
+            "_location_plan"
+        ):
             # The owned prior search supplies its intent; an explicit location
             # button does not need another model to reinterpret the same wish.
-            plan = RetrievalPlan.model_validate(self.previous['_location_plan'])
+            plan = RetrievalPlan.model_validate(self.previous["_location_plan"])
             plan.context = SearchContext.model_validate(self.context.model_dump())
             plan.clear_fields = []
-            return plan.model_dump(mode='json')
-        plan = self.model_call("planning", lambda: self.model.plan(
-            self.turns, context, self.location is not None, previous_cards,
-            {**self.body.view.model_dump(), "recent_conversation": [
-                m.model_dump() for m in self.body.conversation]},
-        ))
+            return plan.model_dump(mode="json")
+        plan = self.model_call(
+            "planning",
+            lambda: self.model.plan(
+                self.turns,
+                context,
+                self.location is not None,
+                previous_cards,
+                {
+                    **self.body.view.model_dump(),
+                    "recent_conversation": [m.model_dump() for m in self.body.conversation],
+                },
+            ),
+        )
         original = "\n".join(t["content"] for t in self.turns if t["role"] == "user")
         if plan.intent == "search":
             try:
@@ -722,10 +847,16 @@ class DiscoveryWorkflow(DiscoveryRun):
                 if repair is None:
                     raise
                 violation = str(error)
-                plan = self.model_call("planning_repair", lambda: repair(
-                    self.turns, context, self.location is not None,
-                    plan.model_dump(mode="json", exclude_unset=True), violation,
-                ))
+                plan = self.model_call(
+                    "planning_repair",
+                    lambda: repair(
+                        self.turns,
+                        context,
+                        self.location is not None,
+                        plan.model_dump(mode="json", exclude_unset=True),
+                        violation,
+                    ),
+                )
                 self.check()
                 if plan.intent != "search":
                     raise ValueError("条件纠正不能改为执行业务。") from None
@@ -736,7 +867,9 @@ class DiscoveryWorkflow(DiscoveryRun):
             # Only complete, validated updates leave intake. This permits native
             # sparse endpoints without weakening the retrieval/public contracts.
             canonical = self.plan_context(plan)
-            plan.context = type(plan.context).model_validate(canonical.model_dump(exclude_unset=True))
+            plan.context = type(plan.context).model_validate(
+                canonical.model_dump(exclude_unset=True)
+            )
         self.check()
         return plan.model_dump(mode="json", exclude_unset=True)
 
@@ -771,9 +904,14 @@ class DiscoveryWorkflow(DiscoveryRun):
         for card in proposed.cards:
             refs = referenced_passages(card, passages)
             supports = getattr(card, "requirement_support", [])
-            coverage = supported_criteria(context["requirements"], supports, passages, card.place_id,
-                                          allow_business_inference=bool(self.reviewer),
-                                          cited_ids=card.evidence_ids)
+            coverage = supported_criteria(
+                context["requirements"],
+                supports,
+                passages,
+                card.place_id,
+                allow_business_inference=bool(self.reviewer),
+                cited_ids=card.evidence_ids,
+            )
             if (
                 card.place_id not in ids
                 or card.place_id in published
@@ -822,10 +960,13 @@ class DiscoveryWorkflow(DiscoveryRun):
         self.stage = "正在核对本批去处并整理推荐理由"
         revision = getattr(self, "revision", 1)
         batch = freeze_batch(self, 0, ids, revision)
-        worker = BatchWorker(self.model,
+        worker = BatchWorker(
+            self.model,
             lambda conversation, context, cards: self.reviewer(cards),
             call=lambda stage, invoke, sequence: self.model_call(stage, invoke),
-            cache=self.cache, check=self.check)
+            cache=self.cache,
+            check=self.check,
+        )
         draft = worker.compose(batch)
         decision = worker.review(batch, draft)
         return self.commit_reviewed_batch(batch, draft, decision, revision=revision)["published"]
@@ -837,11 +978,21 @@ class DiscoveryWorkflow(DiscoveryRun):
     def supplement(self):
         if self.places and self.places.keys() <= (self.structural_rejections | self.unsuitable):
             return []  # Protocol failures are not missing facts; do not buy more evidence.
-        missing_queries = [d.web_query for i, d in enumerate(self.plan.directions, 1)
-            if i not in self.covered_directions and d.web_query not in self.web_seen]
+        missing_queries = [
+            d.web_query
+            for i, d in enumerate(self.plan.directions, 1)
+            if i not in self.covered_directions and d.web_query not in self.web_seen
+        ]
         pending = self.pending_evidence_needs()
-        query = next((self.need_query(n) for n in pending), None) or (self.evidence_query if self.evidence_query not in self.web_seen and not self.plan.requirements else None) or next(iter(missing_queries), None) or next(
-            (q for q in self.plan.web_queries if q not in self.web_seen), None
+        query = (
+            next((self.need_query(n) for n in pending), None)
+            or (
+                self.evidence_query
+                if self.evidence_query not in self.web_seen and not self.plan.requirements
+                else None
+            )
+            or next(iter(missing_queries), None)
+            or next((q for q in self.plan.web_queries if q not in self.web_seen), None)
         )
         if not query or query in self.web_seen or self.metrics["web_attempts"] >= 2:
             return []
@@ -855,10 +1006,16 @@ class DiscoveryWorkflow(DiscoveryRun):
         self.fresh_source_urls.update(s["url"] for s in additional)
         self.ingest(list(self.places.values()))
         published = {c["place"]["id"] for c in self.cards}
-        known = [key for key in self.nominated_ids if key not in published
-                 and key not in self.structural_rejections and any(
-            e["place_id"] == key and e["kind"] in {"web_page", "search_excerpt"}
-            for e in self.evidence.values())]
+        known = [
+            key
+            for key in self.nominated_ids
+            if key not in published
+            and key not in self.structural_rejections
+            and any(
+                e["place_id"] == key and e["kind"] in {"web_page", "search_excerpt"}
+                for e in self.evidence.values()
+            )
+        ]
         known = [key for key in known if key not in self.unsuitable]
         if known:
             return known
@@ -866,7 +1023,9 @@ class DiscoveryWorkflow(DiscoveryRun):
 
     def process_candidates(self, ids):
         direct = bool(getattr(self.model, "source_first", False))
-        first = assessment_batch_size(len(ids), first=True) if direct else initial_batch_size(len(ids))
+        first = (
+            assessment_batch_size(len(ids), first=True) if direct else initial_batch_size(len(ids))
+        )
         valid = self.facts(ids[:first])
         if valid:
             self.process_batch(valid)
@@ -880,12 +1039,16 @@ class DiscoveryWorkflow(DiscoveryRun):
         if self.pending_nomination:
             nominees = self.nominate()
             shown = {c["place"]["id"] for c in self.cards}
-            remaining = [key for key in dict.fromkeys(nominees + remaining)
-                         if key not in shown][:12-len(shown)]
+            remaining = [key for key in dict.fromkeys(nominees + remaining) if key not in shown][
+                : 12 - len(shown)
+            ]
         size = assessment_batch_size(6) if direct else 6
         for start in range(0, len(remaining), size):
-            pending = [key for key in remaining[start:start + size]
-                       if key not in self.structural_rejections and key not in self.unsuitable]
+            pending = [
+                key
+                for key in remaining[start : start + size]
+                if key not in self.structural_rejections and key not in self.unsuitable
+            ]
             valid = self.facts(pending)
             if valid:
                 self.process_batch(valid)
@@ -894,7 +1057,10 @@ class DiscoveryWorkflow(DiscoveryRun):
         try:
             return self.compose(ids)
         except ProviderError as error:
-            if not getattr(self.model, "source_first", False) or error.code not in {"timeout", "bad_response"}:
+            if not getattr(self.model, "source_first", False) or error.code not in {
+                "timeout",
+                "bad_response",
+            }:
                 raise
             # A failed batch is still reported as incomplete, but must not erase
             # earlier cards or prevent independent later candidates being assessed.
@@ -904,7 +1070,7 @@ class DiscoveryWorkflow(DiscoveryRun):
     def process_supplement(self, ids):
         size = assessment_batch_size(4) if getattr(self.model, "source_first", False) else 4
         for start in range(0, len(ids), size):
-            valid = self.facts(ids[start:start + size])
+            valid = self.facts(ids[start : start + size])
             if valid:
                 self.process_batch(valid)
 
@@ -952,9 +1118,14 @@ class DiscoveryWorkflow(DiscoveryRun):
                 return
             if self.plan.directions:
                 core = list(dict.fromkeys(d.map_query for d in self.plan.directions))
-                preferences = [d.preference_query for d in self.plan.directions
-                               if d.preference_query and d.preference_query not in core]
-                self.plan.map_queries = core + list(dict.fromkeys(preferences))[:max(0, 3 - len(core))]
+                preferences = [
+                    d.preference_query
+                    for d in self.plan.directions
+                    if d.preference_query and d.preference_query not in core
+                ]
+                self.plan.map_queries = (
+                    core + list(dict.fromkeys(preferences))[: max(0, 3 - len(core))]
+                )
                 self.plan.web_queries = [d.web_query for d in self.plan.directions]
             self.measured("context", self.configure_plan)
             if not self.center and (
@@ -971,9 +1142,11 @@ class DiscoveryWorkflow(DiscoveryRun):
                 if self.metrics["web_attempts"] >= 2 or not (
                     not self.cards
                     or self.collection_gaps()
-                    or (not self.plan.requirements
+                    or (
+                        not self.plan.requirements
                         and not getattr(self.model, "source_first", False)
-                        and len(self.covered_directions) < len(self.plan.directions))
+                        and len(self.covered_directions) < len(self.plan.directions)
+                    )
                     or (
                         not self.plan.requirements
                         and len({c["experience"] for c in self.cards}) < 2
@@ -985,15 +1158,28 @@ class DiscoveryWorkflow(DiscoveryRun):
                 if extra:
                     self.finalize_collection()
             self.check()
-            missing = [i for i in range(1, len(self.plan.directions) + 1) if i not in self.covered_directions]
+            missing = [
+                i
+                for i in range(1, len(self.plan.directions) + 1)
+                if i not in self.covered_directions
+            ]
             self.metrics["uncovered_direction_indices"] = missing
             self.metrics["unmet_collection_requirements"] = self.collection_gaps()
             self.status = (
                 "completed"
-                if (self.cards and not self.errors and (not missing or self.plan.requirements
-                    or (getattr(self.model, "source_first", False)
-                        and len({c["experience"] for c in self.cards}) >= 2))
-                    and not self.collection_gaps())
+                if (
+                    self.cards
+                    and not self.errors
+                    and (
+                        not missing
+                        or self.plan.requirements
+                        or (
+                            getattr(self.model, "source_first", False)
+                            and len({c["experience"] for c in self.cards}) >= 2
+                        )
+                    )
+                    and not self.collection_gaps()
+                )
                 else "partial"
                 if self.cards
                 else "failed"
@@ -1006,15 +1192,22 @@ class DiscoveryWorkflow(DiscoveryRun):
                 "cancelled" if self.cancelled.is_set() else "partial" if self.cards else "failed"
             )
         except (ProviderError, ValueError, KeyError) as error:
-            logger.warning("discovery_workflow_failed stage=%s error_type=%s code=%s",
-                self.stage, type(error).__name__, getattr(error, "code", "invalid_result"))
+            logger.warning(
+                "discovery_workflow_failed stage=%s error_type=%s code=%s",
+                self.stage,
+                type(error).__name__,
+                getattr(error, "code", "invalid_result"),
+            )
             self.errors.append(
                 {"tool": "workflow", "code": getattr(error, "code", "invalid_result")}
             )
             self.status = "partial" if self.cards else "failed"
         except Exception as error:
-            logger.warning("discovery_workflow_failed stage=%s error_type=%s code=unexpected_error",
-                self.stage, type(error).__name__)
+            logger.warning(
+                "discovery_workflow_failed stage=%s error_type=%s code=unexpected_error",
+                self.stage,
+                type(error).__name__,
+            )
             self.errors.append({"tool": "workflow", "code": "unexpected_error"})
             self.status = "partial" if self.cards else "failed"
         finally:

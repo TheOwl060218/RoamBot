@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deterministic test image
+        run: docker build --progress=plain -f ci/Dockerfile -t "roambot-ci:${GITHUB_SHA}" .
+      - name: Run all tests without network
+        run: >-
+          docker run --rm --network none
+          -e ROAMBOT_PROVIDER_MODE=mock
+          -e ROAMBOT_DEMO_MODE=true
+          -e NO_PROXY=127.0.0.1,localhost
+          "roambot-ci:${GITHUB_SHA}"
+
+  docker-build:
+    runs-on: ubuntu-24.04
+    needs: unit-test
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build --progress=plain -t "roambot:${GITHUB_SHA}" .
+      - name: Smoke production image in Mock mode
+        run: |
+          docker run --rm -d --name roambot-smoke \
+            -e ROAMBOT_PROVIDER_MODE=mock \
+            -e ROAMBOT_DEMO_MODE=true \
+            "roambot:${GITHUB_SHA}"
+          for attempt in $(seq 1 30); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' roambot-smoke 2>/dev/null || true)"
+            if [ "$status" = healthy ]; then break; fi
+            if [ "$status" = unhealthy ] || [ "$attempt" = 30 ]; then
+              docker logs roambot-smoke
+              exit 1
+            fi
+            sleep 1
+          done
+          docker exec roambot-smoke python -c \
+            "import json,urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3)); assert data=={'status':'ready'}"
+      - name: Publish commit image to GHCR
+        if: github.event_name == 'push'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "roambot:${GITHUB_SHA}" "$image:${GITHUB_SHA}"
+          docker push "$image:${GITHUB_SHA}"
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            docker tag "roambot:${GITHUB_SHA}" "$image:latest"
+            docker push "$image:latest"
+          fi
+      - name: Stop smoke container
+        if: always()
+        run: docker rm -f roambot-smoke 2>/dev/null || true

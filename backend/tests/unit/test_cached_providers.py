@@ -31,26 +31,26 @@ def test_semantic_keywords_have_separate_cache_entries():
             return MockProviderBundle.default().places.search(*args[:5])
 
     inner = Places()
-    provider = CachedPlaceProvider(inner, MemoryCache(), 'amap', lambda: NOW, ProviderTrace())
-    args = (Coordinate(longitude=120.617, latitude=31.335), '苏州', (SceneryType.LAKE,), 50)
-    provider.search(*args, scenery_keywords=('湿地',))
-    provider.search(*args, scenery_keywords=('水库',))
-    provider.search(*args, scenery_keywords=('湿地',))
+    provider = CachedPlaceProvider(inner, MemoryCache(), "amap", lambda: NOW, ProviderTrace())
+    args = (Coordinate(longitude=120.617, latitude=31.335), "苏州", (SceneryType.LAKE,), 50)
+    provider.search(*args, scenery_keywords=("湿地",))
+    provider.search(*args, scenery_keywords=("水库",))
+    provider.search(*args, scenery_keywords=("湿地",))
     assert len(inner.calls) == 2
 
 
 def test_region_search_cache_isolated_and_order_independent():
     inner = CountingBundle()
-    provider = CachedPlaceProvider(inner, MemoryCache(), 'amap', lambda: NOW, ProviderTrace())
+    provider = CachedPlaceProvider(inner, MemoryCache(), "amap", lambda: NOW, ProviderTrace())
     center = Coordinate(longitude=120.617, latitude=31.335)
-    first = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('320000', '330000'))
-    second = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('330000', '320000'))
+    first = provider.search(center, "苏州", (SceneryType.LAKE,), 50, ("320000", "330000"))
+    second = provider.search(center, "苏州", (SceneryType.LAKE,), 50, ("330000", "320000"))
     assert first == second and len(first) == 2
-    assert inner.calls['search'] == 1
-    assert provider.search(center, '苏州', (SceneryType.LAKE,), 1, ('320000', '330000')) == first
-    assert inner.calls['search'] == 1
-    assert provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('320500',))
-    assert inner.calls['search'] == 2
+    assert inner.calls["search"] == 1
+    assert provider.search(center, "苏州", (SceneryType.LAKE,), 1, ("320000", "330000")) == first
+    assert inner.calls["search"] == 1
+    assert provider.search(center, "苏州", (SceneryType.LAKE,), 50, ("320500",))
+    assert inner.calls["search"] == 2
 
 
 def test_missing_metadata_notice_is_not_lost_by_caching():
@@ -58,12 +58,14 @@ def test_missing_metadata_notice_is_not_lost_by_caching():
 
     class MissingMetadataPlaces:
         calls = 0
+
         def search(self, *args):
             self.calls += 1
             return PlaceSearchResults([], region_metadata_missing=True)
+
     inner = MissingMetadataPlaces()
-    provider = CachedPlaceProvider(inner, MemoryCache(), 'amap', lambda: NOW, ProviderTrace())
-    args = (Coordinate(longitude=120, latitude=31), '苏州', (SceneryType.LAKE,), 50, ('320500',))
+    provider = CachedPlaceProvider(inner, MemoryCache(), "amap", lambda: NOW, ProviderTrace())
+    args = (Coordinate(longitude=120, latitude=31), "苏州", (SceneryType.LAKE,), 50, ("320500",))
     assert provider.search(*args).region_metadata_missing
     assert provider.search(*args).region_metadata_missing
     assert inner.calls == 2
@@ -116,8 +118,8 @@ class CountingBundle:
     def search(self, center, city, scenery_types, radius_km, destination_regions=()):
         self.calls["search"] += 1
         return self.bundle.places.search(
-            center, city, scenery_types, radius_km, destination_regions)
-
+            center, city, scenery_types, radius_km, destination_regions
+        )
 
     def resolve(self, name: str, city: str):
         self.calls["resolve"] += 1
@@ -151,9 +153,9 @@ def test_cache_key_uses_canonical_unicode_whitespace_and_ordered_lists() -> None
         },
     }
     expected = sha256(
-        json.dumps(
-            canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-        ).encode("utf-8")
+        json.dumps(canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
     ).hexdigest()
 
     assert make_cache_key("amap", "geocode", params) == expected
@@ -230,7 +232,7 @@ def test_old_empty_place_search_cache_is_not_reused_by_new_algorithm() -> None:
     assert results
     assert inner.calls["search"] == 1
     assert cache.deleted == []  # Old algorithm keys are ignored, not cleanup targets.
-    assert json.loads(cache.entries[key].payload_json)['value'] == []
+    assert json.loads(cache.entries[key].payload_json)["value"] == []
     assert len(cache.entries) == 2  # New version stores its own non-empty result.
 
 

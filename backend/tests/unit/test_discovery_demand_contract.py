@@ -209,9 +209,16 @@ def test_final_collection_uses_all_published_cards_and_rejects_a_changed_snapsho
         observed.extend(c["place"]["id"] for c in cards)
         if mutate:
             run.cards.append({"place": {"id": "new"}})
-        return CollectionReview(collection_assessments=[
-            {"requirement": 3, "satisfied": True, "place_ids": observed,
-             "note": "完整结果满足整组要求"}])
+        return CollectionReview(
+            collection_assessments=[
+                {
+                    "requirement": 3,
+                    "satisfied": True,
+                    "place_ids": observed,
+                    "note": "完整结果满足整组要求",
+                }
+            ]
+        )
 
     run.model.assess_collection = evaluate
     if mutate:

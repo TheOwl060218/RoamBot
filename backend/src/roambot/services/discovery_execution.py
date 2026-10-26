@@ -126,7 +126,8 @@ class ExecutionTrace:
         model_events = [
             event
             for event in events
-            if event["stage"] in {"planning", "nomination", "composition", "review", "collection", "selection"}
+            if event["stage"]
+            in {"planning", "nomination", "composition", "review", "collection", "selection"}
         ]
         complete = bool(model_events) and all(event["usage"] is not None for event in model_events)
         return {

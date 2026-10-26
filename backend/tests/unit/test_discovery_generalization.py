@@ -24,8 +24,12 @@ def test_public_hits_do_not_hide_current_per_query_map_candidates(tmp_path):
     from types import SimpleNamespace
 
     run = workflow(tmp_path, message="苏州参观")
-    run.plan = RetrievalPlan(context=SearchContext(region="苏州"), goal="参观",
-        map_queries=["场所"], requirements=[ExperienceRequirement(text="参观", quote="参观", role="goal")])
+    run.plan = RetrievalPlan(
+        context=SearchContext(region="苏州"),
+        goal="参观",
+        map_queries=["场所"],
+        requirements=[ExperienceRequirement(text="参观", quote="参观", role="goal")],
+    )
     run.configure_plan()
     fresh = run.maps.search("场所", "苏州", None, None)
     cached = []
@@ -34,7 +38,9 @@ def test_public_hits_do_not_hide_current_per_query_map_candidates(tmp_path):
         place.update(id=f"amap:cached-{index}", name="缓存" + place["name"])
         cached.append({"place": place, "sources": []})
     assert len(cached) >= 4, "Exercise the dense-public-cache path"
-    run.knowledge = SimpleNamespace(find=lambda *args, **kwargs: cached, remember=lambda *args: None)
+    run.knowledge = SimpleNamespace(
+        find=lambda *args, **kwargs: cached, remember=lambda *args: None
+    )
     selected = run.retrieve()
     assert run.metrics["public_place_hits"] >= 4
     assert {place["id"] for place in fresh} <= set(selected)

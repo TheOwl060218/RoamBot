@@ -46,9 +46,7 @@ class AMapProvider:
         city_hint = city.strip()
         if city_hint:
             params["city"] = city_hint
-        payload = self._http.get_json(
-            operation="geocode", path="/v3/geocode/geo", params=params
-        )
+        payload = self._http.get_json(operation="geocode", path="/v3/geocode/geo", params=params)
         self._require_success(payload)
         geocodes = payload.get("geocodes")
         if not isinstance(geocodes, list):
@@ -123,6 +121,7 @@ class AMapProvider:
     ) -> list[Destination]:
         selected_types = tuple(dict.fromkeys(scenery_types))[:6]
         from roambot.domain.semantic_preferences import normalize_scenery_keywords
+
         semantic = normalize_scenery_keywords(list(scenery_keywords)) or []
         if not selected_types:
             return []
@@ -134,22 +133,34 @@ class AMapProvider:
         use_around = radius_km <= 50
         # v3 text supports OR keywords: one request per normalized region,
         # rather than multiplying region count by every scenery type.
-        searches = ([(region, '|'.join(SEARCH_TERMS[kind] for kind in selected_types))
-                     for region in destination_regions] if destination_regions else
-                    [(None, SEARCH_TERMS[kind]) for kind in selected_types])
+        searches = (
+            [
+                (region, "|".join(SEARCH_TERMS[kind] for kind in selected_types))
+                for region in destination_regions
+            ]
+            if destination_regions
+            else [(None, SEARCH_TERMS[kind]) for kind in selected_types]
+        )
         if semantic:
-            searches = [(region, '|'.join(dict.fromkeys([*terms.split('|'), *semantic])))
-                        for region, terms in searches]
+            searches = [
+                (region, "|".join(dict.fromkeys([*terms.split("|"), *semantic])))
+                for region, terms in searches
+            ]
         for region, keywords in searches:
             params = self._place_params(keywords, city)
-            params.pop('region')
-            params.pop('city_limit')
+            params.pop("region")
+            params.pop("city_limit")
             if region:
-                path = '/v3/place/text'
+                path = "/v3/place/text"
                 params = {
-                    'key': self._api_key, 'keywords': keywords, 'city': region,
-                    'citylimit': 'true', 'offset': '25', 'page': '1',
-                    'extensions': 'all', 'output': 'json',
+                    "key": self._api_key,
+                    "keywords": keywords,
+                    "city": region,
+                    "citylimit": "true",
+                    "offset": "25",
+                    "page": "1",
+                    "extensions": "all",
+                    "output": "json",
                 }
             elif use_around:
                 params.update(
@@ -161,11 +172,15 @@ class AMapProvider:
                 )
                 path = "/v5/place/around"
             else:
-                path = '/v3/place/polygon'
+                path = "/v3/place/polygon"
                 params = {
-                    'key': self._api_key, 'keywords': keywords,
-                    'polygon': _radius_rectangle(center, radius_km), 'offset': '25',
-                    'page': '1', 'extensions': 'all', 'output': 'json',
+                    "key": self._api_key,
+                    "keywords": keywords,
+                    "polygon": _radius_rectangle(center, radius_km),
+                    "offset": "25",
+                    "page": "1",
+                    "extensions": "all",
+                    "output": "json",
                 }
 
             payload = self._http.get_json(
@@ -176,12 +191,15 @@ class AMapProvider:
             candidates = [
                 candidate.model_copy(update={"popularity_rank": rank})
                 for rank, candidate in enumerate(
-                    self._parse_pois(payload, '', v3=bool(region) or not use_around), start=1)
+                    self._parse_pois(payload, "", v3=bool(region) or not use_around), start=1
+                )
             ]
             group: list[Destination] = []
             for candidate in candidates:
-                if (not destination_regions
-                        and _haversine_km(center, candidate.coordinate) > radius_km):
+                if (
+                    not destination_regions
+                    and _haversine_km(center, candidate.coordinate) > radius_km
+                ):
                     continue
                 if not matches_destination_regions(candidate, destination_regions):
                     missing_metadata |= missing_region_membership(candidate, destination_regions)
@@ -335,10 +353,10 @@ def _parse_poi(raw: object, fallback_city: str, *, v3=False) -> Destination | No
     address = raw_address if isinstance(raw_address, str) else ""
     raw_city = raw.get("cityname")
     city = raw_city if isinstance(raw_city, str) and raw_city else fallback_city
-    business = raw.get('biz_ext' if v3 else 'business')
+    business = raw.get("biz_ext" if v3 else "business")
     rating = _optional_rating(business.get("rating")) if isinstance(business, dict) else None
-    adcode = _required_text(raw.get('adcode'))
-    province_code, city_code = resolve_region_codes(adcode, _required_text(raw.get('pcode')))
+    adcode = _required_text(raw.get("adcode"))
+    province_code, city_code = resolve_region_codes(adcode, _required_text(raw.get("pcode")))
     return Destination(
         provider_id=provider_id,
         name=name,
@@ -444,12 +462,12 @@ def _radius_rectangle(center: Coordinate, radius_km: float) -> str:
     latitude = radians(center.latitude)
     south, north = center.latitude - degrees(angular), center.latitude + degrees(angular)
     if south <= -90 or north >= 90:
-        raise ProviderError('bad_request', '该位置无法进行当前距离范围检索')
+        raise ProviderError("bad_request", "该位置无法进行当前距离范围检索")
     delta = degrees(asin(sin(angular) / cos(latitude)))
     west, east = center.longitude - delta, center.longitude + delta
     if west < -180 or east > 180:
-        raise ProviderError('bad_request', '该位置无法进行当前距离范围检索')
-    return f'{west:.6f},{north:.6f}|{east:.6f},{south:.6f}'
+        raise ProviderError("bad_request", "该位置无法进行当前距离范围检索")
+    return f"{west:.6f},{north:.6f}|{east:.6f},{south:.6f}"
 
 
 def _bad_response() -> ProviderError:

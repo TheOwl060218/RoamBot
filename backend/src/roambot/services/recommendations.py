@@ -139,8 +139,11 @@ class RecommendationService:
             city=request.city,
             scenery_types=tuple(request.scenery_types),
             radius_km=request.max_distance_km,
-            **({'scenery_keywords': tuple(request.scenery_keywords)}
-               if request.scenery_keywords else {}),
+            **(
+                {"scenery_keywords": tuple(request.scenery_keywords)}
+                if request.scenery_keywords
+                else {}
+            ),
             **(
                 {"destination_regions": tuple(request.destination_regions)}
                 if request.destination_regions
@@ -168,7 +171,8 @@ class RecommendationService:
         )
         selected_ids = {item.provider_id for item in eligible_destinations}
         eligible_destinations.extend(
-            item for item in sorted(
+            item
+            for item in sorted(
                 matching_destinations,
                 key=lambda item: self._preview_key(item, origins[0].coordinate),
             )
@@ -188,8 +192,11 @@ class RecommendationService:
             if len(items) >= target_count:
                 break
             exhausted = next(
-                (op for op in (ProviderOperation.DISTANCE, ProviderOperation.WEATHER)
-                 if budget.count(op) >= budget.limits[op]),
+                (
+                    op
+                    for op in (ProviderOperation.DISTANCE, ProviderOperation.WEATHER)
+                    if budget.count(op) >= budget.limits[op]
+                ),
                 None,
             )
             if exhausted is not None:

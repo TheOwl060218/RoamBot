@@ -26,7 +26,12 @@ def venue_paragraphs(place, source):
         # Flattened articles may put several venues in one long paragraph. Keep
         # the named sentence and its immediate continuation, not the whole essay.
         sentences = re.split(r"(?<=[。！？!?])", paragraph)
-        indices = {j for i, sentence in enumerate(sentences) if name in sentence
-            for j in (i, i + 1) if j < len(sentences)}
+        indices = {
+            j
+            for i, sentence in enumerate(sentences)
+            if name in sentence
+            for j in (i, i + 1)
+            if j < len(sentences)
+        }
         result.extend(sentences[i] for i in sorted(indices))
     return result

@@ -18,13 +18,18 @@ def test_semantic_keywords_extend_search_without_extra_calls():
 
     def handler(request):
         calls.append(request)
-        assert request.url.params['keywords'] == '湖泊景区|湿地'
-        return httpx.Response(200, json={'status': '1', 'infocode': '10000',
-                                       'count': '0', 'pois': []})
+        assert request.url.params["keywords"] == "湖泊景区|湿地"
+        return httpx.Response(
+            200, json={"status": "1", "infocode": "10000", "count": "0", "pois": []}
+        )
 
-    provider_for(handler).search(Coordinate(longitude=120, latitude=31),
-                                '苏州', (SceneryType.LAKE,), 50,
-                                scenery_keywords=('湿地', '湿地'))
+    provider_for(handler).search(
+        Coordinate(longitude=120, latitude=31),
+        "苏州",
+        (SceneryType.LAKE,),
+        50,
+        scenery_keywords=("湿地", "湿地"),
+    )
     assert len(calls) == 1
 
 
@@ -45,71 +50,141 @@ def provider_for(handler: object) -> AMapProvider:
 
 def test_large_radius_uses_polygon_without_city_limit_and_parses_v3():
     def handler(request):
-        assert request.url.path == '/v3/place/polygon'
-        assert 'region' not in request.url.params
-        assert 'city_limit' not in request.url.params
-        assert request.url.params['offset'] == '25'
-        left, right = request.url.params['polygon'].split('|')
-        west, north = map(float, left.split(','))
-        east, south = map(float, right.split(','))
+        assert request.url.path == "/v3/place/polygon"
+        assert "region" not in request.url.params
+        assert "city_limit" not in request.url.params
+        assert request.url.params["offset"] == "25"
+        left, right = request.url.params["polygon"].split("|")
+        west, north = map(float, left.split(","))
+        east, south = map(float, right.split(","))
         assert west < 120 < east and south < 31 < north
-        return httpx.Response(200, json={
-            'status': '1', 'infocode': '10000', 'count': '2', 'pois': [
-                dict(id='hz', name='演示湖', type='湖泊景区', typecode='110000',
-                     location='120,31', cityname='杭州市', adcode='330106', pcode='330000',
-                     biz_ext={'rating': '4.7'}),
-                dict(id='far', name='远处演示湖', type='湖泊景区', typecode='110000',
-                     location='121.1,31.85', adcode='330106', pcode='330000')
-            ]})
-    result = provider_for(handler).search(Coordinate(longitude=120, latitude=31),
-                                         '苏州', (SceneryType.LAKE,), 100)
-    assert [item.provider_id for item in result] == ['amap:hz']
+        return httpx.Response(
+            200,
+            json={
+                "status": "1",
+                "infocode": "10000",
+                "count": "2",
+                "pois": [
+                    dict(
+                        id="hz",
+                        name="演示湖",
+                        type="湖泊景区",
+                        typecode="110000",
+                        location="120,31",
+                        cityname="杭州市",
+                        adcode="330106",
+                        pcode="330000",
+                        biz_ext={"rating": "4.7"},
+                    ),
+                    dict(
+                        id="far",
+                        name="远处演示湖",
+                        type="湖泊景区",
+                        typecode="110000",
+                        location="121.1,31.85",
+                        adcode="330106",
+                        pcode="330000",
+                    ),
+                ],
+            },
+        )
+
+    result = provider_for(handler).search(
+        Coordinate(longitude=120, latitude=31), "苏州", (SceneryType.LAKE,), 100
+    )
+    assert [item.provider_id for item in result] == ["amap:hz"]
     assert result[0].rating == 4.7
-    assert result[0].city_adcode == '330100'
+    assert result[0].city_adcode == "330100"
 
 
-@pytest.mark.parametrize('regions', [()])
+@pytest.mark.parametrize("regions", [()])
 def test_each_scenery_type_makes_at_most_one_poi_request_even_when_empty(regions):
     calls = []
+
     def handler(request):
         calls.append(request)
-        assert 'region' not in request.url.params
-        assert 'city_limit' not in request.url.params
-        return httpx.Response(200, json={'status': '1', 'infocode': '10000',
-                                       'count': '0', 'pois': []})
-    assert provider_for(handler).search(Coordinate(longitude=120, latitude=31),
-                                       '苏州', tuple(SceneryType), 50, regions) == []
+        assert "region" not in request.url.params
+        assert "city_limit" not in request.url.params
+        return httpx.Response(
+            200, json={"status": "1", "infocode": "10000", "count": "0", "pois": []}
+        )
+
+    assert (
+        provider_for(handler).search(
+            Coordinate(longitude=120, latitude=31), "苏州", tuple(SceneryType), 50, regions
+        )
+        == []
+    )
     assert len(calls) == 6
 
 
 def test_selected_regions_search_each_region_without_origin_radius():
     calls = []
+
     def handler(request):
         calls.append(request)
-        assert request.url.path == '/v3/place/text'
-        assert request.url.params['city'] in {'310000', '350100'}
-        assert request.url.params['citylimit'] == 'true'
-        assert request.url.params['keywords'] == '湖泊景区|博物馆'
-        assert 'radius' not in request.url.params
-        assert 'polygon' not in request.url.params
-        return httpx.Response(200, json={'status': '1', 'infocode': '10000', 'count': '1',
-            'pois': [dict(id='fz', name='福州湖', type='湖泊景区', typecode='110000',
-                          location='119.3,26.1', cityname='福州市', adcode='350102')]})
-    result = provider_for(handler).search(Coordinate(longitude=120.6, latitude=31.3),
-        '苏州', (SceneryType.LAKE, SceneryType.MUSEUM), 50, ('310000', '350100'))
+        assert request.url.path == "/v3/place/text"
+        assert request.url.params["city"] in {"310000", "350100"}
+        assert request.url.params["citylimit"] == "true"
+        assert request.url.params["keywords"] == "湖泊景区|博物馆"
+        assert "radius" not in request.url.params
+        assert "polygon" not in request.url.params
+        return httpx.Response(
+            200,
+            json={
+                "status": "1",
+                "infocode": "10000",
+                "count": "1",
+                "pois": [
+                    dict(
+                        id="fz",
+                        name="福州湖",
+                        type="湖泊景区",
+                        typecode="110000",
+                        location="119.3,26.1",
+                        cityname="福州市",
+                        adcode="350102",
+                    )
+                ],
+            },
+        )
+
+    result = provider_for(handler).search(
+        Coordinate(longitude=120.6, latitude=31.3),
+        "苏州",
+        (SceneryType.LAKE, SceneryType.MUSEUM),
+        50,
+        ("310000", "350100"),
+    )
     assert len(calls) == 2
-    assert [item.provider_id for item in result] == ['amap:fz']
+    assert [item.provider_id for item in result] == ["amap:fz"]
 
 
 def test_unknown_region_does_not_use_origin_city_fallback():
     def handler(_):
-        return httpx.Response(200, json={'status': '1', 'infocode': '10000', 'count': '1',
-            'pois': [dict(id='unknown', name='湖泊', type='湖泊景区', typecode='110000',
-                          location='120,31', cityname='苏州')]})
+        return httpx.Response(
+            200,
+            json={
+                "status": "1",
+                "infocode": "10000",
+                "count": "1",
+                "pois": [
+                    dict(
+                        id="unknown",
+                        name="湖泊",
+                        type="湖泊景区",
+                        typecode="110000",
+                        location="120,31",
+                        cityname="苏州",
+                    )
+                ],
+            },
+        )
+
     provider = provider_for(handler)
     center = Coordinate(longitude=120, latitude=31)
-    assert len(provider.search(center, '苏州', (SceneryType.LAKE,), 50)) == 1
-    result = provider.search(center, '苏州', (SceneryType.LAKE,), 50, ('320500',))
+    assert len(provider.search(center, "苏州", (SceneryType.LAKE,), 50)) == 1
+    result = provider.search(center, "苏州", (SceneryType.LAKE,), 50, ("320500",))
     assert result == []
     assert result.region_metadata_missing is True
 
@@ -201,13 +276,15 @@ def test_input_tips_use_city_as_a_hint_and_parse_coordinates() -> None:
                 "info": "OK",
                 "infocode": "10000",
                 "count": "1",
-                "tips": [{
-                    "id": "poi-1",
-                    "name": "南京大学苏州校区东区",
-                    "district": "江苏省苏州市虎丘区",
-                    "address": "太湖大道1520号",
-                    "location": "120.1,31.1",
-                }],
+                "tips": [
+                    {
+                        "id": "poi-1",
+                        "name": "南京大学苏州校区东区",
+                        "district": "江苏省苏州市虎丘区",
+                        "address": "太湖大道1520号",
+                        "location": "120.1,31.1",
+                    }
+                ],
             },
         )
 
@@ -280,9 +357,15 @@ def test_resolve_without_city_preserves_real_not_found() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert "region" not in request.url.params
         assert request.url.params["city_limit"] == "false"
-        return httpx.Response(200, json={
-            "status": "1", "infocode": "10000", "count": "0", "pois": [],
-        })
+        return httpx.Response(
+            200,
+            json={
+                "status": "1",
+                "infocode": "10000",
+                "count": "0",
+                "pois": [],
+            },
+        )
 
     with pytest.raises(ProviderError) as error:
         provider_for(handler).resolve("不存在的景点", "")
@@ -367,7 +450,7 @@ def test_search_does_not_let_first_scenery_type_starve_later_types() -> None:
                     "id": f"{prefix}-{index}",
                     "name": f"{prefix} place {index}",
                     "location": f"120.{617 + index:03d},31.335",
-                    "type": {'lake': '湖泊景区', 'museum': '博物馆', 'sea': '滨海景区'}[prefix],
+                    "type": {"lake": "湖泊景区", "museum": "博物馆", "sea": "滨海景区"}[prefix],
                     "typecode": "110000",
                     "address": f"road {index}",
                     "cityname": "Suzhou",
@@ -401,9 +484,7 @@ def test_invalid_business_rating_becomes_missing(raw_rating: object) -> None:
     payload = fixture("poi_around_success.json")
     payload["pois"][0]["business"]["rating"] = raw_rating
 
-    results = provider_for(
-        lambda _: httpx.Response(200, json=payload)
-    ).search(
+    results = provider_for(lambda _: httpx.Response(200, json=payload)).search(
         Coordinate(longitude=120.617, latitude=31.335),
         "苏州",
         (SceneryType.LAKE,),
@@ -415,10 +496,10 @@ def test_invalid_business_rating_becomes_missing(raw_rating: object) -> None:
 
 def test_radius_above_50_km_uses_polygon_and_locally_filters_far_candidates() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == '/v3/place/polygon'
+        assert request.url.path == "/v3/place/polygon"
         assert "location" not in request.url.params
         assert "radius" not in request.url.params
-        assert 'polygon' in request.url.params
+        assert "polygon" in request.url.params
         return httpx.Response(200, json=fixture("poi_text_success.json"))
 
     results = provider_for(handler).search(
@@ -446,7 +527,7 @@ def test_empty_around_search_does_not_expand_or_make_second_request() -> None:
                     "pois": [],
                 },
             )
-        pytest.fail('empty around search must not request text fallback')
+        pytest.fail("empty around search must not request text fallback")
 
     results = provider_for(handler).search(
         Coordinate(longitude=120.617, latitude=31.335),
@@ -464,10 +545,7 @@ def test_no_scenery_type_skips_http_and_malformed_declared_results_fail() -> Non
         raise AssertionError("HTTP should not be called")
 
     assert (
-        provider_for(forbidden).search(
-            Coordinate(longitude=120, latitude=31), "苏州", (), 20
-        )
-        == []
+        provider_for(forbidden).search(Coordinate(longitude=120, latitude=31), "苏州", (), 20) == []
     )
 
     malformed = {
@@ -534,7 +612,9 @@ def test_distance_rejects_more_than_100_origins_and_partial_results() -> None:
     assert too_many.value.code == "bad_request"
 
     with pytest.raises(ProviderError) as partial:
-        provider_for(lambda _: httpx.Response(200, json={
-            "status": "1", "info": "OK", "infocode": "10000", "results": []
-        })).measure(origins[:1], destination)
+        provider_for(
+            lambda _: httpx.Response(
+                200, json={"status": "1", "info": "OK", "infocode": "10000", "results": []}
+            )
+        ).measure(origins[:1], destination)
     assert partial.value.code == "bad_response"

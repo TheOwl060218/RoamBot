@@ -14,6 +14,7 @@ export type DiscoverySnapshot = {
   progress_notes?: string[]
   history_id?: string | null
   search_request?: string | null
+  display_title?: string | null
   intent?: 'search' | 'business' | null
   id: string; status: 'running' | 'completed' | 'partial' | 'failed' | 'cancelled'; stage: string
   cards: DiscoveryCard[]; reply: string; request_location: boolean; center_name: string | null

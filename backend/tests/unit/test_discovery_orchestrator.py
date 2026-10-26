@@ -4,17 +4,17 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-
 from test_discovery import Maps, Weather
 from test_discovery_workflow import Model
-from roambot.domain.discovery import BatchReview, DiscoveryRequest, VenueSelection, SearchContext
+
+from roambot.domain.discovery import BatchReview, DiscoveryRequest, SearchContext, VenueSelection
 from roambot.persistence.discovery_cache import DiscoveryCache
 from roambot.providers.protocols import ProviderError
+from roambot.services.discovery import DiscoveryJobs
+from roambot.services.discovery_batches import freeze_batch
 from roambot.services.discovery_execution import ModelGate
 from roambot.services.discovery_orchestrator import DiscoveryOrchestrator
 from roambot.services.discovery_workflow import Stopped
-from roambot.services.discovery_batches import freeze_batch
-from roambot.services.discovery import DiscoveryJobs
 
 
 class EightMaps(Maps):
@@ -30,24 +30,46 @@ class EightMaps(Maps):
 
 class EightWeb:
     def search(self, query):
-        return [{"title": p["name"] + "介绍", "url": f"https://example.org/{p['id']}",
-                 "excerpt": p["name"] + "有明确公开资料，提供可供参观的空间及当地活动。",
-                 "kind": "search_excerpt"} for p in EightMaps().search("", "苏州", None, None)]
+        return [
+            {
+                "title": p["name"] + "介绍",
+                "url": f"https://example.org/{p['id']}",
+                "excerpt": p["name"] + "有明确公开资料，提供可供参观的空间及当地活动。",
+                "kind": "search_excerpt",
+            }
+            for p in EightMaps().search("", "苏州", None, None)
+        ]
 
 
 class EightModel(Model):
     def nominate(self, *args):
         self.calls.append("nominate")
-        return VenueSelection(venues=[{"name": p["name"], "place_id": p["id"]}
-            for p in EightMaps().search("", "苏州", None, None)])
+        return VenueSelection(
+            venues=[
+                {"name": p["name"], "place_id": p["id"]}
+                for p in EightMaps().search("", "苏州", None, None)
+            ]
+        )
 
 
 def build(tmp_path, *, model=None, reviewer=None, scope="one", gate=None):
-    return DiscoveryOrchestrator(DiscoveryRequest(message="苏州找不同体验"), EightMaps(),
-        Weather(), EightWeb(), model or EightModel(), DiscoveryCache(tmp_path / "facts.sqlite3"),
-        scope, source="demo", gate=gate or ModelGate(2), batch_reviewer=reviewer or (
+    return DiscoveryOrchestrator(
+        DiscoveryRequest(message="苏州找不同体验"),
+        EightMaps(),
+        Weather(),
+        EightWeb(),
+        model or EightModel(),
+        DiscoveryCache(tmp_path / "facts.sqlite3"),
+        scope,
+        source="demo",
+        gate=gate or ModelGate(2),
+        batch_reviewer=reviewer
+        or (
             lambda conversation, context, cards: BatchReview(
-                approved_ids=[c["place"]["id"] for c in cards], rejected=[])))
+                approved_ids=[c["place"]["id"] for c in cards], rejected=[]
+            )
+        ),
+    )
 
 
 def test_next_composition_overlaps_first_review_and_keeps_order(tmp_path):
@@ -140,11 +162,21 @@ def test_route_cap_rejects_first_five_but_checks_later_valid_candidates(tmp_path
     class Routes(EightMaps):
         def route(self, center, place, mode):
             self.calls.append(("route", place["id"], mode))
-            return {"mode": mode, "distance_km": 8 if int(place["id"].split(":")[1]) <= 5 else 3,
-                    "duration_minutes": 20, "estimated": False}
+            return {
+                "mode": mode,
+                "distance_km": 8 if int(place["id"].split(":")[1]) <= 5 else 3,
+                "duration_minutes": 20,
+                "estimated": False,
+            }
 
-    model = EightModel(SearchContext(origin="苏州站", origin_quote="从苏州站出发",
-                                     max_distance_km=5, distance_quote="5公里内"))
+    model = EightModel(
+        SearchContext(
+            origin="苏州站",
+            origin_quote="从苏州站出发",
+            max_distance_km=5,
+            distance_quote="5公里内",
+        )
+    )
     run = build(tmp_path, model=model)
     run.turns = [{"role": "user", "content": "从苏州站出发，5公里内看看"}]
     run.maps = Routes()

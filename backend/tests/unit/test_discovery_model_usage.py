@@ -1,13 +1,14 @@
 import json
 from types import SimpleNamespace
 
+import pytest
 from test_discovery_batches import ready_run
+
 from roambot.domain.discovery import BatchReview, GroundedBatch
 from roambot.providers.discovery_usage import capture_model_usage, record_model_usage
 from roambot.providers.discovery_workflow import DiscoveryModel, structured_call
 from roambot.services.discovery_batches import BatchWorker, freeze_batch
 from roambot.services.discovery_execution import ExecutionTrace
-import pytest
 
 
 def test_usage_capture_is_request_local_and_unknown_is_not_zero():
@@ -23,11 +24,26 @@ def test_usage_capture_is_request_local_and_unknown_is_not_zero():
 
 def test_structured_call_records_usage_without_changing_return_type():
     def post_json(**kwargs):
-        return {"usage": {"prompt_tokens": 10, "completion_tokens": 3}, "choices": [{
-            "finish_reason": "tool_calls", "message": {"tool_calls": [{"function": {
-                "name": "batch", "arguments": json.dumps({"cards": []})}}]}}]}
-    provider = SimpleNamespace(_http=SimpleNamespace(post_json=post_json), _model="same",
-                               _key="not-real", _enable_thinking=False)
+        return {
+            "usage": {"prompt_tokens": 10, "completion_tokens": 3},
+            "choices": [
+                {
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "tool_calls": [
+                            {"function": {"name": "batch", "arguments": json.dumps({"cards": []})}}
+                        ]
+                    },
+                }
+            ],
+        }
+
+    provider = SimpleNamespace(
+        _http=SimpleNamespace(post_json=post_json),
+        _model="same",
+        _key="not-real",
+        _enable_thinking=False,
+    )
     with capture_model_usage() as result:
         value = structured_call(provider, "batch", GroundedBatch, "test", {}, 100)
     assert isinstance(value, GroundedBatch) and result["usage"]["prompt_tokens"] == 10
@@ -38,17 +54,50 @@ def test_search_plan_repair_uses_contract_feedback_and_same_configured_model():
 
     def post_json(**kwargs):
         sent.append(kwargs["json_body"])
-        return {"choices": [{"finish_reason": "tool_calls", "message": {"tool_calls": [
-            {"function": {"name": "repair_search_plan", "arguments": json.dumps({
-                "context": {"region": "苏州", "max_distance_km": 5, "distance_quote": "附近"},
-                "goal": "苏州附近放松", "request_location": True,
-                "temporal": None, "collection_intent": None, "activity_relation": None})}}]}}]}
+        return {
+            "choices": [
+                {
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "repair_search_plan",
+                                    "arguments": json.dumps(
+                                        {
+                                            "context": {
+                                                "region": "苏州",
+                                                "max_distance_km": 5,
+                                                "distance_quote": "附近",
+                                            },
+                                            "goal": "苏州附近放松",
+                                            "request_location": True,
+                                            "temporal": None,
+                                            "collection_intent": None,
+                                            "activity_relation": None,
+                                        }
+                                    ),
+                                }
+                            }
+                        ]
+                    },
+                }
+            ]
+        }
 
-    provider = SimpleNamespace(_http=SimpleNamespace(post_json=post_json), _model="same",
-                               _key="not-real", _enable_thinking=False)
+    provider = SimpleNamespace(
+        _http=SimpleNamespace(post_json=post_json),
+        _model="same",
+        _key="not-real",
+        _enable_thinking=False,
+    )
     plan = DiscoveryModel(provider).repair_plan(
-        [{"role": "user", "content": "苏州附近放松"}], {}, False,
-        {"context": {"origin": "苏州", "max_distance_km": 5}}, "缺少原文依据")
+        [{"role": "user", "content": "苏州附近放松"}],
+        {},
+        False,
+        {"context": {"origin": "苏州", "max_distance_km": 5}},
+        "缺少原文依据",
+    )
     assert plan.context.origin is None and plan.request_location
     assert plan.context.max_distance_km == 5
     payload = json.loads(sent[0]["messages"][1]["content"])
@@ -88,8 +137,10 @@ def test_rejected_review_does_not_cache_draft_or_decision_as_success(tmp_path):
 
     def review(conversation, context, cards):
         calls.append(1)
-        return BatchReview(approved_ids=[], rejected=[
-            {"place_id": c["place"]["id"], "note": "依据不足，不通过"} for c in cards])
+        return BatchReview(
+            approved_ids=[],
+            rejected=[{"place_id": c["place"]["id"], "note": "依据不足，不通过"} for c in cards],
+        )
 
     worker = BatchWorker(run.model, review, cache=run.cache)
     batch = freeze_batch(run, 0, ids, 1)
@@ -113,8 +164,11 @@ def test_invalid_direction_review_is_not_cached_as_approved(tmp_path):
 
     def review(conversation, context, cards):
         count.append(1)
-        return BatchReview(approved_ids=[c["place"]["id"] for c in cards], rejected=[],
-            covered_directions=[{"direction": 1, "place_ids": [cards[0]["place"]["id"]]}])
+        return BatchReview(
+            approved_ids=[c["place"]["id"] for c in cards],
+            rejected=[],
+            covered_directions=[{"direction": 1, "place_ids": [cards[0]["place"]["id"]]}],
+        )
 
     worker = BatchWorker(run.model, review, cache=run.cache)
     batch = freeze_batch(run, 0, ids, 1)
@@ -140,16 +194,22 @@ def test_exact_review_inputs_invalidate_changed_facts_and_text(tmp_path, field):
     worker.review(batch, draft)
     if field == "reason":
         from roambot.domain.discovery_execution import BatchResult
+
         changed = draft.payload()
         changed["cards"][0]["reason"] += "这次多看一会儿。"
         draft = BatchResult.freeze(batch, changed)
     else:
         if field == "evidence":
-            next(e for e in run.evidence.values() if e["kind"] == "search_excerpt")["excerpt"] += "新资料。"
+            next(e for e in run.evidence.values() if e["kind"] == "search_excerpt")["excerpt"] += (
+                "新资料。"
+            )
         else:
             from datetime import date, timedelta
+
             tomorrow = date.today() + timedelta(days=1)
-            run.context = run.context.model_copy(update={"start_date": tomorrow, "end_date": tomorrow})
+            run.context = run.context.model_copy(
+                update={"start_date": tomorrow, "end_date": tomorrow}
+            )
         batch = freeze_batch(run, 0, ids, 1)
         draft = worker.compose(batch)
     worker.review(batch, draft)

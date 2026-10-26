@@ -69,35 +69,49 @@ def test_map_proxy_sanitizes_transport_failure():
 
 def test_ip_city_lookup_keeps_fixed_upstream_and_private_credentials():
     from types import SimpleNamespace
+
     from roambot.providers.amap import AMapProvider
-    app = create_app(Settings(amap_js_key='test-browser-key', amap_js_security_code='test-secret'))
-    app.state.provider_runtime = SimpleNamespace(_adapters=SimpleNamespace(geocoder=AMapProvider(None, 'test-web-key')))
+
+    app = create_app(Settings(amap_js_key="test-browser-key", amap_js_security_code="test-secret"))
+    app.state.provider_runtime = SimpleNamespace(
+        _adapters=SimpleNamespace(geocoder=AMapProvider(None, "test-web-key"))
+    )
+
     def upstream(request):
-        assert request.url.host == 'restapi.amap.com'
-        assert request.url.path == '/v3/ip'
-        assert request.url.params['key'] == 'test-web-key'
-        assert 'jscode' not in request.url.params
-        assert request.headers.get('cookie') is None
-        return httpx.Response(200, json={'status': '1', 'city': '苏州市', 'adcode': '320500'})
+        assert request.url.host == "restapi.amap.com"
+        assert request.url.path == "/v3/ip"
+        assert request.url.params["key"] == "test-web-key"
+        assert "jscode" not in request.url.params
+        assert request.headers.get("cookie") is None
+        return httpx.Response(200, json={"status": "1", "city": "苏州市", "adcode": "320500"})
+
     app.state.map_transport = httpx.MockTransport(upstream)
-    response = TestClient(app).get('/api/v1/maps/_AMapService/v3/ip?key=attacker&jscode=attacker',
-        headers={'Cookie': 'session=private'})
+    response = TestClient(app).get(
+        "/api/v1/maps/_AMapService/v3/ip?key=attacker&jscode=attacker",
+        headers={"Cookie": "session=private"},
+    )
     assert response.status_code == 200
-    assert response.json()['city'] == '苏州市'
-    assert 'test-secret' not in response.text
+    assert response.json()["city"] == "苏州市"
+    assert "test-secret" not in response.text
 
 
 def test_ip_city_proxy_does_not_expose_private_web_key_or_fall_back_to_js_key():
     from types import SimpleNamespace
+
     from roambot.providers.amap import AMapProvider
-    app = create_app(Settings(amap_js_key='test-browser-key', amap_js_security_code='test-secret'))
+
+    app = create_app(Settings(amap_js_key="test-browser-key", amap_js_security_code="test-secret"))
     client = TestClient(app)
-    assert client.get('/api/v1/maps/_AMapService/v3/ip').status_code == 503
-    app.state.provider_runtime = SimpleNamespace(_adapters=SimpleNamespace(geocoder=AMapProvider(None, 'test-web-key')))
-    app.state.map_transport = httpx.MockTransport(lambda _: httpx.Response(200, text='test-web-key'))
-    response = client.get('/api/v1/maps/_AMapService/v3/ip')
+    assert client.get("/api/v1/maps/_AMapService/v3/ip").status_code == 503
+    app.state.provider_runtime = SimpleNamespace(
+        _adapters=SimpleNamespace(geocoder=AMapProvider(None, "test-web-key"))
+    )
+    app.state.map_transport = httpx.MockTransport(
+        lambda _: httpx.Response(200, text="test-web-key")
+    )
+    response = client.get("/api/v1/maps/_AMapService/v3/ip")
     assert response.status_code == 502
-    assert 'test-web-key' not in response.text
+    assert "test-web-key" not in response.text
 
 
 def test_map_proxy_supports_sdk_initialization_log_without_forwarding_client_credentials():

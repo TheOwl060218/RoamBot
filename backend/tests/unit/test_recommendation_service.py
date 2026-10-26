@@ -32,8 +32,7 @@ GENERATED_AT = datetime(2026, 7, 16, 8, 30, tzinfo=UTC)
 @pytest.mark.parametrize("excluded_by", ["distance", "weather"])
 def test_recommendation_backfills_rejected_first_five_candidates(excluded_by):
     candidates = [
-        destination(str(i), str(i), frozenset({SceneryType.LAKE}), rank=i + 1)
-        for i in range(6)
+        destination(str(i), str(i), frozenset({SceneryType.LAKE}), rank=i + 1) for i in range(6)
     ]
     distances = {str(i): [100 if excluded_by == "distance" and i < 5 else 10] for i in range(6)}
     weather_data = {
@@ -678,8 +677,13 @@ def test_evaluate_fails_when_target_lacks_complete_weather() -> None:
 def test_broad_any_request_spreads_scenery_types_instead_of_all_museums() -> None:
     all_types = list(SceneryType)
     top_rated_museums = [
-        destination(f"museum-{index}", f"Museum {index}",
-                    frozenset({SceneryType.MUSEUM}), rank=index, rating=4.9 - index / 100)
+        destination(
+            f"museum-{index}",
+            f"Museum {index}",
+            frozenset({SceneryType.MUSEUM}),
+            rank=index,
+            rating=4.9 - index / 100,
+        )
         for index in range(1, 7)
     ]
     others = [
@@ -697,8 +701,7 @@ def test_broad_any_request_spreads_scenery_types_instead_of_all_museums() -> Non
         request(scenery_types=all_types, scenery_match_mode=SceneryMatchMode.ANY)
     )
 
-    museums = [item for item in result.items
-               if SceneryType.MUSEUM in item.destination.scenery_tags]
+    museums = [item for item in result.items if SceneryType.MUSEUM in item.destination.scenery_tags]
     assert len(museums) <= 2
     assert len(result.items) == 5
     assert len(set().union(*(item.destination.scenery_tags for item in result.items))) >= 3

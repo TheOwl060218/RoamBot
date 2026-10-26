@@ -40,8 +40,7 @@ def test_guest_cannot_read_add_or_delete_favorites(auth_api_fixture) -> None:
 
     assert [response.status_code for response in responses] == [401, 401, 401]
     assert all(
-        response.json()["error"]["code"] == "authentication_required"
-        for response in responses
+        response.json()["error"]["code"] == "authentication_required" for response in responses
     )
 
 

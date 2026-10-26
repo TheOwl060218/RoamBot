@@ -140,11 +140,14 @@ def test_put_atomically_replaces_every_value_and_delete_is_key_isolated(
             created_at=new_created_at,
             expires_at=new_expires_at,
         )
-        assert db.scalar(
-            select(func.count()).select_from(ApiCacheTable).where(
-                ApiCacheTable.cache_key == FIRST_KEY
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(ApiCacheTable)
+                .where(ApiCacheTable.cache_key == FIRST_KEY)
             )
-        ) == 1
+            == 1
+        )
         repository.delete(FIRST_KEY)
         assert repository.get_fresh(FIRST_KEY, new_created_at) is None
         assert repository.get_fresh(SECOND_KEY, new_created_at) is not None

@@ -11,6 +11,7 @@ from roambot.api.dependencies import (
     require_csrf,
 )
 from roambot.api.errors import error_response
+from roambot.domain.discovery_snapshot import PublicDiscoverySnapshot
 from roambot.domain.models import (
     DailySuitability,
     DailyWeather,
@@ -18,7 +19,6 @@ from roambot.domain.models import (
     ScoreBreakdown,
 )
 from roambot.services.personal_data import PersonalDataService, ResourceNotFoundError
-from roambot.domain.discovery_snapshot import PublicDiscoverySnapshot
 
 router = APIRouter(tags=["shares"])
 

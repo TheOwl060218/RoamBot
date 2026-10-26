@@ -1,4 +1,5 @@
 """Ephemeral, signed, strictly whitelisted facts. Not an authentication token."""
+
 from __future__ import annotations
 
 import base64
@@ -63,28 +64,42 @@ class AssistantContextSigner:
         candidates = []
         for item in items:
             destination = item.destination
-            candidates.append(FactCandidate(
-                candidate_id=destination.provider_id,
-                destination=FactDestination(
-                    name=destination.name, city=destination.city,
-                    type_name=destination.type_name,
-                    scenery_tags=sorted(destination.scenery_tags), rating=destination.rating),
-                distances=[distance.model_copy(update={
-                    "origin_label": "主出发地" if i == 0 else f"同行{i}"
-                }) for i, distance in enumerate(item.distances)],
-                weather=item.weather,
-                daily_suitability=[FactSuitability(date=d.date.isoformat(), score=d.score,
-                                                   status=d.status)
-                                   for d in item.daily_suitability],
-                group_accessibility=item.group_accessibility, score=item.score,
-            ))
+            candidates.append(
+                FactCandidate(
+                    candidate_id=destination.provider_id,
+                    destination=FactDestination(
+                        name=destination.name,
+                        city=destination.city,
+                        type_name=destination.type_name,
+                        scenery_tags=sorted(destination.scenery_tags),
+                        rating=destination.rating,
+                    ),
+                    distances=[
+                        distance.model_copy(
+                            update={"origin_label": "主出发地" if i == 0 else f"同行{i}"}
+                        )
+                        for i, distance in enumerate(item.distances)
+                    ],
+                    weather=item.weather,
+                    daily_suitability=[
+                        FactSuitability(date=d.date.isoformat(), score=d.score, status=d.status)
+                        for d in item.daily_suitability
+                    ],
+                    group_accessibility=item.group_accessibility,
+                    score=item.score,
+                )
+            )
         return self.issue_facts(candidates, result.source_state.kind)
 
     def issue_facts(self, candidates: list[FactCandidate], source_state: SourceKind) -> str:
         """Sign whitelisted facts from an already-authorized server snapshot."""
         now = self._clock()
-        facts = AssistantFacts(candidates=candidates, source_state=source_state,
-                               issued_at=now, expires_at=now + timedelta(minutes=30))
+        facts = AssistantFacts(
+            candidates=candidates,
+            source_state=source_state,
+            issued_at=now,
+            expires_at=now + timedelta(minutes=30),
+        )
         raw = facts.model_dump_json().encode()
         if len(raw) > 32768:
             raise ValueError("facts too large")
@@ -100,8 +115,9 @@ class AssistantContextSigner:
             expected = hmac.new(self._secret, payload.encode(), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(signature, expected):
                 raise ValueError
-            raw = base64.b64decode(payload + "=" * (-len(payload) % 4),
-                                   altchars=b"-_", validate=True)
+            raw = base64.b64decode(
+                payload + "=" * (-len(payload) % 4), altchars=b"-_", validate=True
+            )
             if len(raw) > 32768:
                 raise ValueError
             facts = AssistantFacts.model_validate_json(raw)

@@ -13,8 +13,8 @@ from roambot.services.discovery_execution import (
     ModelGate,
 )
 from roambot.services.discovery_facts import collect_facts, freeze_facts
-from roambot.services.discovery_workflow import DiscoveryWorkflow, Stopped
 from roambot.services.discovery_scheduling import assessment_batch_size
+from roambot.services.discovery_workflow import DiscoveryWorkflow, Stopped
 
 
 class DiscoveryOrchestrator(DiscoveryWorkflow):
@@ -148,8 +148,11 @@ class DiscoveryOrchestrator(DiscoveryWorkflow):
             return
         # Small result sets stay in one model batch; splitting them would add calls.
         direct = bool(getattr(self.model, "source_first", False))
-        first = assessment_batch_size(len(ids), first=True) if direct else (
-            len(ids) if len(ids) <= 6 else 3 if len(ids) <= 9 else 4)
+        first = (
+            assessment_batch_size(len(ids), first=True)
+            if direct
+            else (len(ids) if len(ids) <= 6 else 3 if len(ids) <= 9 else 4)
+        )
         size = assessment_batch_size(6) if direct else 6
         groups = [ids[:first]] + [ids[i : i + size] for i in range(first, len(ids), size)]
         revision = self.revision

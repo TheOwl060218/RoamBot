@@ -98,9 +98,7 @@ def score_daily_weather(
     elif weather.precipitation_mm > 0:
         penalty = _penalty(exposure, outdoor=10, mixed=8, indoor=5)
         score -= penalty
-        reasons.append(
-            f"预计有少量降水，{exposure_label}建议随身携带雨具"
-        )
+        reasons.append(f"预计有少量降水，{exposure_label}建议随身携带雨具")
 
     hottest = weather.temp_max_c
     coldest = weather.temp_min_c
@@ -114,16 +112,13 @@ def score_daily_weather(
             )
         else:
             reasons.append(
-                f"最低温度预计降至{_number(coldest)}℃，{exposure_label}，"
-                "建议注意保暖并缩短室外停留"
+                f"最低温度预计降至{_number(coldest)}℃，{exposure_label}，建议注意保暖并缩短室外停留"
             )
     elif hottest > 32 or coldest < 10:
         penalty = _penalty(exposure, outdoor=25, mixed=18, indoor=10)
         score -= penalty
         if exposure is SceneryExposure.INDOOR and hottest > 32:
-            reasons.append(
-                "往返途中避开高温并注意防暑防晒"
-            )
+            reasons.append("往返途中避开高温并注意防暑防晒")
         else:
             reasons.append(
                 f"预计温度范围为{_number(coldest)}–{_number(hottest)}℃，"
@@ -133,8 +128,7 @@ def score_daily_weather(
         penalty = _penalty(exposure, outdoor=10, mixed=8, indoor=5)
         score -= penalty
         reasons.append(
-            f"预计温度范围为{_number(coldest)}–{_number(hottest)}℃，"
-            "建议按实际体感准备衣物"
+            f"预计温度范围为{_number(coldest)}–{_number(hottest)}℃，建议按实际体感准备衣物"
         )
 
     if weather.wind_speed_kmh > 40:
@@ -146,38 +140,27 @@ def score_daily_weather(
     elif weather.wind_speed_kmh > 30:
         score -= _penalty(exposure, outdoor=25, mixed=18, indoor=10)
         reasons.append(
-            f"预计风速达到{_number(weather.wind_speed_kmh)}公里/小时，"
-            f"{exposure_label}请注意防风"
+            f"预计风速达到{_number(weather.wind_speed_kmh)}公里/小时，{exposure_label}请注意防风"
         )
     elif weather.wind_speed_kmh > 20:
         score -= _penalty(exposure, outdoor=10, mixed=5, indoor=0)
         reasons.append(
-            f"预计风速为{_number(weather.wind_speed_kmh)}公里/小时，"
-            "户外活动可能受到一定影响"
+            f"预计风速为{_number(weather.wind_speed_kmh)}公里/小时，户外活动可能受到一定影响"
         )
 
     if weather.visibility_km < 2:
         score -= 30
-        reasons.append(
-            f"预计能见度仅{_number(weather.visibility_km)}公里，建议谨慎出行"
-        )
+        reasons.append(f"预计能见度仅{_number(weather.visibility_km)}公里，建议谨慎出行")
     elif weather.visibility_km < 5:
         score -= 15
-        reasons.append(
-            f"预计能见度为{_number(weather.visibility_km)}公里，请留意交通安全"
-        )
+        reasons.append(f"预计能见度为{_number(weather.visibility_km)}公里，请留意交通安全")
     elif weather.visibility_km < 10:
         score -= 5
-        reasons.append(
-            f"预计能见度为{_number(weather.visibility_km)}公里，远景观赏可能受影响"
-        )
+        reasons.append(f"预计能见度为{_number(weather.visibility_km)}公里，远景观赏可能受影响")
 
     if weather.uv_index > 8:
         score -= _penalty(exposure, outdoor=10, mixed=5, indoor=0)
-        reasons.append(
-            f"紫外线指数预计达到{_number(weather.uv_index)}，"
-            "户外停留时请做好防晒"
-        )
+        reasons.append(f"紫外线指数预计达到{_number(weather.uv_index)}，户外停留时请做好防晒")
 
     if not reasons:
         reasons.append(f"{exposure_label}的天气条件总体较适合出行")
@@ -215,6 +198,7 @@ def score_fairness(
     if len(distances_km) == 1:
         return clamp(100.0)
     del max_distance_km
+
     def relative_score(values: list[float]) -> float:
         longest = max(values)
         if longest <= 0:

@@ -1,7 +1,6 @@
 import importlib.util
 import sqlite3
 from pathlib import Path
-
 from types import SimpleNamespace
 
 
@@ -20,9 +19,16 @@ def builder(usage=0):
             original = db.execute("SELECT value FROM fixture").fetchone()[0]
             assert original == "cold", "second implementation inherited the first's warm cache"
             db.execute("UPDATE fixture SET value='warmed'")
-        return SimpleNamespace(run=lambda: None, snapshot=lambda: {
-            "status": "completed", "cards": [], "first_batch_ms": None,
-            "metrics": {"model_calls": 0, "search_credits": usage, "web_requests": 1}})
+        return SimpleNamespace(
+            run=lambda: None,
+            snapshot=lambda: {
+                "status": "completed",
+                "cards": [],
+                "first_batch_ms": None,
+                "metrics": {"model_calls": 0, "search_credits": usage, "web_requests": 1},
+            },
+        )
+
     return create
 
 
@@ -36,8 +42,12 @@ def seed_at(path):
 def test_benchmark_compares_identical_initial_cache_without_real_calls(tmp_path):
     source = tmp_path / "seed"
     seed_at(source)
-    result = benchmark().compare_pair({"legacy": builder(), "coordinated": builder()},
-        source, tmp_path / "output", ["controlled offline request"])
+    result = benchmark().compare_pair(
+        {"legacy": builder(), "coordinated": builder()},
+        source,
+        tmp_path / "output",
+        ["controlled offline request"],
+    )
     assert len(result["runs"]) == 2
     assert result["live"] is False and result["search_credits"] == 0
     with sqlite3.connect(source / "facts.sqlite3") as db:
@@ -47,8 +57,13 @@ def test_benchmark_compares_identical_initial_cache_without_real_calls(tmp_path)
 def test_live_budget_stops_on_unknown_usage(tmp_path):
     source = tmp_path / "seed"
     seed_at(source)
-    result = benchmark().compare_pair({"legacy": builder(None), "coordinated": builder()},
-        source, tmp_path / "output", ["controlled request"], live=True)
+    result = benchmark().compare_pair(
+        {"legacy": builder(None), "coordinated": builder()},
+        source,
+        tmp_path / "output",
+        ["controlled request"],
+        live=True,
+    )
     assert len(result["runs"]) == 1
     assert result["search_credits"] is None
     assert result["stopped"] == "unknown_search_usage"

@@ -71,7 +71,9 @@ class DiscoveryKnowledge:
             {**source, "excerpt": "\n\n".join(venue_paragraphs(place, source))[:4000]}
             for source in valid
         ]
-        valid = [source for source in valid if source["excerpt"] and source_mentions_place(place, source)]
+        valid = [
+            source for source in valid if source["excerpt"] and source_mentions_place(place, source)
+        ]
         if not valid:
             return
         with self.connect() as db:
@@ -135,13 +137,19 @@ class DiscoveryKnowledge:
         with self.connect() as db:
             rows = db.execute(
                 "SELECT id,sources,updated FROM venues WHERE id IN ("
-                + ",".join("?" for _ in by_id) + ") AND updated>?",
+                + ",".join("?" for _ in by_id)
+                + ") AND updated>?",
                 (*by_id, self.clock() - 86400),
             ).fetchall()
-        return {key: [source for source in json.loads(raw)
-                      if (source.get("retrieved_at") or updated) > self.clock() - 86400
-                      and source_mentions_place(by_id[key], source)]
-                for key, raw, updated in rows}
+        return {
+            key: [
+                source
+                for source in json.loads(raw)
+                if (source.get("retrieved_at") or updated) > self.clock() - 86400
+                and source_mentions_place(by_id[key], source)
+            ]
+            for key, raw, updated in rows
+        }
 
     def find(self, query, *, region=None, center=None, radius=None, limit=12):
         if region:

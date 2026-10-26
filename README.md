@@ -1,6 +1,6 @@
-# RoamBot 对话驱动业务开发分支
+# RoamBot
 
-当前分支 `feat/conversational-business-tools` 在参赛冻结源码上开发对话业务工具，尚未部署。
+当前阶段包含对话推荐、地图联动、收藏、历史、同行计划与行程中心。2026-10-27阶段产物已发布到公网；本次主仓库集成与检查边界见 `docs/MAIN_INTEGRATION_2026-10-27.md`，发布记录见 `docs/PUBLIC_RELEASE_2026-10-27.md`。
 比赛仓库的 `submission/2026-10-15` 分支保留原始 388 文件快照，提交 `44ecc7b`；
 对应原演示发布 `b53320af-d347-4b9e-be47-8422dc23e797`（2026-10-14）。
 `SOURCE_MANIFEST.json` 仅用于核对该参赛基线，不代表当前开发分支的文件哈希。
@@ -8,7 +8,7 @@
 
 ## 使用入口
 
-原参赛版本线上演示：https://roambot-production.up.railway.app （不含本分支改造）
+当前阶段公网体验：https://roambot-production.up.railway.app （已更新为2026-10-27阶段版）
 
 评委本地复现推荐使用Mock模式，无需配置真实服务凭据。Mock的自然语言解析仅支持有限示例；
 可用条件拼图手动设置苏州站、明天、湖景等条件。Mock不替代线上真实模型和地图的验收。

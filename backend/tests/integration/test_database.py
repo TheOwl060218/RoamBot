@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from alembic.config import Config
-from sqlalchemy import DateTime, Float, String, Text, create_engine, inspect, text
+from sqlalchemy import DateTime, Float, Integer, String, Text, create_engine, inspect, text
 from sqlalchemy.engine import make_url
 
 from alembic import command
@@ -16,6 +16,8 @@ from roambot.persistence.tables import Base
 
 BUSINESS_TABLES = {
     "assistant_commands",
+    "itineraries",
+    "itinerary_workspaces",
     "api_cache",
     "favorites",
     "histories",
@@ -37,6 +39,17 @@ PLAN_TABLES = {
 }
 
 EXPECTED_COLUMNS = {
+    "itineraries": {
+        "id": ("VARCHAR(36)", False, True),
+        "owner": ("VARCHAR(100)", False, False),
+        "revision": ("INTEGER", False, False),
+        "document_json": ("TEXT", False, False),
+        "created_at": ("DATETIME", False, False),
+    },
+    "itinerary_workspaces": {
+        "owner": ("VARCHAR(100)", False, True),
+        "current_id": ("VARCHAR(36)", True, False),
+    },
     "assistant_commands": {
         "actor": ("VARCHAR(100)", False, True),
         "request_id": ("VARCHAR(100)", False, True),
@@ -107,6 +120,8 @@ EXPECTED_COLUMNS = {
 }
 
 EXPECTED_UNIQUES = {
+    "itineraries": set(),
+    "itinerary_workspaces": set(),
     "assistant_commands": {("proposal",)},
     "users": {("username",)},
     "user_sessions": {("token_hash",)},
@@ -118,6 +133,8 @@ EXPECTED_UNIQUES = {
 }
 
 EXPECTED_INDEXES = {
+    "itineraries": {("owner",)},
+    "itinerary_workspaces": set(),
     "assistant_commands": set(),
     "users": set(),
     "user_sessions": {("user_id",), ("expires_at",)},
@@ -129,6 +146,8 @@ EXPECTED_INDEXES = {
 }
 
 EXPECTED_FOREIGN_KEYS = {
+    "itineraries": set(),
+    "itinerary_workspaces": set(),
     "assistant_commands": set(),
     "users": set(),
     "user_sessions": {(("user_id",), "users", ("id",), "CASCADE")},
@@ -151,6 +170,8 @@ def _type_name(column_type: object) -> str:
         return "TEXT"
     if isinstance(column_type, DateTime):
         return "DATETIME"
+    if isinstance(column_type, Integer):
+        return "INTEGER"
     if isinstance(column_type, Float):
         return "FLOAT"
     if isinstance(column_type, String):
@@ -203,7 +224,7 @@ def test_upgrade_head_is_repeatable_and_creates_exact_schema(tmp_path: Path) -> 
             } == EXPECTED_FOREIGN_KEYS[table_name]
 
         with engine.connect() as connection:
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
     finally:
         engine.dispose()
 
@@ -317,34 +338,72 @@ def test_closed_upgrade_keeps_referenced_plan_votes_and_constraints(tmp_path):
     command.upgrade(config, "0004")
     engine = create_engine(url)
     with engine.begin() as db:
-        db.execute(text(
-            "INSERT INTO users VALUES ('u', 'preserved', 'fixture', CURRENT_TIMESTAMP)"
-        ))
-        db.execute(text(
-            "INSERT INTO travel_plans VALUES "
-            "('p','u','保留计划','苏州','2026-10-10','2026-10-11',2,'voting',"
-            "NULL,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
-        ))
+        db.execute(
+            text("INSERT INTO users VALUES ('u', 'preserved', 'fixture', CURRENT_TIMESTAMP)")
+        )
+        db.execute(
+            text(
+                "INSERT INTO travel_plans VALUES "
+                "('p','u','保留计划','苏州','2026-10-10','2026-10-11',2,'voting',"
+                "NULL,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
+            )
+        )
         db.execute(text("INSERT INTO plan_candidates VALUES ('c','p','poi',0,'{}',120,31)"))
-        db.execute(text(
-            "INSERT INTO plan_participants VALUES "
-            "('m','p','owner','owner','u',NULL,'owner',CURRENT_TIMESTAMP)"
-        ))
+        db.execute(
+            text(
+                "INSERT INTO plan_participants VALUES "
+                "('m','p','owner','owner','u',NULL,'owner',CURRENT_TIMESTAMP)"
+            )
+        )
         db.execute(text("INSERT INTO plan_votes VALUES ('m','c',CURRENT_TIMESTAMP)"))
         db.execute(text("INSERT INTO plan_acceptable VALUES ('m','c')"))
     command.upgrade(config, "head")
     command.upgrade(config, "head")
     with engine.begin() as db:
         assert db.scalar(text("SELECT name FROM travel_plans WHERE id='p'")) == "保留计划"
-        assert db.scalar(text(
-            "SELECT preferred_candidate_id FROM plan_votes WHERE participant_id='m'"
-        )) == "c"
-        assert db.scalar(text(
-            "SELECT candidate_id FROM plan_acceptable WHERE participant_id='m'"
-        )) == "c"
+        assert (
+            db.scalar(
+                text("SELECT preferred_candidate_id FROM plan_votes WHERE participant_id='m'")
+            )
+            == "c"
+        )
+        assert (
+            db.scalar(text("SELECT candidate_id FROM plan_acceptable WHERE participant_id='m'"))
+            == "c"
+        )
         db.execute(text("UPDATE travel_plans SET status='closed' WHERE id='p'"))
         assert list(db.execute(text("PRAGMA foreign_key_check"))) == []
     checks = inspect(engine).get_check_constraints("travel_plans")
     assert any("closed" in check["sqltext"] for check in checks)
     assert any("expected_count" in check["sqltext"] for check in checks)
     engine.dispose()
+
+
+def test_itinerary_upgrade_adopts_existing_stage_documents(tmp_path):
+    config = Config("backend/alembic.ini")
+    url = make_sqlite_url(tmp_path / "stage.db")
+    config.set_main_option("sqlalchemy.url", url)
+    command.upgrade(config, "0006")
+    engine = create_engine(url)
+    try:
+        Base.metadata.create_all(engine)
+        with engine.begin() as db:
+            db.execute(
+                text(
+                    "INSERT INTO itineraries VALUES "
+                    "('trip','user:fixture',3,'{\"name\":\"preserved\"}',CURRENT_TIMESTAMP)"
+                )
+            )
+            db.execute(text("INSERT INTO itinerary_workspaces VALUES ('user:fixture','trip')"))
+        command.upgrade(config, "head")
+        command.upgrade(config, "head")
+        with engine.connect() as db:
+            assert db.scalar(text("SELECT revision FROM itineraries WHERE id='trip'")) == 3
+            assert (
+                db.scalar(text("SELECT document_json FROM itineraries WHERE id='trip'"))
+                == '{"name":"preserved"}'
+            )
+            assert db.scalar(text("SELECT current_id FROM itinerary_workspaces")) == "trip"
+            assert list(db.execute(text("PRAGMA foreign_key_check"))) == []
+    finally:
+        engine.dispose()

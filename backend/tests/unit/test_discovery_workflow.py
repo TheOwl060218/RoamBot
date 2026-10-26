@@ -1,5 +1,5 @@
-import threading
 import copy
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
@@ -46,11 +46,19 @@ class Model:
 
     def compose(self, conversation, goal, context, candidates):
         self.calls.append("compose")
+
         def citation(candidate):
-            web = next((s["id"] for s in candidate["sources"]
-                        if s["kind"] in {"web_page", "search_excerpt"}), None)
-            return web or next(s["id"] for s in candidate["sources"]
-                               if s.get("field") == "name_and_type")
+            web = next(
+                (
+                    s["id"]
+                    for s in candidate["sources"]
+                    if s["kind"] in {"web_page", "search_excerpt"}
+                ),
+                None,
+            )
+            return web or next(
+                s["id"] for s in candidate["sources"] if s.get("field") == "name_and_type"
+            )
 
         return GroundedBatch(
             cards=[
@@ -285,20 +293,20 @@ def test_radius_without_center_requests_only_location_not_full_form(tmp_path):
     assert run.context.start_date is None
 
 
-def test_nearby_default_is_program_policy_backed_by_user_evidence(tmp_path):
+def test_nearby_evidence_does_not_invent_a_hard_distance_limit(tmp_path):
     run = workflow(tmp_path, message="苏州附近放松一下的地方")
-    run.plan = RetrievalPlan(context=SearchContext(region="苏州"),
-        goal="苏州附近放松一下的地方", nearby_quote="附近")
+    run.plan = RetrievalPlan(
+        context=SearchContext(region="苏州"), goal="苏州附近放松一下的地方", nearby_quote="附近"
+    )
     run.configure_plan()
-    assert run.context.max_distance_km == 5
-    assert run.context.distance_quote == "附近"
+    assert run.context.max_distance_km is None
+    assert run.context.distance_quote is None
     assert run.context.origin is None and not run.maps.calls
 
 
 def test_destination_only_does_not_inherit_nearby_default_or_request_location(tmp_path):
     run = workflow(tmp_path, message="去苏州躺着放松的地方")
-    run.plan = RetrievalPlan(context=SearchContext(region="苏州"),
-        goal="去苏州躺着放松的地方")
+    run.plan = RetrievalPlan(context=SearchContext(region="苏州"), goal="去苏州躺着放松的地方")
     run.configure_plan()
     assert run.context.max_distance_km is None and run.context.origin is None
     assert not run.request_location and not run.maps.calls
@@ -306,14 +314,20 @@ def test_destination_only_does_not_inherit_nearby_default_or_request_location(tm
 
 def test_nearby_policy_rejects_invented_quote_and_preserves_explicit_limit(tmp_path):
     run = workflow(tmp_path, message="去苏州躺着放松的地方")
-    run.plan = RetrievalPlan(context=SearchContext(region="苏州"),
-        goal="去苏州躺着放松的地方", nearby_quote="附近")
+    run.plan = RetrievalPlan(
+        context=SearchContext(region="苏州"), goal="去苏州躺着放松的地方", nearby_quote="附近"
+    )
     with pytest.raises(ValueError, match="nearby_quote"):
         run.configure_plan()
     assert run.context.max_distance_km is None
     explicit = workflow(tmp_path, message="苏州站附近，2公里内")
-    explicit.plan = RetrievalPlan(context=SearchContext(origin="苏州站", origin_quote="苏州站",
-        max_distance_km=2, distance_quote="2公里内"), goal="附近看看", nearby_quote="附近")
+    explicit.plan = RetrievalPlan(
+        context=SearchContext(
+            origin="苏州站", origin_quote="苏州站", max_distance_km=2, distance_quote="2公里内"
+        ),
+        goal="附近看看",
+        nearby_quote="附近",
+    )
     explicit.configure_plan()
     assert explicit.context.max_distance_km == 2
 
@@ -328,9 +342,11 @@ def test_plan_missing_evidence_repairs_before_retrieval_and_caches_valid_plan(tm
             assert rejected["context"]["origin"] == "苏州"
             assert "原文" in violation
             assert not located
-            return RetrievalPlan(context=SearchContext(
-                region="苏州", max_distance_km=5, distance_quote="附近"),
-                goal="苏州附近放松一下的地方", request_location=True)
+            return RetrievalPlan(
+                context=SearchContext(region="苏州", max_distance_km=5, distance_quote="附近"),
+                goal="苏州附近放松一下的地方",
+                request_location=True,
+            )
 
     model = RepairModel()
     run = workflow(tmp_path, model=model, message="苏州附近放松一下的地方")
@@ -353,9 +369,15 @@ def test_invalid_repair_is_bounded_and_cannot_bypass_explicit_route_limit(tmp_pa
 
         def repair_plan(self, *args):
             self.calls.append("repair")
-            return RetrievalPlan(context=SearchContext(
-                origin="苏州站", origin_quote="苏州站", max_distance_km=20,
-                distance_quote="不存在的距离原话"), goal="找附近去处")
+            return RetrievalPlan(
+                context=SearchContext(
+                    origin="苏州站",
+                    origin_quote="苏州站",
+                    max_distance_km=20,
+                    distance_quote="不存在的距离原话",
+                ),
+                goal="找附近去处",
+            )
 
     model = InvalidRepair()
     run = workflow(tmp_path, model=model, message="苏州站出发，5公里内看看")
@@ -373,8 +395,9 @@ def test_plan_repair_cancellation_starts_no_retrieval(tmp_path):
     def repair(*args):
         model.calls.append("repair")
         run.cancelled.set()
-        return RetrievalPlan(context=SearchContext(origin="苏州站", origin_quote="苏州站"),
-                             goal="苏州站附近")
+        return RetrievalPlan(
+            context=SearchContext(origin="苏州站", origin_quote="苏州站"), goal="苏州站附近"
+        )
 
     model.repair_plan = repair
     run.run()
@@ -523,31 +546,52 @@ def test_shared_public_facts_save_searches_across_users_without_sharing_private_
 
 def directional_index():
     places = Maps().search("", "苏州", None, None)
+
     def entry(place):
-        return {"place": place, "sources": [{"title": place["name"] + "介绍",
-            "excerpt": place["name"] + "有明确的活动空间和场地介绍。",
-            "kind": "web_page", "url": "https://example.org/" + place["id"]}]}
+        return {
+            "place": place,
+            "sources": [
+                {
+                    "title": place["name"] + "介绍",
+                    "excerpt": place["name"] + "有明确的活动空间和场地介绍。",
+                    "kind": "web_page",
+                    "url": "https://example.org/" + place["id"],
+                }
+            ],
+        }
+
     books = []
     for i in range(5):
         book = copy.deepcopy(places[0])
         book.update(id=f"amap:book{i}", name=f"独立书店{i}")
         books.append(entry(book))
     lake = [entry(places[1])]
+
     class Index:
         queries = []
         groups = {"书店": books, "湖边": lake}
+
         def find(self, query, **kwargs):
             self.queries.append(query)
             return self.groups.get(query, [])
-        def remember(self, *args): pass
+
+        def remember(self, *args):
+            pass
+
     return Index()
 
 
 def directions_plan():
-    return RetrievalPlan(context=SearchContext(region="苏州"), goal="几种不同的休闲体验",
-        directions=[{"experience": "翻书", "map_query": "书店", "web_query": "书店阅读空间"},
-            {"experience": "水边放松", "map_query": "湖边", "web_query": "湖边休息空间"}],
-        map_queries=["书店", "湖边"], web_queries=["书店阅读空间", "湖边休息空间"])
+    return RetrievalPlan(
+        context=SearchContext(region="苏州"),
+        goal="几种不同的休闲体验",
+        directions=[
+            {"experience": "翻书", "map_query": "书店", "web_query": "书店阅读空间"},
+            {"experience": "水边放松", "map_query": "湖边", "web_query": "湖边休息空间"},
+        ],
+        map_queries=["书店", "湖边"],
+        web_queries=["书店阅读空间", "湖边休息空间"],
+    )
 
 
 def test_public_retrieval_reserves_each_direction_before_more_of_the_popular_one(tmp_path):
@@ -570,9 +614,11 @@ def test_many_cached_places_cannot_hide_a_missing_direction(tmp_path):
     run.knowledge = directional_index()
     run.knowledge.groups = {"书店": run.knowledge.groups["书店"], "湖边": []}
     queries = []
+
     def search(query):
         queries.append(query)
         return EvidenceWeb().search(query)
+
     run.search.search = search
     run.retrieve()
     assert run.metrics["public_place_hits"] == 5
@@ -590,8 +636,10 @@ def test_fresh_search_evidence_reaches_nomination_before_dense_old_topic_sources
     run.context = run.plan.context
     run.knowledge = directional_index()
     for entry in run.knowledge.groups["书店"]:
-        entry["sources"] = [{**entry["sources"][0],
-            "url": f'https://old.example.org/{entry["place"]["id"]}/{i}'} for i in range(6)]
+        entry["sources"] = [
+            {**entry["sources"][0], "url": f"https://old.example.org/{entry['place']['id']}/{i}"}
+            for i in range(6)
+        ]
     run.knowledge.groups = {"书店": run.knowledge.groups["书店"], "湖边": []}
     run.retrieve()
     fresh_urls = {source["url"] for source in EvidenceWeb().search("")}
@@ -605,7 +653,7 @@ def test_fresh_search_evidence_reaches_nomination_before_dense_old_topic_sources
     run.nominate()
     # Nomination's source-ID table must include the fresh missing direction, even
     # with >18 cached sources for the other activity. Binding remains by source ID.
-    by_id = {f's{i}': source for i, source in enumerate(run.research_sources, 1)}
+    by_id = {f"s{i}": source for i, source in enumerate(run.research_sources, 1)}
     assert len(visible) <= 18
     assert fresh_urls <= {by_id[source["source_id"]]["url"] for source in visible}
 
@@ -622,19 +670,25 @@ def test_review_sees_global_coverage_and_clears_a_resolved_gap(tmp_path):
     assert run.evidence_query is None
 
 
-@pytest.mark.parametrize('covered', [False, True])
+@pytest.mark.parametrize("covered", [False, True])
 def test_approved_cards_do_not_imply_requested_directions_were_covered(tmp_path, covered):
     run = workflow(tmp_path)
     run.model.plan = lambda *args: directions_plan()
     run.reviewer = lambda cards: BatchReview(
-        approved_ids=[c['place']['id'] for c in cards], rejected=[],
-        covered_directions=[{'direction': 1, 'place_ids': ['amap:1']},
-            {'direction': 2, 'place_ids': ['amap:2']}] if covered else [])
+        approved_ids=[c["place"]["id"] for c in cards],
+        rejected=[],
+        covered_directions=[
+            {"direction": 1, "place_ids": ["amap:1"]},
+            {"direction": 2, "place_ids": ["amap:2"]},
+        ]
+        if covered
+        else [],
+    )
     run.run()
     assert len(run.cards) == 4
-    assert run.status == ('completed' if covered else 'partial')
-    assert run.metrics['uncovered_direction_indices'] == ([] if covered else [1, 2])
-    assert run.metrics['web_attempts'] <= 2
+    assert run.status == ("completed" if covered else "partial")
+    assert run.metrics["uncovered_direction_indices"] == ([] if covered else [1, 2])
+    assert run.metrics["web_attempts"] <= 2
 
 
 def test_search_hypotheses_do_not_add_hard_conditions_to_an_explicit_user_goal(tmp_path):
@@ -642,16 +696,26 @@ def test_search_hypotheses_do_not_add_hard_conditions_to_an_explicit_user_goal(t
     plan = directions_plan()
     plan.requirements = [ExperienceRequirement(text="有可供参观的空间", quote="可供参观")]
     run.model.plan = lambda *args: plan
+
     # The actual requirement is verified; the planner's optional book/lake split
     # is not an additional user requirement, and no diversity coverage is asserted.
     def review(cards):
         # Access to a space is an actual use condition, not its registered trade.
         # Keep the original web evidence assertion by modelling that distinction.
-        approved = [c["place"]["id"] for c in cards if any(
-            s["kind"] in {"web_page", "search_excerpt"} for s in c["sources"])]
-        return BatchReview(approved_ids=approved,
-            rejected=[{"place_id": c["place"]["id"], "note": "缺少可供参观的使用条件依据"}
-                      for c in cards if c["place"]["id"] not in approved], covered_directions=[])
+        approved = [
+            c["place"]["id"]
+            for c in cards
+            if any(s["kind"] in {"web_page", "search_excerpt"} for s in c["sources"])
+        ]
+        return BatchReview(
+            approved_ids=approved,
+            rejected=[
+                {"place_id": c["place"]["id"], "note": "缺少可供参观的使用条件依据"}
+                for c in cards
+                if c["place"]["id"] not in approved
+            ],
+            covered_directions=[],
+        )
 
     run.reviewer = review
     run.run()
@@ -668,19 +732,24 @@ def test_missing_direction_is_targeted_after_first_published_batch(tmp_path):
     queries = []
     run.search.search = lambda query: queries.append(query) or EvidenceWeb().search(query)
     run.supplement()
-    assert queries == ['苏州 湖边休息空间']
+    assert queries == ["苏州 湖边休息空间"]
 
 
 def test_reviewed_same_activity_uses_one_request_local_label_not_fake_variety(tmp_path):
     run = workflow(tmp_path)
     run.plan = directions_plan()
-    run.plan.directions[0].experience = '随手翻本书'
-    run.reviewer = lambda cards: BatchReview(approved_ids=['amap:1', 'amap:4'], rejected=[],
-        covered_directions=[{'direction': 1, 'place_ids': ['amap:1', 'amap:4']}])
-    cards = [{'place': {'id': 'amap:1'}, 'experience': '独立阅读角落', 'sources': []},
-        {'place': {'id': 'amap:4'}, 'experience': '文艺气氛翻书', 'sources': []}]
+    run.plan.directions[0].experience = "随手翻本书"
+    run.reviewer = lambda cards: BatchReview(
+        approved_ids=["amap:1", "amap:4"],
+        rejected=[],
+        covered_directions=[{"direction": 1, "place_ids": ["amap:1", "amap:4"]}],
+    )
+    cards = [
+        {"place": {"id": "amap:1"}, "experience": "独立阅读角落", "sources": []},
+        {"place": {"id": "amap:4"}, "experience": "文艺气氛翻书", "sources": []},
+    ]
     run.review_cards(cards)
-    assert [c['experience'] for c in cards] == ['随手翻本书', '随手翻本书']
+    assert [c["experience"] for c in cards] == ["随手翻本书", "随手翻本书"]
 
 
 def test_published_quote_does_not_expose_other_venue_sections(tmp_path):

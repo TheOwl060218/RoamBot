@@ -84,8 +84,9 @@ def evaluate_place(
     return result.model_copy(update={"assistant_context": _optional_context(signer, result)})
 
 
-def _optional_context(signer: AssistantContextSigner,
-                      result: RecommendationResponse | PlaceEvaluationResponse) -> str | None:
+def _optional_context(
+    signer: AssistantContextSigner, result: RecommendationResponse | PlaceEvaluationResponse
+) -> str | None:
     try:
         return signer.issue(result)
     except ValueError:

@@ -129,7 +129,7 @@ test('candidate weather is visible for one shared day and details expand on requ
   vi.spyOn(apiClient, 'get').mockResolvedValue({ plan: { ...plan, candidates: detailedCandidates } })
   wrap(<Routes><Route path='/plans/:planId' element={<PlanDetailPage />} /></Routes>, '/plans/p1')
   await screen.findByRole('heading', { name: plan.name })
-  expect(screen.getAllByText(/创建时天气/)).toHaveLength(2)
+  expect(screen.getAllByText(/创建时保存的天气/)).toHaveLength(2)
   expect(screen.getByRole('button', { name: '确定苏州博物馆' })).toBeVisible()
   await userEvent.click(screen.getByRole('button', { name: '查看苏州博物馆详情' }))
   expect(screen.getByRole('button', { name: '收起苏州博物馆详情' })).toHaveAttribute('aria-expanded', 'true')

@@ -1,8 +1,8 @@
 """Task-oriented contracts. Models propose; the executor binds and authorizes."""
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
 from datetime import date
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -88,7 +88,7 @@ class EditItineraryArgs(ItineraryScope):
     start_date: date | None = None
     end_date: date | None = None
     date_quote: str | None = Field(default=None, max_length=200)
-    travel_mode: Literal['walking', 'bicycling', 'driving'] | None = None
+    travel_mode: Literal["walking", "bicycling", "driving"] | None = None
 
 
 class MoveItineraryStopArgs(ItineraryScope, PlaceTarget):
@@ -148,19 +148,50 @@ def _tool(name, description, parameters=Parameters, *, kind="backend", destructi
 
 
 _TOOLS = [
-    _tool('create_itinerary', '创建独立的旅行行程，不是同行投票计划；不必在收集地点时填写日期。', CreateItineraryArgs),
-    _tool('open_itinerary', '打开当前或具名的旅行行程。', ItineraryScope),
-    _tool('show_itinerary_map', '查看旅行行程某天的地图及路线；day是具体日期，day_number是第几天，从1开始。不重新查询路线。', ItineraryMapArgs),
-    _tool('add_to_itinerary', '把当前推荐或收藏中的一个真实地点加入最近创建的行程，或指定行程；不等同于收藏。', AddItineraryStopArgs),
-    _tool('edit_itinerary', '修改旅行行程名称、完整起止日期或交通方式，不影响同行投票计划。日期修改要date_quote原文。', EditItineraryArgs),
-    _tool('move_itinerary_stop', '把行程内真实地点移到指定日期及从1开始的位置；只保存顺序，不查询路线。day为空表示待安排；日期要原文quote。', MoveItineraryStopArgs),
-    _tool('remove_itinerary_stop', '把行程中的地点移出，不取消收藏、不删除历史。', AddItineraryStopArgs),
-    _tool('generate_itinerary', '用户明确要生成/更新路线才调用。optimize=true自动分天和重排；false严格保留用户手动顺序更新路线。需要已确定日期，会请求路线天气。', GenerateItineraryArgs),
+    _tool(
+        "create_itinerary",
+        "创建独立的旅行行程，不是同行投票计划；不必在收集地点时填写日期。",
+        CreateItineraryArgs,
+    ),
+    _tool("open_itinerary", "打开当前或具名的旅行行程。", ItineraryScope),
+    _tool(
+        "show_itinerary_map",
+        "查看旅行行程某天的地图及路线；day是具体日期，day_number是第几天，从1开始。不重新查询路线。",
+        ItineraryMapArgs,
+    ),
+    _tool(
+        "add_to_itinerary",
+        "把当前推荐或收藏中的一个真实地点加入最近创建的行程，或指定行程；不等同于收藏。",
+        AddItineraryStopArgs,
+    ),
+    _tool(
+        "edit_itinerary",
+        "修改旅行行程名称、完整起止日期或交通方式，不影响同行投票计划。日期修改要date_quote原文。",
+        EditItineraryArgs,
+    ),
+    _tool(
+        "move_itinerary_stop",
+        "把行程内真实地点移到指定日期及从1开始的位置；只保存顺序，不查询路线。day为空表示待安排；日期要原文quote。",
+        MoveItineraryStopArgs,
+    ),
+    _tool(
+        "remove_itinerary_stop",
+        "把行程中的地点移出，不取消收藏、不删除历史。",
+        AddItineraryStopArgs,
+    ),
+    _tool(
+        "generate_itinerary",
+        "用户明确要生成/更新路线才调用。optimize=true自动分天和重排；false严格保留用户手动顺序更新路线。需要已确定日期，会请求路线天气。",
+        GenerateItineraryArgs,
+    ),
     _tool(
         "update_search_conditions",
         "无入参，arguments必须为{}。程序按本轮原文修改条件，保留未提及条件。",
     ),
-    _tool("explain_result", "回答当前真实推荐结果的地点、天气、路程或差异问题，不修改条件、不重新查询。新推荐没有匹配指数。"),
+    _tool(
+        "explain_result",
+        "回答当前真实推荐结果的地点、天气、路程或差异问题，不修改条件、不重新查询。新推荐没有匹配指数。",
+    ),
     _tool("run_recommendation", "按已确认条件查询推荐或指定地点评估；条件缺失则先补充。"),
     _tool("favorite_place", "收藏当前真实结果中的地点；未指明时用当前详情。", PlaceTarget),
     _tool("evaluate_favorite", "把当前收藏地点放入指定地点评估条件。", ResourceTarget),
@@ -175,7 +206,11 @@ _TOOLS = [
     _tool("revoke_share", "撤销当前历史分享。", ResourceTarget, destructive=True),
     _tool("list_plans", "查看当前用户的同行计划。"),
     _tool("open_plan", "打开当前用户的一项计划。", ResourceTarget),
-    _tool("create_plan_from_selection", "用当前2–3个已选地点创建计划。新推荐可另外提供出行日期，date_quote须摘录用户日期原话；缺日期先问，不补默认。", CreatePlanArgs),
+    _tool(
+        "create_plan_from_selection",
+        "用当前2–3个已选地点创建计划。新推荐可另外提供出行日期，date_quote须摘录用户日期原话；缺日期先问，不补默认。",
+        CreatePlanArgs,
+    ),
     _tool("update_plan", "修改当前计划的名称或预计人数，保留未提及字段。", UpdatePlanArgs),
     _tool("delete_plan", "删除明确指定的当前用户计划。", ResourceTarget, destructive=True),
     _tool(
@@ -193,7 +228,12 @@ _TOOLS = [
     _tool("reopen_voting", "重新开放当前或具名计划投票。", PlanScope, destructive=True),
     _tool("check_plan_weather", "检查当前或具名计划剩余日期天气，遵守复查冷却。", PlanScope),
     _tool("join_plan", "通过当前邀请以给定昵称加入，不更换登录身份。", JoinArgs),
-    _tool("navigate", "打开指定站内页面：explore是新推荐，recommend是原推荐。", NavigateArgs, kind="ui"),
+    _tool(
+        "navigate",
+        "打开指定站内页面：explore是新推荐，recommend是原推荐。",
+        NavigateArgs,
+        kind="ui",
+    ),
     _tool("open_detail", "打开当前结果中的地点详情。", PlaceTarget, kind="ui"),
     _tool("open_map", "查看当前地点位置。", PlaceTarget, kind="ui"),
     _tool("close_layer", "只关闭当前最上层浮层。", kind="ui"),
@@ -203,8 +243,17 @@ _TOOLS = [
         Selection,
         kind="ui",
     ),
-    _tool("show_comparison", "打开已选择候选的对比；尚未选够时先select_candidates，再调用本工具。", kind="ui"),
-    _tool("compare_places", "比较2–3个当前地点：一次绑定候选、选入并打开对比；places省略时用已选清单。优先用于直接比较任务。", ComparePlaces, kind="ui"),
+    _tool(
+        "show_comparison",
+        "打开已选择候选的对比；尚未选够时先select_candidates，再调用本工具。",
+        kind="ui",
+    ),
+    _tool(
+        "compare_places",
+        "比较2–3个当前地点：一次绑定候选、选入并打开对比；places省略时用已选清单。优先用于直接比较任务。",
+        ComparePlaces,
+        kind="ui",
+    ),
     _tool("show_vote_panel", "打开当前计划的本人投票面板。", kind="ui"),
     _tool("show_plan_management", "打开当前计划的管理区。", kind="ui"),
     _tool("edit_plan", "打开当前计划的名称和人数编辑表单。", kind="ui"),
@@ -237,8 +286,23 @@ _TOOLS = [
 TOOL_CATALOG = {tool.name: tool for tool in _TOOLS}
 # The intake planner may propose these local-result tasks in its existing call.
 # Everything else still uses the complete planner and authorization boundary.
-INTAKE_TOOLS = frozenset({"explain_result", "favorite_place", "create_plan_from_selection", "open_detail", "open_map", "close_layer",
-    "select_candidates", "show_comparison", "compare_places", "show_candidates", "scroll_view", "go_back", "navigate"})
+INTAKE_TOOLS = frozenset(
+    {
+        "explain_result",
+        "favorite_place",
+        "create_plan_from_selection",
+        "open_detail",
+        "open_map",
+        "close_layer",
+        "select_candidates",
+        "show_comparison",
+        "compare_places",
+        "show_candidates",
+        "scroll_view",
+        "go_back",
+        "navigate",
+    }
+)
 
 
 class Action(Parameters):

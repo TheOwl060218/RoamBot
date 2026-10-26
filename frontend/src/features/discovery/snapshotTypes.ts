@@ -4,7 +4,7 @@ import type { DiscoveryCard, DiscoverySource, DiscoverySnapshot } from './types'
 export type DiscoveryHistory = {
   id: string; mode: 'discovery'; created_at: string; snapshot: true
   request: { message: string; context: DiscoverySnapshot['context'] }
-  result: { schema_version: 'discovery-v1'; cards: DiscoveryCard[]; source: 'live' | 'demo'; generated_at: string; status: 'completed' | 'partial' }
+  result: { schema_version: 'discovery-v1'; display_title?: string | null; cards: DiscoveryCard[]; source: 'live' | 'demo'; generated_at: string; status: 'completed' | 'partial' }
 }
 type PublicPlace = Pick<DiscoveryCard['place'], 'name' | 'address' | 'city' | 'map_type'>
 export type PublicDiscoveryCard = { place: PublicPlace; experience: string; reason: string; sources: DiscoverySource[]; weather: DailyWeather[] | null }

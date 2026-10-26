@@ -92,15 +92,12 @@ class ProviderRuntime:
         distance = self._adapters.distance
         weather = self._adapters.weather
         if not self._demo and self._cache_repository is not None:
+
             def clock() -> datetime:
                 return datetime.now(UTC)
 
-            geocoder = CachedGeocoder(
-                geocoder, self._cache_repository, "amap", clock, trace
-            )
-            places = CachedPlaceProvider(
-                places, self._cache_repository, "amap", clock, trace
-            )
+            geocoder = CachedGeocoder(geocoder, self._cache_repository, "amap", clock, trace)
+            places = CachedPlaceProvider(places, self._cache_repository, "amap", clock, trace)
             distance = CachedDistanceProvider(
                 distance, self._cache_repository, "amap", clock, trace
             )
@@ -114,9 +111,12 @@ class ProviderRuntime:
             weather=weather,
             explanations=self._adapters.explanations,
             trace=trace,
-            assistant=getattr(self._adapters, "assistant", None) or (
+            assistant=getattr(self._adapters, "assistant", None)
+            or (
                 MockAssistantProvider(lambda: datetime.now(timezone(timedelta(hours=8))).date())
-                if self._demo else UnavailableAssistantProvider()),
+                if self._demo
+                else UnavailableAssistantProvider()
+            ),
         )
 
     def close(self) -> None:
@@ -227,9 +227,16 @@ def _build_live_adapters(
         weather=weather,
         explanations=explanations,
         assistant=OpenAICompatibleAssistantProvider(
-            ProviderHttpClient(client, provider="llm", base_url=str(settings.llm_base_url),
-                               timeout=settings.assistant_timeout_seconds,
-                               secrets=(llm_key,)),
-            llm_key, settings.llm_model, today=china_today,
-            enable_thinking=settings.llm_enable_thinking),
+            ProviderHttpClient(
+                client,
+                provider="llm",
+                base_url=str(settings.llm_base_url),
+                timeout=settings.assistant_timeout_seconds,
+                secrets=(llm_key,),
+            ),
+            llm_key,
+            settings.llm_model,
+            today=china_today,
+            enable_thinking=settings.llm_enable_thinking,
+        ),
     )

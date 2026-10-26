@@ -1439,3 +1439,140 @@ API/路由集中32项及既有前端48项的证据复用；末轮地图+行程AP
 ## 2026-10-26 卡片内容第一版
 外层新增已有理由两行、单行地址、突出路程并紧凑展示访问事实，天气转入详情；详情补完整理由和折叠来源，地图卡共用。数据为空则隐藏，当前选择合同未要求reason，不承诺本批已补齐理由数据。30项/类型/局部lint/构建通过；8140公开夹具桌面与390px浏览器核对，未新增付费查询。8034静态HTTP匹配index-5XwQvl4e.js/index-D7BrzEBH.css，后端27772未重启。详见card-content-preview-20261026.md。
 
+
+## 2026-10-26 卡片图片试版与回退点
+用户授权后先提交当前项目快照7b96ea5并打标签checkpoint/pre-card-photo-20261026，另存原dist；再做可选photo和12:5横幅。只有8140独立公开杨公堤夹具带图（钉钉/CC BY-SA4.0），非自动选图，原8034未替换。图片试版未提交；2项/类型/局部lint/构建及桌面、390px浏览器核对通过。预览34020/session21850保留，tab11为deliverable，来源归属和撤回边界见card-photo-preview-20261026.md。无新增业务付费调用，不动8026/部署/推送。
+
+
+## 2026-10-26 图片第二版：详情完整显示
+首版小卡横幅被用户否决，外层恢复无图；详情及地图卡展开后完整显示照片，横图上下、竖图桌面左右/窄屏上下，页内大图关闭返回详情。27项/类型/局部lint/构建及8140实际横竖图、390px大图核对通过；修复大图沿用旧蒙层留白导致溢出的问题。预览worker16336/session1307继续保留，tab11停在竖图详情，当前index-B1s1b2hu.js/index-BewwdulS.css。8034原版HTTP200未改，回退点7b96ea5不变，图片实验未提交。详见card-photo-preview-20261026.md和资产归属文件，0新增业务付费调用。
+
+
+## 2026-10-26 放弃图片路线
+用户否决图片展示并希望讨论其他卡片装饰。已撤回图片相关前端变更（回到7b96ea5），新照片/组件/测试移入本地试验归档，保留说明与截图；8140图片站关闭，8034原文字版保持HTTP200。后续先讨论轻量无照片装饰，不擅自实施新方向。
+
+## 2026-10-26 类型符号进入主站
+用户批准无照片装饰上主站及相关位置少量复用。采用小型类型徽记，共用八类Lucide线稿和通用定位符号，低饱和底色；按地图类型层级及收藏已有分类匹配，不从名称猜测、不新增数据调用。推荐外层、地图卡、详情、分享、收藏列表及详情复用；原胶囊、整卡点击和动作保持，未添加背景插画或额外信息行。
+
+31项相关检查、类型、局部lint、构建通过；首次Vitest系统TEMP权限失败后移至工作区通过。8140只读Mock桌面推荐/详情/地图卡/收藏、390px长名称推荐和320px收藏实际核对，无新增图标造成的重叠；地图SDK关闭，非新真实推荐或手机实机验收。原8034静态同步并HTTP逐文件匹配index-MmLIue3E.js/index-icQ84F-p.css，监听PID27772保持；主站浏览器当前未登录，只核对实际构建，不触发查询。旧dist保存在test-results/type-symbols-20261026/before-symbols-dist，receipt candidate/type-symbols-refresh-20261026.json，细节type-symbols-20261026.md。0付费业务调用，不重启后端、不动8026/部署/提交/推送，临时验收站收尾关闭，用户次日审美验收待反馈。
+
+
+
+## 2026-10-26 修正标题与留白线稿（替代类型徽记）
+用户指出实际想要留白线稿。撤掉类型旁及名称旁的徽记，改为卡片内容与动作之间的独立留白区，右侧开放式 SVG 场景：公园、山地、水边、展馆、街区、餐饮、阅读、园林及通用地点；无底色、无徽章框，aria-hidden、无点击/焦点。按原分类字段匹配，推荐、分享、地图卡折叠态、详情及收藏少量复用；不新增资料或查询。独立留白避免压住文字和按钮。
+
+主标题原先直接渲染整条 requestText。现在22个字符以内的单行短想法保留，长条件或多行使用“地区的去处”，无地区则“本次推荐”；完整请求仍保存在原对话、恢复引用和检索参数中。没有追加模型摘要调用。
+
+局部32项检查、tsc、局部ESLint、构建通过；包括长条件标题变短且完整消息仍在聊天记录。资源 index-R-SMevce.js/index-r3k7gDJM.css。原运行副本静态已备份并同步，备份 test-results/line-art-correction-20261026/before-correction-dist。8140只读Mock预览HTTP及JS/CSS逐字节匹配dist，地址 http://127.0.0.1:8140/preview-results，worker35808/session8264；该预览是公开夹具，不是用户真实推荐。浏览器控制连续超时，尚未进行本批桌面/移动端视觉验收，不复用上一版徽记的截图作为证据。
+
+8034在本批检查时已无监听（旧metadata中的27772不是当前运行证明）。原静态同步脚本在检查监听阶段停止，随后仅离线同步静态，未启动/停止后端。恢复8034的请求被自动审批拒绝：读取现有服务凭据并恢复后端超出本批静态授权边界；未绕过。需用户明确授权恢复原后端后再继续。不要运行start_candidate --refresh或更换源码/模型来解决。0付费业务调用，不动8026、不部署、不提交推送。receipt: test-results/line-art-correction-20261026/receipt.json。
+
+
+## 2026-10-26 主标题按需求提炼，取消固定地区模板
+用户明确保留当前卡片内部设计，本批仅修正标题链路。上轮“超过22字就改为地区的去处”规则撤销。SourceIntake现有plan_source_request调用同时返回可选display_title（活动、主题、关键范围，8至22字指引），research_query及完整对话保持原合同，不新增模型调用或后处理关键词表。标题异常/缺失不使搜索失败。RetrievalPlan只增加展示元数据；run快照、私有历史归档和恢复携带标题，换批缓存复用原标题，普通新需求使用本轮新标题，不公开到分享。Source模型缓存版本追加display-title-v1，不更换实际模型。
+
+前端优先独立display_title；旧结果没有该字段时保留原需求文字，小字号、最多两行，避免伪造语义标题或为了旧记录补发模型调用。当前卡片留白线稿和内部内容没有修改。25项前端、46项隔离后端检查通过，tsc/局部ESLint/构建通过；第一次后端日志目录缺失导致检查未启动，补目录后46项通过，非业务失败。仍有既有bundle大小提示。检查覆盖独立语义标题/原消息保留/旧字段兼容、同次理解传递/跨轮更新、换批零模型请求保留、历史恢复及公开分享不含私有标题。
+
+8140公开Mock预览更新，worker19208/session32771；GET快照包含“杭州山水摄影”和完整长请求，HTTP静态逐文件匹配index-CjfMitDe.js/index-B_oerks3.css。浏览器控制仍超时，本批没有桌面/手机截图或视觉验收证据；无真实模型语义质量验证。0新增付费服务请求。8034静态离线同步并备份至test-results/intent-title-20261026/before-intent-title-dist，但8034后端仍未启动，新后端标题字段及提示词未在主站启用。此前自动审批已拒绝凭据读取/恢复后端，未重试或绕过；需明确的后端恢复授权再激活。不要把8140 Mock演示当作主站已启用。receipt见test-results/intent-title-20261026/receipt.json。无8026操作、部署、提交推送。
+
+
+## 2026-10-26 预览数据纠偏与推荐操作行防遮挡
+用户反馈8140前三张明显信息空、第四张较全以及换批/其他区域被遮挡。根因分开确认：预览将后端Mock DESTINATIONS转换成空experience/reason/sources/route/weather/facts，再混入一个保留字段的真实公开杭州记录，导致苏州/杭州混城和信息不等。该预览构造不代表主站删掉了字段。本批改为原discovery-preserved.json全部10个杭州卡片，逐卡JSON严格相等，完全保留原地址/开放时间/电话等；主题同步为“杭州漫步赏秋”。原记录reason、route、sources本就空，不补造，不把旧营业信息称实时查证。当前真实open-places-v3的PlacePick/SelectedPlace仍不保证reason覆盖，这是后续内容供给缺口，本批不擅自新增检索或改发布标准。
+
+浏览器1280x720修复前实测browse底520、controls顶656.8，input顶520；操作栏在滚动裁切范围之外。DiscoveryRail可将原有同一套控件portal至workspace独立行：browse(minmax0,1fr) → controls(auto) → input(auto)，不依赖z-index遮盖，不复制事件、不新增查询。历史展开压缩卡片浏览区，操作保持在输入区上方；无结果/首屏保持原两行。分享卡片不传target沿用原布局。线稿留白64降48且取消flex无限伸展，不让装饰额外扩大空白；原摘要/详情字段组件未删改。
+
+25项DiscoveryPage含独立挂载、既有比较/地图/详情理由与来源检查通过；补充3项横向滚轮及展示规则通过，合计28。首次命令将DiscoveryPresentation误写tsx所以只跑25，按实际ts补跑而不虚报；tsc、局部ESLint、构建通过，旧bundle提示保留。浏览器恢复可用：1280x720及390x844在历史折叠/展开下操作栏所有按钮中心命中均通过，320x740折叠亦通过；卡片区End滚动后加入比较/行程命中，西溪详情完整长开放时间及电话显示，关闭回到列表。移动端为浏览器视口模拟，非手机硬件；没有真实查询/地图SDK/收藏写入验证。截图与receipt见test-results/card-layout-20261026。
+
+8140只读Mock预览worker26560/session61919保留，http://127.0.0.1:8140/preview-results 为新夹具重置入口，已留浏览器tab2供体验。HTTP逐文件匹配index-D421quul.js/index-CVZLgqr9.css。8034冻结运行副本仅离线同步静态并备份before-layout-dist，原后端未启动/更新，此前审批边界保持。0付费调用，不动8026、不部署、不提交推送。
+
+
+## 2026-10-26 线稿仅在详情呈现
+用户选择外层不加装饰、点开详情后呈现。本批移除推荐卡片、分享外层、收藏列表的PlaceTypeArtwork及其占位；推荐/分享详情、收藏详情保留。地图卡片由折叠态改为展开详情后才显示。卡片实际文字、事实、操作及独立换批行保持。类型/局部ESLint/构建通过（既有bundle提示保留），未对这种可逆范围调整新增镜像测试或重复全量回归。8140真实浏览器核对外层线稿0、推荐详情1、地图折叠0/展开1，已打开公园详情核对原地址/开放时间/电话；地图SDK仍禁用，非真实地图或服务调用。截图outer-no-art.png、detail-with-art.png位于test-results/card-layout-20261026。
+
+8140 HTTP资源逐字节匹配index-GRq6LQEk.js/index-CRMDyNwU.css，可体验入口仍http://127.0.0.1:8140/preview-results，tab3保留；只读预览仍不能发起真实推荐/收藏写入。8034仅离线同步静态，后端未启动/更新；备份及receipt位于test-results/card-layout-20261026/detail-only。0付费调用，不改用户数据、模型、8026，不部署/提交/推送。
+
+
+## 2026-10-26 收藏卡片与加入行程样式统一
+用户反馈收藏界面板正、加入行程在外面。原FavoriteList是整个button卡片+外置AddToItinerary的兄弟结构，itineraries.css另有右对齐外置样式。本批改为article玻璃卡片内的整卡透明打开按钮与独立footer动作，两个button平级，去掉旧favorite-itinerary-row规则。加入行程左对齐收在卡片底部，原收藏来源ID/行程流程保持，整卡aria-label/pressed和详情关闭焦点保持。页面最大1240、间距24、圆角28、轻玻璃背景；类别/收藏日期低层级，名称突出，城市和地址分层；重复等于名称的地址不重复展示，详情仍保留。外层无插画，线稿仅详情。手机单列/按钮在卡片内。
+
+8项PersonalPages检查通过；旧城市类别同排断言随新分层展示调整，仍核对类别仅一次、详情打开/关闭/删除及继续探索。最终tsc/局部ESLint/构建通过（原bundle大小提示保留）。8140浏览器实际点击卡片进入详情/返回、加入行程打开空行程创建提示且不打开详情，点击取消，无实际创建写入；DOM无button嵌套，所有加入按钮在卡片内，无外层线稿。390x844按钮边界/中心命中/无横向溢出通过，非手机硬件。截图test-results/favorites-style-20261026/desktop.png、mobile.png。中间用户关闭当前tab后只重建临时验收tab4，未修改用户其他标签。
+
+8140收藏预览也取消虚构湖景样例，从同一已存10个杭州卡片提取已有名称/地址/坐标/类型，收藏日期为夹具日期，非用户真实收藏；不包含补造景点事实。worker32036/session87907，入口http://127.0.0.1:8140/favorites；静态HTTP逐文件匹配index-D2AgBC5F.js/index-Bo-Irhnt.css。原8034仅离线同步前端/备份before-dist，后端仍未启动更新；0真实业务Provider调用，不写用户库、不恢复后端、不触碰8026/模型、不部署、不提交推送。receipt同目录，最终审美待用户反馈。
+
+
+## 2026-10-26 用户要求实际网站，恢复8034并启用当前版本
+用户明确要求“给我实际网站我体验一下”，据此恢复真实本地站；此前静态更新授权不足的自动审批阻塞已由本轮明确请求补足，新的启动请求获准执行。使用原start_candidate.py --workflow source，无--refresh，不停止其他worker；新launcher4700、服务PID32468，独立后台进程，loopback8034。原qwen3.7-plus/open-places-v3/live非demo、原data/business-live-candidate和roambot_candidate_session保持；启动脚本只在内存取既有配置/凭据，无输出落盘，不作远程部署/变量修改。新冻结副本包含当前全部前后端，6个标题相关后端文件逐字节与工作区相同，独立display_title链路现已激活。无数据库清空或人工改写。
+
+首页/JS/CSS HTTP200且逐字节匹配当前dist index-D2AgBC5F.js/index-Bo-Irhnt.css，实际8034监听PID匹配；浏览器真正打开http://localhost:8034/，可见登录/注册、开始探索、行程中心及同行计划。保留tab5供用户体验，截图test-results/live-enable-20261026/home.png及receipt.json。未登录，也未代用户发起推荐、地图、路线、天气、收藏或创建行程请求；用户的真实交互/推荐质量由其随后体验，不将首页加载当作完整业务验收。8140仍为只读预览，用户应改用8034；无8026操作/部署/提交推送。此前Mock检查和窄屏布局证据不重新计作真实业务调用证据。
+
+
+## 2026-10-26 旧结果标题回退及操作栏贴近卡片
+用户真实8034截图仍显示整段检索问题并反馈卡片与换批行间距大。只读核对roambot.db中的对应青岛历史：原display_title=null，是升级前记录；原话含“我想看看青岛别的地方，山地和海景”。没有重新发起模型、搜索或修改原归档。discoveryTitle优先服务端独立语义标题，其次本轮简短原输入；长检索句且无display_title时，从原会话中取最近的同地区简短用户需求，排除跨城市旧话题/不含地区的换批指令。地区仅做末尾行政后缀归一，不加景点关键词表或城市特例。该旧记录回退显示原话“我想看看青岛别的地方，山地和海景”，不是重新生成的AI摘要；无合适短原话时仍沿用原小字号两行兜底，不宣称所有无元数据的旧长请求已得到语义提炼。新查询继续原同次理解的display_title，不固定成某地的去处。
+
+布局原第一行1fr导致空余高度落在卡片下/工具栏上；有结果时改为卡片浏览区minmax(0,max-content)、操作行auto、底部余量minmax(min-content,1fr)，输入框底部对齐，卡片浏览区/横向轨道底padding各6px。大屏实测卡片底574.7、toolbar容器顶586.7，实际按钮间隙16px；仍由独立工具栏避免历史遮挡，短屏卡片内部可滚动。28项推荐页及展示规则Mock检查、tsc/局部ESLint/构建通过，原bundle提示保留。增加独立南京/扬州/杭州表达验证旧标题不串城、换批不成为主题、服务端标题优先；旧无短原话的完整条件保留测试仍通过。
+
+将截图对应的已存公开景点和旅游原话只读复制到8140隔离夹具（legacy-public-places.json），不复制账号/cookie/密钥/精确设备坐标，未写原历史。实际浏览器1440x1000验证旧标题及16px间距、历史展开按钮全部中心命中，390x844展开亦不遮挡；1280x720短屏可滚动。截图desktop.png/mobile.png及receipt见test-results/legacy-heading-gap-20261026。8140为回放、地图SDK禁用，非本轮真实查询。此前移动端预览实例换为worker17624/session36264以加载隔离夹具。
+
+8034仅静态同步index-CIzaVHo_.js/index-DTPBQgb9.css，HTTP逐字节匹配dist，实际浏览器首页脚本/样式确为新构建。原后端PID32468保持，用户数据不改，0新增Provider调用，不动8026/模型、不部署/提交推送。回退静态before-legacy-title-gap-dist位于同验收目录，运行receipt candidate/legacy-heading-gap-refresh-20261026.json；刷新原8034页面即可使用。
+
+## 2026-10-26 修复目的地被设备定位覆盖
+北京查询失败的既有日志：intake清除region且未设新地区，后续地图回退成都设备中心（默认around半径），12次HTTP200后无候选，未进入selection。此次同一个intake增加完整search_scope，目的地与设备中心独立；新地区清除未重新明确的旧出发地/附近半径，保留新明确约束。scope随存档、恢复与换批保留，已确认附近无需重复询问；计划缓存按原scope隔离。不加模型调用和自动重试。空地图结果给出具体反馈，失败仍保留失败提示；日志增加候选数。
+
+本地修改前/后回放分别证实region=null+device_nearby=true与region=北京+device_nearby=false。新增15个范围用例；相关161项中160通过，1项既有失败test_nearby_default_is_program_policy_backed_by_user_evidence（旧断言要求自动5km硬限制，修改前冻结代码同样失败），不删断言、不称全绿。接口22项通过。受限环境测试阻塞已停止本批特定pytest进程后在正常环境验证。详见test-results/search-scope-20261026/acceptance.md及acceptance.xml。
+
+8034恢复并刷新最终冻结源，实际PID23424，保持qwen3.7-plus/open-places-v3/live及原candidate数据；七个后端变更文件哈希与实际加载副本一致，HTTP200、静态index-CIzaVHo_.js/index-DTPBQgb9.css。receipt.json记录核验。0新增真实模型/搜索/地图/天气调用，未重跑用户失败请求、未验证模型真实遵循率及设备物理定位精度。未操作8026、未部署、未提交推送。刷新后用户可自行重新发起查询。
+
+## 2026-10-26 景点详情排版收拢
+用户反馈唐岛湾详情标题/信息分散、按钮悬在内容中部。此次标题、区域和活动合成顶部信息区，淡线稿并入右侧，不再独占整行留白；地址紧随其后，营业时间和电话用统一标签列，来源可展开，操作移到完整内容之后。共享详情同步结构并展示已有reason。比较面板保持原结构。地图卡详情仍复用同一事实组件，未删原字段、未添加虚构内容或照片。
+
+实际浏览器发现390窄屏原悬浮聊天钮压住收藏，将有聊天附件的详情/比较面板底部预留独立空间；最终面板底760、聊天钮顶768，关闭/位置/收藏中心均命中且无横溢出。1440x900桌面700宽面板，操作均可点击；灵山岛长开放说明完整换行，来源展开保留实际链接，未访问第三方。28项相关前端测试、tsc、局部ESLint及构建通过，既有scrollTo和bundle warning保留；最后仅增加overlay类和窄屏CSS后重新tsc/构建并真实核验。没有新增模拟视觉断言。
+
+8034仅静态刷新，原PID23424和后端/用户数据保持。HTTP逐字节比对及浏览器确认实际加载index-DVpAVfw8.js/index-BSnrjhJf.css，回退构建test-results/detail-layout-20261026/before-detail-dist。截图desktop.jpg/mobile.jpg/mobile-long-content.jpg与receipt.json位于同目录；只读Mock8140使用保留的公开青岛记录，已留唐岛湾详情供体验，不等于新真实查询。0付费调用、无收藏写入、无部署/提交推送/8026操作。
+
+## 2026-10-26 阶段候选版按钮巡查收尾
+修复历史页“返回历史/创建分享”错位：ShareActions按钮子组与状态提示拆开，空提示隐藏，整组顶端对齐；创建、复制和撤销同高。移除旧详情工具栏固定300px/76px占位，推荐历史工具栏与1240内容区对齐。统一常用文字操作组44px高度、图标不收缩；primary按钮使用inline-flex。手机收藏四操作两列等宽，收藏详情留独立底部空间避免聊天钮压到取消收藏。手机行程日期独占第一行，上下移动和移出三按钮第二行同高40px。320实测发现导航历史项越界，新增<=380断点收紧横向留白/字号，320复查页面scrollWidth不超视口。
+
+本轮相关8个前端测试文件83 passed/1 failed；失败为PlanPages.test.tsx的candidate weather is visible for one shared day and details expand on request，断言“创建时天气”与实际“创建时保存的天气”不一致。测试及PlanComparison.tsx与基线HEAD内容完全相同，保留失败，不修改断言制造通过。tsc、ShareActions局部ESLint、最终构建通过，既有jsdom scrollTo和bundle warning保留。最终CSS修正后按对应新风险继续浏览器核验，没有重复全量测试。
+
+保存22个浏览器页面/状态样本：桌面、390手机、320窄屏，涵盖历史分享前后/撤销、菜单、收藏详情、公开详情、行程操作、同行管理/确认/投票；实际8034首页及登录/注册弹窗只打开未提交。记录保留一次无效公开夹具天气格式错误，改用生产public_discovery_snapshot转换后公开详情通过；菜单/确认层遮住背景属于预期，不算前景控件故障；320初始失败及修正另有记录。无真实分享、收藏、投票、账户写入，无新增付费Provider调用。
+
+8034恢复原live候选实例PID4028（本轮继续时原进程未监听），原模型/数据保持；最后仅同步静态，HTTP逐字节与浏览器确认index-D5uJs2L7.js/index-x6RvigGl.css。原静态回退before-action-dist与最后导航修正前before-final-audit-dist在test-results/action-layout-audit-20261026；receipt/browser-audit/截图同目录。主站http://localhost:8034/可体验；8142只作隔离夹具，不能当真实用户验收。未操作8026、未部署/暂存/提交/推送。
+
+新增docs/STAGE_SUMMARY_2026-10-26.md，区分待提交改动、已有证据、两项既有测试问题和未做真实查询/定位精度验收。变更manifest带每个文件SHA256供后续阶段上传核对，当前基线7b96ea5。测试日志/截图在Git忽略目录，不假设代码推送会上传这些证据。
+
+## 2026-10-26 曼谷查询中止诊断
+用户实际查询“曼谷海边亲民泰拳馆”：8034 candidate/server.log 的23:10:24/32模型请求成功，随后8次discovery_search HTTP200，23:10:36 discovery_retrieval_complete candidate_count=0。缓存计划scope=region/曼谷，device origin未启用；明确目的地未被成都覆盖。运行链路在0可用候选后结束，未进入选择出卡。当前DiscoveryMap统一/v5/place/text，region=曼谷+city_limit=true，没有海外适配。高德官方海外文档说明海外搜索需开通权限和指定海外城市：https://lbs.amap.com/fn/iframe?id=3412；不能声称高德完全不支持海外。现有日志只记录HTTP状态，没有业务infocode/原始POI数/过滤原因，精确失败类型尚未确定；parallel收集错误后empty_result_reply泛化为“这轮查询尚未完成”。本轮只诊断并补阶段已知问题，没有修改产品代码、重启或重试，无新增应用Provider调用；后续需先明确海外支持范围，再补可观测性及区分空结果/服务异常的提示。
+
+## 2026-10-26 阶段验收范围收口
+用户明确海外接入下阶段再做，当前先验收国内已有功能。阶段总结新增5条用户顺序验收流程及通过条件，区分已取得的隔离/回放证据与真实国内查询、多轮、真实测试账号保存/恢复和分享等未验收链路；不将海外失败当作本阶段海外能力已承诺。重新只读访问8034首页HTTP200，实际资源仍为index-D5uJs2L7.js/index-x6RvigGl.css。未修改产品、重启、付费调用、提交推送；本轮未重新授予真实Provider预算，保持耗尽即停、不在刷新后续跑的约束。
+
+## 2026-10-26 天气逐日横排与小红书地点入口
+用户同意天气重排与详情底部“小红书攻略”一起完成。新增WeatherStrip：单块淡底、日期/线形天气图标/原始描述/温度逐日等宽排列，桌面7列，手机内部横滑，不补造天气、不丢已有日期。DiscoveryCardDetails与公开推荐详情共用；地图展开卡复用后同步生效。PlaceGuideLink按城市+地点生成小红书搜索URL，用于推荐详情、地图展开卡、收藏详情、公开推荐详情，不做自动抓取。手机推荐详情操作两列等宽、奇数末项整行；收藏5项同样保持2+2+1。首次浏览器发现全局text-button规则覆盖宽度，已用局部更明确选择器修正后复查，不使用!important。
+
+tsc、7组件局部ESLint及最终Vite构建通过；DiscoveryPage/PersonalPages/LocationMapDialog共38项通过。已有scrollTo和bundle警告仍在。8143只读Mock七天天气夹具验收：1440桌面每列88px且温度同一行；390手机实际滚至11/01、无页面横溢出，推荐和收藏操作可见且中心命中，公开详情同样复用。真实点击小红书链接到达正确城市/景点搜索页，显示登录后查看搜索结果；未登录、未核验笔记内容，不称获取了具体笔记。截图/acceptance在test-results/weather-guide-20261026。
+
+同步8034静态且HTTP逐字节/浏览器脚本确认index-CLwIcSvU.js/index-DEp6fyON.css，原PID4028、后端配置/数据未变。回退before-weather-guide-dist；runtime与weather-guide-refresh-20261026.json含hash及receipt。0应用Provider新调用，0真实收藏/行程/分享写入，未动8026、未部署/提交推送。阶段总结已补这两项，其他最终真实国内链路验收仍保持待验状态。8143留排版预览，8034为真实体验站。
+
+## 2026-10-27 攻略与位置入口品牌图标
+用户要求“小红书攻略”左侧换品牌logo，追加“查看位置”左侧用高德logo。PlaceGuideLink使用本地Simple Icons小红书字形SVG白色+红底；新增AmapLogo使用高德官网favicon，本地静态资源。素材来源记在frontend/src/assets/brands/README.md。统一24px且alt为空/aria-hidden，不改变按钮名称和动作。高德覆盖推荐详情、收藏、公开推荐、旧工作台详情及地点详情的查看位置入口；地图底图标记和导航行为不变。
+
+tsc、改动组件局部ESLint、Vite构建通过；图标低影响改动未重复38项功能测试。浏览器预览桌面正常；390手机两个图标均实际加载且24x24，两按钮151.5px等宽、收藏313px，中心点击命中均true，无横溢出。截图test-results/guide-logo-20261027/desktop.jpg/mobile.jpg。8034仅静态更新，HTTP/浏览器确认index-ybeKD5RF.js/index-B7O1tOql.css，原PID4028保持；before-brand-logos-dist可回退，receipt为brand-logos-refresh-20261027.json。0应用Provider/真实数据写入，无部署/提交推送。
+
+## 2026-10-27 详情右上角线稿放大
+用户要求放大详情右上线稿。仅改discovery.css中带discovery-detail-heading的详情：桌面100×58→140×82、手机64×46→84×60，相应网格列同步扩展；原图形、颜色、透明度、列表和收藏的其他装饰保持。Vite构建通过，低影响CSS未重复类型和功能回归。1440、390、320浏览器核对，线稿与标题/关闭均不重叠，无页面横溢出；320额外打开“青岛北岭山森林公园”验证长标题完整换行。截图test-results/detail-art-scale-20261027/desktop.jpg/mobile.jpg。该目录sync_static.py保留before-art-scale-dist回退并检查8034进程和HTTP匹配；最终资源index-CqfXAf8f.js/index-CCBvbT39.css，后端无重启、无Provider调用，无提交/推送/部署。
+
+## 2026-10-27 用户授权公网阶段发布完成
+用户在确认公网仍旧版后明确要求“更新为新版”。只读核对原Railway项目81a733ce-c7ef-4b8f-aa2e-f6f38b6c7ddc、RoamBot服务121ae8bc-34ce-4694-a4d7-bd4bfc34e8fa、production环境64e48278-4309-4d93-8366-c426538c3e64、原/data卷和单实例，旧部署b53320af-d347-4b9e-be47-8422dc23e797。本地启动器原先才会设置source模式，因此新增Settings.discovery_orchestration_mode的Literal配置（默认legacy兼容），create_app写入app.state。生产显式设source、provider_timeout15、assistant_timeout8，模型qwen3.7-plus/live/non-demo/SecureCookies保持。
+
+生产缺少Tavily密钥，配置脚本首次被自动审批拒绝，未执行。随后用户明确授权将data/local-discovery/tavily.key经安全变量流程配置到该RoamBot公网服务并继续发布；才通过CLI stdin完成，未输出/持久化秘密值、未放进发布包。未创建SSH密钥扩大访问权限，未升级套餐。Railway卷快照因套餐要求Pro不可用，改用发布专用bootstrap在应用初始化前SQLite backup；实际日志确认/data/release-backups/stage-20261027/roambot.db存在、integrity=ok，SHA256 7b7004c9f063617539d51f1caa863412634fb985bfe2262e937fa2ef76f1a9d4，同卷副本不是异地备份。
+
+只冻结允许的源码285文件（不含本地数据/密钥/会话/实验）。首次源码部署17617a24-25e1-4084-8a4b-21ed8769e0b5在pip wheel失败，npm随取消137，云端缺具体安装日志；本地相同源码wheel构建通过，未武断归因。改用已验收frontend/dist + 逐字节比对112文件的应用wheel + 固定本地已测版本Linux/Python3.13 wheels；36个wheel离线依赖解析通过，产物清单46文件SHA256记录。最终部署97363965-4a81-4970-8204-a155c42f331b成功，实例07a66107-a7f2-49bd-957a-83de87fc3c0a RUNNING。应用启动日志确认source、原模型及检索配置存在。
+
+新增配置/启动24项、冻结源历史命令22项、行程健康7项通过，共53项。原15张表字段/DDL比较不变，仅新增itineraries、itinerary_workspaces；隔离WAL备份和重启不覆盖副本检查通过。最初配置测试误加载旧安装包，显式PYTHONPATH后通过；备份夹具发现sqlite连接未显式close导致Windows replace失败，修复后通过；这些不算生产业务故障。main.py既有import排序Ruff问题未改，不称全部lint通过。
+
+公网https://roambot-production.up.railway.app/及/explore、/itineraries、health、regions、maps/config、itineraries GET全部200；health ready、地图启用。HTML及index-CqfXAf8f.js/index-CCBvbT39.css逐字节与验收版本一致。只读脚本起初误禁系统代理超时，恢复既有代理后成功。浏览器1440×900新版首页与实际“开始探索”→/explore通过并截图；随后浏览器控制两次超时，未完成公网手机及行程页浏览器专项，不称其已验，复用相同构建既有本地证据。没有真实查询/路线/天气新增调用、真实账户/收藏/行程/分享写入；未动8026或重启8034，未暂存/提交/推送共享工作树。PUBLIC_RELEASE_2026-10-27.md和STAGE_SUMMARY/README已更新。发布包、manifest、receipt、53项XML、schema-backup-check、startup-evidence及public-home-desktop.jpg在test-results/public-release-20261027。剩余真实业务质量验收及Git阶段存档仍待办，海外下阶段。
+
+
+## 2026-10-27 主仓库阶段集成
+
+用户授权上传当前版本并PR合入TheOwl060218/RoamBot main。集成补充、1209/361项离线证据、原有CI保留及未通过浏览器巡检的边界详见 MAIN_INTEGRATION_2026-10-27.md。原共享索引和业务数据保留，不推送 competition。

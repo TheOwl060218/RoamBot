@@ -182,9 +182,11 @@ def test_logged_in_success_captures_both_complete_canonical_snapshots(
     ]
     by_mode = {detail["mode"]: detail for detail in details}
     assert by_mode["recommendation"]["result"] == {
-        k: v for k, v in recommendation.json().items() if k != "assistant_context"}
+        k: v for k, v in recommendation.json().items() if k != "assistant_context"
+    }
     assert by_mode["place_evaluation"]["result"] == {
-        k: v for k, v in evaluation.json().items() if k != "assistant_context"}
+        k: v for k, v in evaluation.json().items() if k != "assistant_context"
+    }
     assert "assistant_context" not in json.dumps(details)
     assert all(detail["snapshot"] is True for detail in details)
     serialized = json.dumps(details).lower()

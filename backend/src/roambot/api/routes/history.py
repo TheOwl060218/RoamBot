@@ -132,8 +132,10 @@ def rerun_history(
             status_code=422,
             code="history_dates_expired",
             message="请选择新的出行日期。",
-            fields=[ErrorField(path=key, message="请选择未来7天内的日期。")
-                    for key in ("start_date", "end_date")],
+            fields=[
+                ErrorField(path=key, message="请选择未来7天内的日期。")
+                for key in ("start_date", "end_date")
+            ],
         )
     except ResourceNotFoundError:
         return _resource_not_found()
@@ -166,11 +168,16 @@ def _summary(snapshot: HistorySnapshot) -> HistorySummaryResponse:
     if snapshot.mode == "discovery":
         cards = snapshot.result["cards"]
         context = snapshot.request["context"]
-        return HistorySummaryResponse(id=snapshot.id, mode="discovery",
+        return HistorySummaryResponse(
+            id=snapshot.id,
+            mode="discovery",
             city="、".join(dict.fromkeys(c["place"]["city"] for c in cards)),
-            start_date=context.get("start_date"), end_date=context.get("end_date"),
-            item_count=len(cards), generated_at=snapshot.result["generated_at"],
-            created_at=snapshot.created_at.isoformat())
+            start_date=context.get("start_date"),
+            end_date=context.get("end_date"),
+            item_count=len(cards),
+            generated_at=snapshot.result["generated_at"],
+            created_at=snapshot.created_at.isoformat(),
+        )
     result_items = snapshot.result.get("items")
     item_count = len(result_items) if isinstance(result_items, list) else 1
     return HistorySummaryResponse(

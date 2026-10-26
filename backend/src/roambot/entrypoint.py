@@ -112,9 +112,7 @@ def resolve_master_password(
         try:
             buffer = bytearray(secret_path.read_bytes())
         except OSError:
-            raise StartupConfigurationError(
-                "Master-password file is not readable."
-            ) from None
+            raise StartupConfigurationError("Master-password file is not readable.") from None
         try:
             try:
                 password = buffer.decode("utf-8").rstrip("\r\n")
@@ -132,9 +130,7 @@ def resolve_master_password(
     environment_password = os.environ.pop("ROAMBOT_MASTER_PASSWORD", None)
     if environment_password is not None:
         if not environment_password:
-            raise StartupConfigurationError(
-                "ROAMBOT_MASTER_PASSWORD is empty."
-            )
+            raise StartupConfigurationError("ROAMBOT_MASTER_PASSWORD is empty.")
         return environment_password
 
     input_stream = stdin or sys.stdin
@@ -190,9 +186,9 @@ def main() -> int:
                 "RoamBot live mode requires a readable master-password file"
             )
         try:
-            values = CredentialVault(
-                settings.data_dir / "credentials.vault"
-            ).unlock(master_password)
+            values = CredentialVault(settings.data_dir / "credentials.vault").unlock(
+                master_password
+            )
             try:
                 credentials = _configured_credentials(values)
             finally:

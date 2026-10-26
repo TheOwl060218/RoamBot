@@ -6,6 +6,9 @@ import { scenerySummary } from './favoritePresentation'
 import { placeType } from '../discovery/discoveryPresentation'
 import { amapPlaceUrl, amapSearchUrl } from '../search/amapLink'
 import { AddToItinerary } from '../itineraries/ItineraryProvider'
+import { PlaceTypeArtwork } from '../../components/PlaceTypeArtwork'
+import { PlaceGuideLink } from '../../components/PlaceGuideLink'
+import { AmapLogo } from '../../components/AmapLogo'
 
 type FavoriteDetailProps = {
   favorite: Favorite
@@ -27,6 +30,7 @@ export function FavoriteDetail({ favorite, onDelete, onClose }: FavoriteDetailPr
         {onClose && <button className="text-button" type="button" onClick={onClose}>← 返回收藏</button>}
       </header>
 
+      <PlaceTypeArtwork typeName={place.type_name} sceneryTags={place.scenery_tags} />
       <dl className="favorite-facts">
         <div><dt>地点类型</dt><dd>{placeType(place.type_name || '') || scenerySummary(place.scenery_tags)}</dd></div>
         <div><dt>所在城市</dt><dd>{place.city}</dd></div>
@@ -37,8 +41,9 @@ export function FavoriteDetail({ favorite, onDelete, onClose }: FavoriteDetailPr
       <div className="favorite-detail-actions">
         <AddToItinerary source={{ favorite_id: favorite.id }} />
         <a className="icon-text-button link-button" href={amapPlaceUrl(`${place.provider}:${place.provider_place_id}`) ?? amapSearchUrl(place.name, place.city)} target="_blank" rel="noreferrer">
-          <MapPin aria-hidden="true" size={16} />查看位置
+          <AmapLogo />查看位置
         </a>
+        <PlaceGuideLink name={place.name} city={place.city} />
         <Link className="icon-text-button link-button primary-action" to="/explore" state={{ initialIdea: `想去${place.city}${place.name}，看看怎样游玩` }} viewTransition>
           <RefreshCcw aria-hidden="true" size={16} />继续探索
         </Link>

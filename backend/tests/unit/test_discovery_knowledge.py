@@ -2,9 +2,9 @@ import json
 
 from test_discovery import Maps
 
+from roambot.domain.discovery_text import venue_paragraphs
 from roambot.persistence.discovery_knowledge import DiscoveryKnowledge
 from roambot.services.discovery_grounding import passage_view
-from roambot.domain.discovery_text import venue_paragraphs
 
 
 def test_public_index_searches_chinese_without_scenery_categories_and_expires(tmp_path):
@@ -31,13 +31,22 @@ def test_public_index_searches_chinese_without_scenery_categories_and_expires(tm
 
 def test_identity_enrichment_reuses_only_fresh_sources_for_current_map_ids(tmp_path):
     now = [100]
-    index = DiscoveryKnowledge(tmp_path / 'identity.sqlite3', clock=lambda: now[0])
-    place = Maps().search('', '苏州', None, None)[0]
-    index.remember(place, [{'kind': 'web_page', 'url': 'https://example.org/book',
-        'title': place['name'], 'excerpt': place['name'] + '提供公开阅读空间。'}])
-    assert index.sources_for([place])[place['id']]
-    assert index.sources_for([place | {'id': 'another-real-map-id'}]) == {}
-    assert index.sources_for([place | {'name': '已经更名的另一个场地'}])[place['id']] == []
+    index = DiscoveryKnowledge(tmp_path / "identity.sqlite3", clock=lambda: now[0])
+    place = Maps().search("", "苏州", None, None)[0]
+    index.remember(
+        place,
+        [
+            {
+                "kind": "web_page",
+                "url": "https://example.org/book",
+                "title": place["name"],
+                "excerpt": place["name"] + "提供公开阅读空间。",
+            }
+        ],
+    )
+    assert index.sources_for([place])[place["id"]]
+    assert index.sources_for([place | {"id": "another-real-map-id"}]) == {}
+    assert index.sources_for([place | {"name": "已经更名的另一个场地"}])[place["id"]] == []
     now[0] += 86401
     assert index.sources_for([place]) == {}
 
@@ -81,24 +90,35 @@ def test_shared_index_does_not_accept_uncorroborated_model_fact_strings(tmp_path
 
 
 def test_city_name_alone_is_not_evidence_for_an_uncovered_activity(tmp_path):
-    index = DiscoveryKnowledge(tmp_path / 'public.sqlite3')
-    place = Maps().search('', '苏州', None, None)[0]
-    index.remember(place, [{'url': 'https://example.org/book', 'kind': 'web_page',
-        'title': '苏州独立书店介绍', 'excerpt': '苏州的独立书店有休息和阅读空间。'}])
-    assert index.find('苏州独立书店', region='苏州')
-    assert index.find('苏州滑雪', region='苏州') == []
-    assert index.find('苏州', region='苏州') == []
+    index = DiscoveryKnowledge(tmp_path / "public.sqlite3")
+    place = Maps().search("", "苏州", None, None)[0]
+    index.remember(
+        place,
+        [
+            {
+                "url": "https://example.org/book",
+                "kind": "web_page",
+                "title": "苏州独立书店介绍",
+                "excerpt": "苏州的独立书店有休息和阅读空间。",
+            }
+        ],
+    )
+    assert index.find("苏州独立书店", region="苏州")
+    assert index.find("苏州滑雪", region="苏州") == []
+    assert index.find("苏州", region="苏州") == []
 
 
 def test_long_flat_article_keeps_named_local_sentences_instead_of_other_venues():
-    place = {'name': '湖边绿地'}
-    source = {'title': '城市空间合集', 'excerpt':
-        ('其他场所的介绍与不同设施，不属于本地点。' * 50)
-        + '湖边绿地有临水步道。这里可以散步休息。'
-        + ('另外一个场所介绍的是室内展厅。' * 50)}
+    place = {"name": "湖边绿地"}
+    source = {
+        "title": "城市空间合集",
+        "excerpt": ("其他场所的介绍与不同设施，不属于本地点。" * 50)
+        + "湖边绿地有临水步道。这里可以散步休息。"
+        + ("另外一个场所介绍的是室内展厅。" * 50),
+    }
     parts = venue_paragraphs(place, source)
-    assert parts == ['湖边绿地有临水步道。', '这里可以散步休息。']
-    assert '室内展厅' not in ''.join(parts)
+    assert parts == ["湖边绿地有临水步道。", "这里可以散步休息。"]
+    assert "室内展厅" not in "".join(parts)
 
 
 def test_passages_do_not_borrow_facilities_from_another_venue_section():

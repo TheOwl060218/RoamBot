@@ -1,5 +1,5 @@
-from typing import Annotated
 from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator

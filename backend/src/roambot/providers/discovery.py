@@ -163,8 +163,9 @@ class TavilySearch:
             with httpx.Client() as client:
                 return read(client)
         except httpx.HTTPStatusError as error:
-            raise ProviderError("tavily_http_" + str(error.response.status_code),
-                                "公开资料检索暂未完成。") from None
+            raise ProviderError(
+                "tavily_http_" + str(error.response.status_code), "公开资料检索暂未完成。"
+            ) from None
         except httpx.ProxyError:
             raise ProviderError("tavily_proxy_error", "公开资料检索暂未完成。") from None
         except httpx.TimeoutException:
@@ -202,18 +203,29 @@ def normalized_arguments(model, data, *, user_texts=()):
     for key in set(result) - model.model_fields.keys():
         if not isinstance(key, str):
             continue
-        base = key.removesuffix('_quote')
+        base = key.removesuffix("_quote")
         quote = result[key]
-        if (base != key and base in model.model_fields and base in result
-                and result[base] is not None and not isinstance(result[base], (dict, list))
-                and isinstance(quote, str) and quote and any(quote in text for text in user_texts)):
+        if (
+            base != key
+            and base in model.model_fields
+            and base in result
+            and result[base] is not None
+            and not isinstance(result[base], (dict, list))
+            and isinstance(quote, str)
+            and quote
+            and any(quote in text for text in user_texts)
+        ):
             result.pop(key)
 
     def nested_model(annotation):
         choices = get_args(annotation) or (annotation,)
-        models = [choice for choice in choices
-                  if isinstance(choice, type) and issubclass(choice, BaseModel)]
+        models = [
+            choice
+            for choice in choices
+            if isinstance(choice, type) and issubclass(choice, BaseModel)
+        ]
         return models[0] if len(models) == 1 else None
+
     for name, field in model.model_fields.items():
         if name not in result:
             continue
@@ -231,7 +243,10 @@ def normalized_arguments(model, data, *, user_texts=()):
                 and isinstance(item_type, type)
                 and issubclass(item_type, BaseModel)
             ):
-                result[name] = [normalized_arguments(item_type, item, user_texts=user_texts) for item in result[name]]
+                result[name] = [
+                    normalized_arguments(item_type, item, user_texts=user_texts)
+                    for item in result[name]
+                ]
         else:
             nested = nested_model(field.annotation)
             if nested and isinstance(result[name], dict):
@@ -241,14 +256,14 @@ def normalized_arguments(model, data, *, user_texts=()):
 
 def arrival_coordinate(place: dict) -> Coordinate:
     """Use the provider's entrance when present; preserve the POI's identity point."""
-    entrance = place.get('facts', {}).get('entr_location')
+    entrance = place.get("facts", {}).get("entr_location")
     if isinstance(entrance, str):
         try:
-            lng, lat = map(float, entrance.split(','))
+            lng, lat = map(float, entrance.split(","))
             return Coordinate(longitude=lng, latitude=lat)
         except (ValueError, TypeError):
             pass
-    return Coordinate(**place['coordinate'])
+    return Coordinate(**place["coordinate"])
 
 
 class DiscoveryMap:
@@ -279,20 +294,31 @@ class DiscoveryMap:
 
     def area(self, point: Coordinate):
         """Resolve coarse public search scope, without disclosing a street address."""
-        if point.system != 'gcj02':
-            raise ValueError('地区解析需要已转换的地图坐标。')
-        payload = self.amap._http.get_json(operation='discovery_area', path='/v3/geocode/regeo',
-            params={'key': self.amap._api_key, 'location': _format_coordinate(point),
-                    'extensions': 'base', 'output': 'json'})
+        if point.system != "gcj02":
+            raise ValueError("地区解析需要已转换的地图坐标。")
+        payload = self.amap._http.get_json(
+            operation="discovery_area",
+            path="/v3/geocode/regeo",
+            params={
+                "key": self.amap._api_key,
+                "location": _format_coordinate(point),
+                "extensions": "base",
+                "output": "json",
+            },
+        )
         self.amap._require_success(payload)
-        result = payload.get('regeocode')
-        address = result.get('addressComponent') if isinstance(result, dict) else None
+        result = payload.get("regeocode")
+        address = result.get("addressComponent") if isinstance(result, dict) else None
         if not isinstance(address, dict):
-            raise ProviderError('bad_response', '定位地区响应不完整。')
-        parts = [address.get(field) for field in ('province', 'city', 'district')]
-        area = ' '.join(dict.fromkeys(value.strip() for value in parts if isinstance(value, str) and value.strip()))
+            raise ProviderError("bad_response", "定位地区响应不完整。")
+        parts = [address.get(field) for field in ("province", "city", "district")]
+        area = " ".join(
+            dict.fromkeys(
+                value.strip() for value in parts if isinstance(value, str) and value.strip()
+            )
+        )
         if not area:
-            raise ProviderError('area_unavailable', '定位地区尚未解析完成。')
+            raise ProviderError("area_unavailable", "定位地区尚未解析完成。")
         return area
 
     def search(
@@ -337,8 +363,8 @@ class DiscoveryMap:
             except (KeyError, TypeError, ValueError):
                 continue
             business = raw.get("business") if isinstance(raw.get("business"), dict) else {}
-            navi = raw.get('navi') if isinstance(raw.get('navi'), dict) else {}
-            extra = {'district': raw.get('adname'), 'entr_location': navi.get('entr_location')}
+            navi = raw.get("navi") if isinstance(raw.get("navi"), dict) else {}
+            extra = {"district": raw.get("adname"), "entr_location": navi.get("entr_location")}
             result.append(
                 {
                     "id": "amap:" + raw["id"],
@@ -350,10 +376,16 @@ class DiscoveryMap:
                     "parent_id": raw.get("parent") or None,
                     "verified_at": time.time(),
                     "facts": {
-                        **{key: value.strip() for key, value in extra.items() if isinstance(value, str) and value.strip()},
-                        **{key: business[key]
-                        for key in ("opentime_today", "opentime_week", "rating", "cost", "tel")
-                        if isinstance(business.get(key), (str, int, float))},
+                        **{
+                            key: value.strip()
+                            for key, value in extra.items()
+                            if isinstance(value, str) and value.strip()
+                        },
+                        **{
+                            key: business[key]
+                            for key in ("opentime_today", "opentime_week", "rating", "cost", "tel")
+                            if isinstance(business.get(key), (str, int, float))
+                        },
                     },
                     "map_url": "https://www.amap.com/detail/" + raw["id"],
                 }
@@ -395,15 +427,20 @@ class DiscoveryMap:
         }
         if geometry:
             points = []
-            for step in best.get('steps', []):
-                for encoded in str(step.get('polyline', '')).split(';'):
+            for step in best.get("steps", []):
+                for encoded in str(step.get("polyline", "")).split(";"):
                     try:
-                        x, y = map(float, encoded.split(','))
-                        if math.isfinite(x) and math.isfinite(y) and -180 <= x <= 180 and -90 <= y <= 90:
-                            if not points or points[-1] != [x, y]: points.append([x, y])
+                        x, y = map(float, encoded.split(","))
+                        if (
+                            math.isfinite(x)
+                            and math.isfinite(y)
+                            and -180 <= x <= 180
+                            and -90 <= y <= 90
+                        ) and (not points or points[-1] != [x, y]):
+                            points.append([x, y])
                     except (ValueError, TypeError):
                         continue
-            result['path'] = points
+            result["path"] = points
         return result
 
 

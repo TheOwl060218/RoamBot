@@ -60,9 +60,7 @@ class SmokeAdapters:
         assert name and city
         return self.destination
 
-    def measure(
-        self, origins: list[Origin], destination: Destination
-    ) -> list[DistanceEstimate]:
+    def measure(self, origins: list[Origin], destination: Destination) -> list[DistanceEstimate]:
         self.calls.append("distance")
         assert origins == [self.origin]
         assert destination == self.destination
@@ -74,9 +72,7 @@ class SmokeAdapters:
             )
         ]
 
-    def daily(
-        self, coordinate: Coordinate, start: date, end: date
-    ) -> list[DailyWeather]:
+    def daily(self, coordinate: Coordinate, start: date, end: date) -> list[DailyWeather]:
         self.calls.append("weather")
         assert coordinate == self.destination.coordinate
         assert end - start == timedelta(days=6)
@@ -121,22 +117,16 @@ class FakeRuntime:
         self.closed = True
 
 
-def configure_live_environment(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def configure_live_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ROAMBOT_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("ROAMBOT_PROVIDER_MODE", "live")
     monkeypatch.setenv("ROAMBOT_DEMO_MODE", "false")
-    monkeypatch.setenv(
-        "ROAMBOT_QWEATHER_API_HOST", "https://student.qweatherapi.com"
-    )
+    monkeypatch.setenv("ROAMBOT_QWEATHER_API_HOST", "https://student.qweatherapi.com")
     monkeypatch.setenv("ROAMBOT_LLM_BASE_URL", "https://llm.example.com")
     monkeypatch.setenv("ROAMBOT_LLM_MODEL", "test-model")
 
 
-def install_fake_runtime(
-    adapters: SmokeAdapters, monkeypatch: pytest.MonkeyPatch
-) -> FakeRuntime:
+def install_fake_runtime(adapters: SmokeAdapters, monkeypatch: pytest.MonkeyPatch) -> FakeRuntime:
     runtime = FakeRuntime(adapters)
     monkeypatch.setattr("roambot.cli.build_provider_runtime", lambda *_args, **_kwargs: runtime)
     monkeypatch.setattr("roambot.cli._now", lambda: NOW)

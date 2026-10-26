@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
-export function DiscoveryRail({ children, label = '推荐去处', actions, resetKey, focusRequest }: PropsWithChildren<{
-  label?: string; actions?: ReactNode; resetKey?: string; focusRequest?: { id: string; revision: number }
+export function DiscoveryRail({ children, label = '推荐去处', actions, resetKey, focusRequest, controlsTarget }: PropsWithChildren<{
+  label?: string; actions?: ReactNode; resetKey?: string; focusRequest?: { id: string; revision: number }; controlsTarget?: HTMLElement | null
 }>) {
   const rail = useRef<HTMLElement>(null)
   const gesture = useRef<{ id: number; x: number; y: number; scroll: number; moved: boolean } | null>(null)
@@ -74,6 +75,13 @@ export function DiscoveryRail({ children, label = '推荐去处', actions, reset
     element.scrollBy({ left: direction * (width + 20),
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
   }
+  const controls = (actions || edges.left || edges.right) && <div className='discovery-rail-controls' aria-label={`${label}操作`}>
+    {actions && <div className='discovery-explore-actions'>{actions}</div>}
+    <div className='discovery-rail-pagination'>
+      <button type='button' className='icon-button' aria-label={`${label}向左滑动`} disabled={!edges.left} onClick={() => move(-1)}><ChevronLeft size={18} /></button>
+      <button type='button' className='icon-button' aria-label={`${label}向右滑动`} disabled={!edges.right} onClick={() => move(1)}><ChevronRight size={18} /></button>
+    </div>
+  </div>
   return <div className='discovery-rail-frame' data-can-left={edges.left} data-can-right={edges.right}>
     <section ref={rail} className='discovery-rail' aria-label={label} tabIndex={0} data-dragging={dragging}
       onKeyDown={event => {
@@ -114,12 +122,6 @@ export function DiscoveryRail({ children, label = '推荐去处', actions, reset
       }}>
       {children}
     </section>
-    {(actions || edges.left || edges.right) && <div className='discovery-rail-controls' aria-label={`${label}操作`}>
-      {actions && <div className='discovery-explore-actions'>{actions}</div>}
-      <div className='discovery-rail-pagination'>
-      <button type='button' className='icon-button' aria-label={`${label}向左滑动`} disabled={!edges.left} onClick={() => move(-1)}><ChevronLeft size={18} /></button>
-      <button type='button' className='icon-button' aria-label={`${label}向右滑动`} disabled={!edges.right} onClick={() => move(1)}><ChevronRight size={18} /></button>
-      </div>
-    </div>}
+    {controlsTarget ? createPortal(controls, controlsTarget) : controls}
   </div>
 }

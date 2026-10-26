@@ -5,8 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from roambot.domain.discovery import SearchContext
 from roambot.domain.assistant import AssistantMessage
+from roambot.domain.discovery import DiscoverySearchScope, SearchContext
 from roambot.domain.models import Coordinate, DailyWeather
 
 
@@ -75,6 +75,8 @@ class ExplorationState(SnapshotModel):
 
 
 class DiscoveryArchive(SnapshotModel):
+    display_title: str | None = None
+    search_scope: DiscoverySearchScope | None = None
     schema_version: Literal["discovery-v1"] = "discovery-v1"
     generated_at: datetime
     source: Literal["live", "demo"]

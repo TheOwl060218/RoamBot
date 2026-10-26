@@ -14,9 +14,9 @@ from roambot.domain.models import (
     RecommendationRequest,
     RecommendationResponse,
 )
-from roambot.security.assistant_context import FactCandidate, FactDestination, FactSuitability
 from roambot.providers.discovery_answer import explain_discovery_result
 from roambot.providers.protocols import ProviderError
+from roambot.security.assistant_context import FactCandidate, FactDestination, FactSuitability
 from roambot.services.assistant_limits import AssistantLimitError
 
 
@@ -93,13 +93,21 @@ class BusinessExecutor:
         return (await self.call("GET", "/history/" + segment(history_id)))["history"]
 
     async def places(self):
-        if self.context.get('page') == '/favorites':
-            return [{'id': r['id'], 'name': r['name']} for r in await self.resource_list('favorites')]
+        if self.context.get("page") == "/favorites":
+            return [
+                {"id": r["id"], "name": r["name"]} for r in await self.resource_list("favorites")
+            ]
         discovery = await self.discovery_data()
         if discovery is not None:
-            return [{"id": c["place"]["id"], "name": c["place"]["name"],
-                     "discovery_place": c["place"], "source": discovery["source"]}
-                    for c in discovery["cards"]]
+            return [
+                {
+                    "id": c["place"]["id"],
+                    "name": c["place"]["name"],
+                    "discovery_place": c["place"],
+                    "source": discovery["source"],
+                }
+                for c in discovery["cards"]
+            ]
         if self.context.get("page") == "/favorites":
             rows = await self.resource_list("favorites")
             return [{"id": r["id"], "name": r["name"]} for r in rows]
@@ -147,10 +155,15 @@ class BusinessExecutor:
 
     def plan_dates(self, args, message, data):
         context = data["context"]
-        start, end = args.get("start_date") or context.get("start_date"), args.get("end_date") or context.get("end_date")
+        start, end = (
+            args.get("start_date") or context.get("start_date"),
+            args.get("end_date") or context.get("end_date"),
+        )
         changed = (start, end) != (context.get("start_date"), context.get("end_date"))
         if changed and (args.get("start_date") or args.get("end_date")):
-            original = [message] + [m["content"] for m in self.context.get("conversation", []) if m["role"] == "user"]
+            original = [message] + [
+                m["content"] for m in self.context.get("conversation", []) if m["role"] == "user"
+            ]
             quote = args.get("date_quote")
             if not quote or not any(quote in text for text in original):
                 raise ValueError("计划日期需要用户明确表达。")
@@ -197,7 +210,9 @@ class BusinessExecutor:
                 "创建计划可使用当前选中地点，日期缺失只问计划安排哪天，不要求补出发地或类型。"
             )
             data = await self.discovery_data()
-            out["discovery_dates"] = {key: data["context"].get(key) for key in ("start_date", "end_date")}
+            out["discovery_dates"] = {
+                key: data["context"].get(key) for key in ("start_date", "end_date")
+            }
         try:
             out["places"] = [{"id": p["id"], "name": p["name"]} for p in await self.ui_places()]
         except BusinessFailure as exc:
@@ -228,13 +243,23 @@ class BusinessExecutor:
                     out["stale_list"] = True
         turn = self.context.get("assistant_turn") or {}
         out["draft"] = turn.get("draft", {})
-        from roambot.services.itinerary_commands import public_itineraries, describe
+        from roambot.services.itinerary_commands import describe, public_itineraries
+
         itinerary_data = await public_itineraries(self)
-        out['itineraries'] = [{k: v[k] for k in ('id', 'name', 'version', 'start_date', 'end_date')}
-            | {'stop_count': len(v['stops'])} for v in itinerary_data['itineraries']]
-        out['current_itinerary_id'] = self.context.get('itinerary_id') or itinerary_data['current_id']
-        current_trip = next((v for v in itinerary_data['itineraries'] if v['id']==out['current_itinerary_id']), None)
-        if current_trip: out['itinerary'] = describe(current_trip)
+        out["itineraries"] = [
+            {k: v[k] for k in ("id", "name", "version", "start_date", "end_date")}
+            | {"stop_count": len(v["stops"])}
+            for v in itinerary_data["itineraries"]
+        ]
+        out["current_itinerary_id"] = (
+            self.context.get("itinerary_id") or itinerary_data["current_id"]
+        )
+        current_trip = next(
+            (v for v in itinerary_data["itineraries"] if v["id"] == out["current_itinerary_id"]),
+            None,
+        )
+        if current_trip:
+            out["itinerary"] = describe(current_trip)
         out["conversation"] = (self.context.get("conversation") or turn.get("history", []))[-6:]
         return out
 
@@ -331,9 +356,18 @@ class BusinessExecutor:
         spec = TOOL_CATALOG[action.tool]
         args = action.validated_arguments().model_dump(mode="json", exclude_none=True)
         name = action.tool
-        if name in {'create_itinerary', 'open_itinerary', 'show_itinerary_map', 'add_to_itinerary', 'edit_itinerary',
-                    'move_itinerary_stop', 'remove_itinerary_stop', 'generate_itinerary'}:
+        if name in {
+            "create_itinerary",
+            "open_itinerary",
+            "show_itinerary_map",
+            "add_to_itinerary",
+            "edit_itinerary",
+            "move_itinerary_stop",
+            "remove_itinerary_stop",
+            "generate_itinerary",
+        }:
             from roambot.services.itinerary_commands import execute
+
             return await execute(self, name, args, message)
         if name == "describe_capabilities":
             return {
@@ -353,16 +387,21 @@ class BusinessExecutor:
                 self.context["focused_id"] = place["id"]
             elif name in {"select_candidates", "compare_places"}:
                 places = await self.ui_places()
-                refs = args.get("places") if name == "select_candidates" else (
-                    args.get("places") or self.context.get("selected_ids", []))
+                refs = (
+                    args.get("places")
+                    if name == "select_candidates"
+                    else (args.get("places") or self.context.get("selected_ids", []))
+                )
                 ids = [resolve_reference(ref, places)["id"] for ref in refs]
                 if len(set(ids)) != len(ids):
                     raise ValueError("所选候选不能重复。")
                 if name == "compare_places" and len(ids) < 2:
                     raise ValueError("请明确至少两个地点再比较。")
                 self.context["selected_ids"] = ids
-                effect = {"tool": "show_comparison" if name == "compare_places" else name,
-                    "arguments": {"ids": ids}}
+                effect = {
+                    "tool": "show_comparison" if name == "compare_places" else name,
+                    "arguments": {"ids": ids},
+                }
             elif name == "show_comparison" and len(self.context.get("selected_ids", [])) < 2:
                 raise ValueError("请选择至少两个候选再比较。")
             elif name == "show_day_explanation":
@@ -372,35 +411,59 @@ class BusinessExecutor:
                 effect["arguments"] = {"id": candidate["id"]}
             return {"effect": effect}
         if name in {"update_search_conditions", "explain_result"}:
-            if name == 'explain_result':
+            if name == "explain_result":
                 # A current plan owns its explanation even if a background
                 # recommendation context remains available for other commands.
-                plan_scope = self.context.get('plan_id') or self.context.get('invite_token')
+                plan_scope = self.context.get("plan_id") or self.context.get("invite_token")
                 discovery = None
                 if plan_scope:
                     plan = await self.plan()
-                    if all(c['snapshot'].get('schema_version') == 'discovery-v1' for c in plan['candidates']):
-                        discovery = {'context': {key: plan[key] for key in ('name', 'start_date', 'end_date')},
-                            'cards': [{'place': {**c['snapshot']['destination'], 'id': c['id']},
-                                'route': None, 'weather': c['latest_weather'].get('weather') if c.get('latest_weather')
-                                    else c['snapshot'].get('weather')} for c in plan['candidates']]}
+                    if all(
+                        c["snapshot"].get("schema_version") == "discovery-v1"
+                        for c in plan["candidates"]
+                    ):
+                        discovery = {
+                            "context": {
+                                key: plan[key] for key in ("name", "start_date", "end_date")
+                            },
+                            "cards": [
+                                {
+                                    "place": {**c["snapshot"]["destination"], "id": c["id"]},
+                                    "route": None,
+                                    "weather": c["latest_weather"].get("weather")
+                                    if c.get("latest_weather")
+                                    else c["snapshot"].get("weather"),
+                                }
+                                for c in plan["candidates"]
+                            ],
+                        }
                 else:
                     discovery = await self.discovery_data()
                 if discovery is not None:
-                    if not discovery.get('cards'):
-                        raise BusinessFailure('discovery_not_ready', '当前还没有可查看的推荐结果。')
-                    provider = self.request.app.state.provider_runtime.new_request_bundle().assistant
-                    focused = self.context.get('focused_id')
-                    if focused not in {card['place']['id'] for card in discovery['cards']}:
+                    if not discovery.get("cards"):
+                        raise BusinessFailure("discovery_not_ready", "当前还没有可查看的推荐结果。")
+                    provider = (
+                        self.request.app.state.provider_runtime.new_request_bundle().assistant
+                    )
+                    focused = self.context.get("focused_id")
+                    if focused not in {card["place"]["id"] for card in discovery["cards"]}:
                         focused = None
-                    key = self.request.client.host if self.request.client else 'unknown'
+                    key = self.request.client.host if self.request.client else "unknown"
                     try:
                         with self.request.app.state.assistant_limiter.acquire(key):
-                            reply = await run_in_threadpool(explain_discovery_result, provider, message,
-                                self.context.get('conversation', []), discovery, focused)
+                            reply = await run_in_threadpool(
+                                explain_discovery_result,
+                                provider,
+                                message,
+                                self.context.get("conversation", []),
+                                discovery,
+                                focused,
+                            )
                     except (ProviderError, AssistantLimitError) as error:
-                        raise BusinessFailure(getattr(error, 'code', 'assistant_busy'), str(error), status=503) from None
-                    return {'reply': reply}
+                        raise BusinessFailure(
+                            getattr(error, "code", "assistant_busy"), str(error), status=503
+                        ) from None
+                    return {"reply": reply}
             turn = self.context.get("assistant_turn")
             if turn and self.context.get("conversation"):
                 turn["history"] = self.context["conversation"][-6:]
@@ -502,14 +565,22 @@ class BusinessExecutor:
             if place.get("discovery_place"):
                 value = place["discovery_place"]
                 provider = "mock" if place["source"] == "demo" else "amap"
-                return await self.call("POST", "/favorites", {
-                    "provider": provider, "destination": {
-                        "provider_id": value["id"].split(":", 1)[-1],
-                        "name": value["name"], "address": value["address"],
-                        "city": value["city"], "coordinate": value["coordinate"],
-                        "type_name": value["map_type"], "type_code": value.get("map_type_code", ""),
+                return await self.call(
+                    "POST",
+                    "/favorites",
+                    {
+                        "provider": provider,
+                        "destination": {
+                            "provider_id": value["id"].split(":", 1)[-1],
+                            "name": value["name"],
+                            "address": value["address"],
+                            "city": value["city"],
+                            "coordinate": value["coordinate"],
+                            "type_name": value["map_type"],
+                            "type_code": value.get("map_type_code", ""),
+                        },
                     },
-                })
+                )
             if not place.get("item"):
                 raise ValueError("请先登录并更新推荐，再收藏此地点。")
             source = (await self.history())["result"]["source_state"]["kind"]
@@ -578,8 +649,12 @@ class BusinessExecutor:
         return await self.plan_action(name, args)
 
     async def history_action(self, name, args):
-        if self.context.get("discovery_job_id") and args.get("target") is None and name in {
-            "create_share", "open_history", "rerun_history", "delete_history", "revoke_share"}:
+        if (
+            self.context.get("discovery_job_id")
+            and args.get("target") is None
+            and name
+            in {"create_share", "open_history", "rerun_history", "delete_history", "revoke_share"}
+        ):
             await self.discovery_history_id()
         if name == "clear_history":
             return await self.call("DELETE", "/history")
@@ -614,7 +689,9 @@ class BusinessExecutor:
         if name == "rerun_history":
             saved = await self.call("GET", path)
             if saved["history"]["mode"] == "discovery":
-                started = await self.call("POST", "/discovery/history/" + segment(history_id) + "/rerun")
+                started = await self.call(
+                    "POST", "/discovery/history/" + segment(history_id) + "/rerun"
+                )
                 return {"effect": {"tool": "discovery_job_started", "arguments": started}}
         result = await self.call(
             "POST" if name == "rerun_history" else "GET",

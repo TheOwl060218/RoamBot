@@ -8,7 +8,6 @@ import copy
 
 from roambot.services.discovery_assessment import display_fact_value
 
-
 FIELD_LABELS = {
     "name_and_type": "名称与登记类型",
     "map_type": "登记类型",
@@ -27,13 +26,15 @@ def project_fact(card, evidence_id):
     if len(matching) != 1:
         raise ValueError("依据须对应本地点唯一的实际来源。")
     source = matching[0]
-    if (source.get("place_id", place_id) != place_id
-            or source["kind"] not in {"map_record", "web_page", "search_excerpt"}):
+    if source.get("place_id", place_id) != place_id or source["kind"] not in {
+        "map_record",
+        "web_page",
+        "search_excerpt",
+    }:
         raise ValueError("不能借用其他地点或测量记录生成地点属性。")
     # Select a whole typed value or a pre-bound passage, never an arbitrary
     # model-picked substring that might drop an exception or entry condition.
-    text = (display_fact_value(source["value"]) if "value" in source
-            else source.get("excerpt", ""))
+    text = display_fact_value(source["value"]) if "value" in source else source.get("excerpt", "")
     if not text:
         raise ValueError("空来源不能形成展示依据。")
     return {
@@ -58,7 +59,9 @@ def selection_facts(cards, selections):
             raise ValueError("选择须对应唯一的真实候选。")
         if len(set(item.evidence_ids)) != len(item.evidence_ids):
             raise ValueError("选择依据不能重复。")
-        result[item.place_id] = [project_fact(by_id[item.place_id], ref) for ref in item.evidence_ids]
+        result[item.place_id] = [
+            project_fact(by_id[item.place_id], ref) for ref in item.evidence_ids
+        ]
     return result
 
 
@@ -76,10 +79,21 @@ def task_model_facts(cards):
             fact = project_fact(card, source["id"])
             handle = f"s{len(references) + 1}"
             references[handle] = fact["evidence_id"]
-            facts.append({"id": handle, "kind": fact["kind"],
-                          "field": fact["field"], "label": fact["label"],
-                          "text": fact["text"]})
-        candidates.append({"place": {"id": card["place"]["id"], "name": card["place"]["name"]},
-                           "sources": facts, "route": copy.deepcopy(card.get("route")),
-                           "weather": copy.deepcopy(card.get("weather"))})
+            facts.append(
+                {
+                    "id": handle,
+                    "kind": fact["kind"],
+                    "field": fact["field"],
+                    "label": fact["label"],
+                    "text": fact["text"],
+                }
+            )
+        candidates.append(
+            {
+                "place": {"id": card["place"]["id"], "name": card["place"]["name"]},
+                "sources": facts,
+                "route": copy.deepcopy(card.get("route")),
+                "weather": copy.deepcopy(card.get("weather")),
+            }
+        )
     return candidates, references

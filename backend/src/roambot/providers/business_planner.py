@@ -65,8 +65,12 @@ def plan_business_actions(http, key, model, thinking, request, context):
         "用户说这两个建计划时复用selected，不需要捏造ID。"
         "旅行行程用itinerary工具；同行投票计划用plan工具，不能混淆。"
         "加入行程默认最近创建的行程；只调整顺序用move_itinerary_stop，不自动请求路线。"
-        "用户明确更新路线时generate_itinerary optimize=false保留手动顺序；明确自动规划或重排才true。"
-        "新推荐创建计划时，使用discovery_dates里已有日期；没有明确日期就只追问计划安排哪天，不能默认。"
+        "用户明确更新路线时generate_itinera"
+        "ry optimize=false保留手动顺序；明"
+        "确自动规划或重排才true。"
+        "新推荐创建计划时，使用discovery_date"
+        "s里已有日期；没有明确日期就只追问计划安排哪天，不"
+        "能默认。"
         "用户接着日期追问回答时，继承前面建计划、名称、人数及选择；用服务器today计算ISO起止日期，"
         "单天的起止相同，date_quote摘录用户日期原话。不要将该回复转成查询条件修改。"
         "任意角色、对象、日期含义不明就提出一个简短追问，不调用有副作用的工具。"
@@ -132,7 +136,7 @@ def plan_business_actions(http, key, model, thinking, request, context):
                         raise ValueError("mixed sequence and individual calls")
                     payload = json.loads(function["arguments"])
                     plan = BusinessPlan.model_validate(payload)
-                    explicit_action_plan = 'question' in payload and payload['question'] is None
+                    explicit_action_plan = "question" in payload and payload["question"] is None
                     break
                 actions.append(
                     {"tool": function["name"], "arguments": json.loads(function["arguments"])}
@@ -143,7 +147,12 @@ def plan_business_actions(http, key, model, thinking, request, context):
             # A sequence explicitly declares its mode in question/actions.
             # Incidental assistant prose is not shown or used as an instruction.
             # Legacy individual calls lack that declaration and stay strict.
-            if message.get("content") and message["content"].strip() and plan.actions and not explicit_action_plan:
+            if (
+                message.get("content")
+                and message["content"].strip()
+                and plan.actions
+                and not explicit_action_plan
+            ):
                 raise ValueError("mixed question and execution")
         else:
             plan = BusinessPlan(question=message["content"])

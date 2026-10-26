@@ -106,7 +106,7 @@ describe('personal and shared pages', () => {
 
     expect(await screen.findByRole('button', { name: '查看 金鸡湖景区' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByRole('heading', { name: '金鸡湖景区' })).not.toBeInTheDocument()
-    expect(screen.getAllByText('苏州 · 湖景')).toHaveLength(1)
+    expect(screen.getAllByText('湖景')).toHaveLength(1)
     await userEvent.click(screen.getByRole('button', { name: '查看 苏州博物馆' }))
     expect(screen.getByRole('heading', { name: '苏州博物馆' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '查看 苏州博物馆' })).toHaveAttribute('aria-pressed', 'true')

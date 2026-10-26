@@ -99,8 +99,10 @@ class DiscoveryRun:
         self.execution_id = uuid4().hex
         self.first_batch_ms = None
         self.history_id = None
-        self.search_request = (previous or {}).get('search_request')
-        self.restored_exploration = copy.deepcopy((previous or {}).get('exploration_state'))
+        self.search_request = (previous or {}).get("search_request")
+        self.display_title = (previous or {}).get("display_title")
+        self.restored_exploration = copy.deepcopy((previous or {}).get("exploration_state"))
+        self.restored_search_scope = copy.deepcopy((previous or {}).get("search_scope"))
         self.persistence_pending = False
         self.cancelled = threading.Event()
         self.lock = threading.RLock()
@@ -148,6 +150,12 @@ class DiscoveryRun:
                     "status": "running" if self.persistence_pending else self.status,
                     "history_id": self.history_id,
                     "search_request": self.search_request,
+                    "display_title": self.display_title,
+                    **(
+                        {"search_scope": self.restored_search_scope}
+                        if self.restored_search_scope
+                        else {}
+                    ),
                     "stage": self.stage,
                     "cards": self.cards,
                     "reply": self.reply,
@@ -163,7 +171,11 @@ class DiscoveryRun:
                     "first_batch_ms": self.first_batch_ms,
                     "elapsed_ms": round((time.monotonic() - self.started) * 1000),
                     "issues": self.errors,
-                    **({'exploration_state': self.restored_exploration} if self.restored_exploration else {}),
+                    **(
+                        {"exploration_state": self.restored_exploration}
+                        if self.restored_exploration
+                        else {}
+                    ),
                 }
             )
 
@@ -231,35 +243,54 @@ class DiscoveryRun:
             }[field]
             unchanged = getattr(value, value_field) == getattr(self.context, value_field)
             chosen = self.body.location_details if self.body.use_location else None
-            if value_field == 'origin' and chosen and chosen.source == 'selected' and value.origin == chosen.name:
+            if (
+                value_field == "origin"
+                and chosen
+                and chosen.source == "selected"
+                and value.origin == chosen.name
+            ):
                 continue  # Explicit UI selection, not a model-invented origin.
-            if value_field == 'start_date':
+            if value_field == "start_date":
                 unchanged = unchanged and value.end_date == self.context.end_date
             # Previously accepted context is server-owned state. Its original
             # turn may have left the bounded dialogue; only changes need a
             # fresh verbatim quote, not an identical inherited value.
-            if value_field in supplied and present and not unchanged and (not quote or quote not in original):
-                raise ValueError(f"{value_field}缺少有效原文证据：{field}须逐字引用，不能引用未出现的内容。")
+            if (
+                value_field in supplied
+                and present
+                and not unchanged
+                and (not quote or quote not in original)
+            ):
+                raise ValueError(
+                    f"{value_field}缺少有效原文证据：{field}须逐字引用，不能引用未出现的内容。"
+                )
         return value
+
+    def device_origin_enabled(self, value):
+        return True
 
     def configure(self, value):
         value = self.validate_context_evidence(value)
         if self.cards and value != self.context:
             raise ValueError("本轮已发布结果，改变条件请留到下一轮，避免旧卡片与新条件混用。")
         chosen = self.body.location_details if self.body.use_location else None
-        if chosen and chosen.source == 'selected' and value.origin == chosen.name:
+        use_device_origin = self.device_origin_enabled(value)
+        location = self.location if use_device_origin else None
+        if not use_device_origin and not value.origin:
+            self.center, self.center_name = None, None
+        if chosen and chosen.source == "selected" and value.origin == chosen.name:
             self.center, self.center_name = self.maps.gps(self.location), chosen.name
         elif value.origin != self.context.origin or (self.center is None and value.origin):
             if value.origin:
                 self.limit("geocode", 3)
                 origin = self.maps.geocode(value.origin)
                 self.center, self.center_name = origin.coordinate, value.origin
-            elif self.location:
-                self.center, self.center_name = self.maps.gps(self.location), "当前位置"
+            elif location:
+                self.center, self.center_name = self.maps.gps(location), "当前位置"
             else:
                 self.center, self.center_name = None, None
-        elif not value.origin and self.location and self.center is None:
-            self.center, self.center_name = self.maps.gps(self.location), "当前位置"
+        elif not value.origin and location and self.center is None:
+            self.center, self.center_name = self.maps.gps(location), "当前位置"
         if value != self.context:
             self.routes.clear()
             self.forecasts.clear()
@@ -460,9 +491,14 @@ class DiscoveryRun:
                 self.limit("review", 5)
                 decision = self.review(pending)
                 from roambot.services.discovery_revision import revised_fields, validated_revisions
-                revisions = validated_revisions(decision, [
-                    getattr(self, "review_inputs", {}).get(card["place"]["id"], card)
-                    for card in pending])
+
+                revisions = validated_revisions(
+                    decision,
+                    [
+                        getattr(self, "review_inputs", {}).get(card["place"]["id"], card)
+                        for card in pending
+                    ],
+                )
                 pending = [{**card, **revised_fields(card, revisions)} for card in pending]
                 rejected = [item.model_dump() for item in decision.rejected]
                 pending = [card for card in pending if card["place"]["id"] in decision.approved_ids]
@@ -496,15 +532,23 @@ class DiscoveryRun:
                         del groups[key]
                     if len(self.cards) == 24:
                         break
-            return {"published": len(self.cards) - before, "total": len(self.cards), "rejected": rejected}
+            return {
+                "published": len(self.cards) - before,
+                "total": len(self.cards),
+                "rejected": rejected,
+            }
 
     def commit_reviewed_batch(self, batch, draft, decision, *, revision):
         from roambot.domain.discovery import BatchReview
         from roambot.services.discovery_batches import freeze_batch, prepare_review
 
         with self.lock:
-            if (self.cancelled.is_set() or batch.identity != self.scope
-                or batch.revision != revision or getattr(self, "revision", revision) != revision):
+            if (
+                self.cancelled.is_set()
+                or batch.identity != self.scope
+                or batch.revision != revision
+                or getattr(self, "revision", revision) != revision
+            ):
                 raise ValueError("陈旧任务或身份不能发布。")
             self.check()
             frozen = batch.payload()
@@ -517,18 +561,21 @@ class DiscoveryRun:
             data, outcome = review.payload(), BatchReview.model_validate(decision.payload())
             if data.get("assessment_only"):
                 from roambot.services.discovery_assessment import verify_source_assessment
+
                 verify_source_assessment(outcome, data["context"], data["cards"])
             eligible = {c["place_id"] for c in data["publish_cards"]}
             classified = outcome.approved_ids + [c.place_id for c in outcome.rejected]
             if len(classified) != len(set(classified)) or set(classified) != eligible:
                 raise ValueError("审查没有逐项覆盖真实候选。")
             from roambot.services.discovery_revision import revised_fields, validated_revisions
+
             revisions = validated_revisions(outcome, data["cards"])
             covered = set()
             labels = {}
             for coverage in outcome.covered_directions:
-                if (coverage.direction > len(self.plan.directions)
-                    or not set(coverage.place_ids) <= set(outcome.approved_ids)):
+                if coverage.direction > len(self.plan.directions) or not set(
+                    coverage.place_ids
+                ) <= set(outcome.approved_ids):
                     raise ValueError("审查引用了未知方向或未通过地点。")
                 covered.add(coverage.direction)
                 for key in coverage.place_ids:
@@ -547,21 +594,31 @@ class DiscoveryRun:
                 ):
                     raise ValueError("未经最终事实写作的候选不能发布。")
                 quotes = next(c["sources"] for c in data["cards"] if c["place"]["id"] == key)
-                extra = ({s["evidence_id"] for s in quotes if s["id"] in revisions[key].evidence_ids}
-                         if key in revisions else set())
+                extra = (
+                    {s["evidence_id"] for s in quotes if s["id"] in revisions[key].evidence_ids}
+                    if key in revisions
+                    else set()
+                )
                 source_ids = list(dict.fromkeys([*card["evidence_ids"], *sorted(extra)]))
                 if data.get("assessment_only"):
                     # Direct batches contain every retrieved passage for review,
                     # not an assertion that every page supported the decision.
                     used = set(revisions[key].evidence_ids)
-                    observation = next(item for item in outcome.source_assessment["assessments"]
-                                       if item["place_id"] == key)
+                    observation = next(
+                        item
+                        for item in outcome.source_assessment["assessments"]
+                        if item["place_id"] == key
+                    )
                     for check in observation["checks"]:
                         used.update(check["evidence_ids"])
-                    source_ids = list(dict.fromkeys(
-                        s["evidence_id"] for s in quotes
-                        if s["id"] in used or s["kind"] in
-                        {"map_record", "measure_routes", "check_weather"}))
+                    source_ids = list(
+                        dict.fromkeys(
+                            s["evidence_id"]
+                            for s in quotes
+                            if s["id"] in used
+                            or s["kind"] in {"map_record", "measure_routes", "check_weather"}
+                        )
+                    )
                 sources = [self.evidence[e] for e in source_ids]
                 if any(s["place_id"] != key for s in sources):
                     raise ValueError("地点引用了其他地点的证据。")
@@ -569,20 +626,33 @@ class DiscoveryRun:
                 if self.center and not route:
                     raise ValueError("有中心时需先核实路线。")
                 if self.context.max_distance_km is not None and (
-                    not route or route.get("unavailable")
-                    or route["distance_km"] > self.context.max_distance_km):
+                    not route
+                    or route.get("unavailable")
+                    or route["distance_km"] > self.context.max_distance_km
+                ):
                     raise ValueError("实际路程未满足硬限制。")
                 if self.context.start_date and key not in self.forecasts:
                     raise ValueError("日期对应的天气结果尚未取得。")
                 from roambot.services.discovery_grounding import cited_sources
+
                 sources = cited_sources(sources, quotes)
-                pending.append({"place": self.places[key], "experience": labels.get(key, card.get("experience")),
-                                "reason": card.get("reason"), "sources": sources,
-                                "route": route, "weather": self.forecasts.get(key)})
+                pending.append(
+                    {
+                        "place": self.places[key],
+                        "experience": labels.get(key, card.get("experience")),
+                        "reason": card.get("reason"),
+                        "sources": sources,
+                        "route": route,
+                        "weather": self.forecasts.get(key),
+                    }
+                )
                 pending[-1].update(revised_fields(pending[-1], revisions))
-            self.record_collection_review(outcome,
-                {c["id"] for c in data["context"]["already_published"]})
-            result = self._append_cards(pending, [c.model_dump() for c in outcome.rejected], reviewed=True)
+            self.record_collection_review(
+                outcome, {c["id"] for c in data["context"]["already_published"]}
+            )
+            result = self._append_cards(
+                pending, [c.model_dump() for c in outcome.rejected], reviewed=True
+            )
             self.covered_directions.update(covered)
             self.evidence_query = outcome.evidence_query
             self.record_evidence_needs(data["evidence_needs"], frozen["ids"])
@@ -707,16 +777,27 @@ class DiscoveryRun:
 
 class SavedDiscoveryRun(DiscoveryRun):
     def __init__(self, body, snapshot):
-        super().__init__(DiscoveryRequest.model_validate(body), None, None, None, None,
-                         previous=snapshot, source=snapshot['source'])
+        super().__init__(
+            DiscoveryRequest.model_validate(body),
+            None,
+            None,
+            None,
+            None,
+            previous=snapshot,
+            source=snapshot["source"],
+        )
         self.saved = copy.deepcopy(snapshot)
-        self.cards = copy.deepcopy(snapshot['cards'])
-        self.status, self.stage = snapshot['status'], ''
-        self.history_id = snapshot.get('history_id')
+        self.cards = copy.deepcopy(snapshot["cards"])
+        self.status, self.stage = snapshot["status"], ""
+        self.history_id = snapshot.get("history_id")
 
     def snapshot(self):
         with self.lock:
-            return copy.deepcopy(self.saved) | {'history_id': self.history_id, 'status': self.status, 'stage': self.stage}
+            return copy.deepcopy(self.saved) | {
+                "history_id": self.history_id,
+                "status": self.status,
+                "stage": self.stage,
+            }
 
 
 class DiscoveryJobs:
@@ -731,12 +812,17 @@ class DiscoveryJobs:
         with self.lock:
             entry = self.jobs.get(key)
             deadline = self.restored_deadlines.get(key)
-            if entry and entry[0] == actor and time.monotonic()-entry[1] <= 1800 and (deadline is None or self.sessions.clock() < deadline):
+            if (
+                entry
+                and entry[0] == actor
+                and time.monotonic() - entry[1] <= 1800
+                and (deadline is None or self.sessions.clock() < deadline)
+            ):
                 return entry[2]
             saved = self.sessions.load(key, actor) if self.sessions else None
             if saved:
                 if key not in self.jobs and len(self.jobs) >= 64:
-                    raise LookupError('推荐会话较多，请稍后重试。')
+                    raise LookupError("推荐会话较多，请稍后重试。")
                 body, snapshot, expires = saved
                 run = SavedDiscoveryRun(body, snapshot)
                 self.jobs[key] = (actor, time.monotonic(), run)
@@ -751,8 +837,8 @@ class DiscoveryJobs:
         ownership checks use the registry, so an in-flight batch is not invalidated.
         No job ID or client-supplied user identity participates in the transfer.
         """
-        if not guest.startswith('guest:') or not actor.startswith('user:'):
-            raise ValueError('Only a guest-to-user handoff is allowed')
+        if not guest.startswith("guest:") or not actor.startswith("user:"):
+            raise ValueError("Only a guest-to-user handoff is allowed")
         with self.lock:
             if self.sessions:
                 self.sessions.adopt(guest, actor)
@@ -776,24 +862,47 @@ class DiscoveryJobs:
             prior = self.owned(actor, body.previous_id) if body.previous_id else None
             previous = prior.snapshot() if prior else None
             if prior:
-                previous['_location_input'] = prior.body.location.model_dump() if prior.body.location else None
-                previous['_location_metadata'] = prior.body.location_details.model_dump() if prior.body.location_details else None
+                previous["_location_input"] = (
+                    prior.body.location.model_dump() if prior.body.location else None
+                )
+                previous["_location_metadata"] = (
+                    prior.body.location_details.model_dump()
+                    if prior.body.location_details
+                    else None
+                )
             if body.explore_mode:
-                if not prior or prior.status == 'running' or not prior.cards:
-                    raise ValueError('请先等待当前推荐完成。')
+                if not prior or prior.status == "running" or not prior.cards:
+                    raise ValueError("请先等待当前推荐完成。")
                 # One owned source batch and action is one exploration request.
                 # A double click/replayed POST cannot spend the pool twice.
                 token = (body.previous_id, body.explore_mode, tuple(body.view.selected_ids))
                 for existing_key, entry in self.jobs.items():
-                    if (entry[0] == actor and getattr(entry[2], 'exploration_token', None) == token
-                            and not entry[2].cancelled.is_set() and entry[2].status in {'running', 'completed', 'partial'}):
+                    if (
+                        entry[0] == actor
+                        and getattr(entry[2], "exploration_token", None) == token
+                        and not entry[2].cancelled.is_set()
+                        and entry[2].status in {"running", "completed", "partial"}
+                    ):
                         return existing_key
-                if getattr(prior, 'plan', None) and prior.plan.intent == 'search':
-                    previous['_explore_plan'] = prior.plan.model_dump(mode='json')
-            if (prior and (not body.use_location or (body.location_details and (body.location_details.source == 'selected' or body.location_details.replace_origin)))
-                    and body.message == prior.body.message
-                    and getattr(prior, 'plan', None) and prior.plan.intent == 'search'):
-                previous['_location_plan'] = prior.plan.model_dump(mode='json')
+                if getattr(prior, "plan", None) and prior.plan.intent == "search":
+                    previous["_explore_plan"] = prior.plan.model_dump(mode="json")
+            if (
+                prior
+                and (
+                    not body.use_location
+                    or (
+                        body.location_details
+                        and (
+                            body.location_details.source == "selected"
+                            or body.location_details.replace_origin
+                        )
+                    )
+                )
+                and body.message == prior.body.message
+                and getattr(prior, "plan", None)
+                and prior.plan.intent == "search"
+            ):
+                previous["_location_plan"] = prior.plan.model_dump(mode="json")
             run = factory(body, previous)
             if body.explore_mode:
                 run.exploration_token = token
@@ -817,19 +926,24 @@ class DiscoveryJobs:
             logger.warning("discovery_history_stopped error_type=%s", type(error).__name__)
         finally:
             run.persistence_pending = False
-            if self.sessions and actor.startswith('guest:'):
+            if self.sessions and actor.startswith("guest:"):
                 try:
                     with self.lock:
                         current_actor = self.jobs.get(key, (actor,))[0]
-                        self.sessions.save(key, current_actor, run.body.model_dump(mode='json'), run.snapshot())
+                        self.sessions.save(
+                            key, current_actor, run.body.model_dump(mode="json"), run.snapshot()
+                        )
                 except Exception as error:
-                    logger.warning('discovery_session_save_stopped error_type=%s', type(error).__name__)
+                    logger.warning(
+                        "discovery_session_save_stopped error_type=%s", type(error).__name__
+                    )
 
     def restore(self, actor, run):
         with self.lock:
             for key, entry in list(self.jobs.items()):
                 if time.monotonic() - entry[1] > 1800:
-                    entry[2].cancelled.set(); del self.jobs[key]
+                    entry[2].cancelled.set()
+                    del self.jobs[key]
                     self.restored_deadlines.pop(key, None)
                 elif entry[0] == actor and entry[2].history_id == run.history_id:
                     return key

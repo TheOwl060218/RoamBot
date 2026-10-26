@@ -19,15 +19,18 @@ MAP_FIELDS = (
 
 
 def metadata_only(requirements):
-    required = [r for r in requirements if r.role == "condition" and r.scope == "place"
-                and r.importance == "required"]
+    required = [
+        r
+        for r in requirements
+        if r.role == "condition" and r.scope == "place" and r.importance == "required"
+    ]
     return bool(required) and all(r.map_field and r.map_field != "name_and_type" for r in required)
 
 
 def can_evaluate_map(run):
     return metadata_only(run.plan.requirements) or (
-        bool(run.reviewer) and (bool(run.plan.requirements)
-                               or bool(getattr(run.model, "source_first", False)))
+        bool(run.reviewer)
+        and (bool(run.plan.requirements) or bool(getattr(run.model, "source_first", False)))
     )
 
 

@@ -45,11 +45,15 @@ def test_native_planner_selects_tasks_without_http_or_identity_parameters():
     assert http.body["parallel_tool_calls"] is True
 
 
-@pytest.mark.parametrize('configured, expected', [(7, 20), (35, 35)])
-def test_business_planning_has_time_for_tool_catalog_without_shortening_custom_timeout(configured, expected):
-    http = Http({'tool_calls': [call('navigate', {'page': 'explore'})]})
+@pytest.mark.parametrize("configured, expected", [(7, 20), (35, 35)])
+def test_business_planning_has_time_for_tool_catalog_without_shortening_custom_timeout(
+    configured, expected
+):
+    http = Http({"tool_calls": [call("navigate", {"page": "explore"})]})
     http._timeout = configured
-    plan_business_actions(http, 'fixture', 'fixture', None, SimpleNamespace(message='打开新推荐'), {})
+    plan_business_actions(
+        http, "fixture", "fixture", None, SimpleNamespace(message="打开新推荐"), {}
+    )
     assert http.timeout == expected
 
 
@@ -147,19 +151,49 @@ def test_ambiguous_request_returns_question_without_mutations():
 
 
 def test_explicit_action_sequence_uses_structured_mode_instead_of_incidental_prose():
-    http = Http({'content': '需要根据选中的两个地点创建计划。', 'tool_calls': [call('plan_business_actions', {
-        'actions': [{'tool': 'create_plan_from_selection', 'arguments': {'name': '周末'}}], 'question': None})]})
-    result = plan_business_actions(http, 'fixture', 'fixture', None, SimpleNamespace(message='创建计划'), {})
-    assert result['question'] is None
-    assert [a['tool'] for a in result['actions']] == ['create_plan_from_selection']
-    assert 'content' not in result
+    http = Http(
+        {
+            "content": "需要根据选中的两个地点创建计划。",
+            "tool_calls": [
+                call(
+                    "plan_business_actions",
+                    {
+                        "actions": [
+                            {"tool": "create_plan_from_selection", "arguments": {"name": "周末"}}
+                        ],
+                        "question": None,
+                    },
+                )
+            ],
+        }
+    )
+    result = plan_business_actions(
+        http, "fixture", "fixture", None, SimpleNamespace(message="创建计划"), {}
+    )
+    assert result["question"] is None
+    assert [a["tool"] for a in result["actions"]] == ["create_plan_from_selection"]
+    assert "content" not in result
 
 
-@pytest.mark.parametrize('calls', [
-    [call('favorite_place', {'place': 2})],
-    [call('plan_business_actions', {'actions': [{'tool': 'favorite_place', 'arguments': {'place': 2}}]})],
-])
+@pytest.mark.parametrize(
+    "calls",
+    [
+        [call("favorite_place", {"place": 2})],
+        [
+            call(
+                "plan_business_actions",
+                {"actions": [{"tool": "favorite_place", "arguments": {"place": 2}}]},
+            )
+        ],
+    ],
+)
 def test_prose_with_actions_without_explicit_structured_mode_remains_rejected(calls):
     with pytest.raises(ProviderError):
-        plan_business_actions(Http({'content': '你确定吗？', 'tool_calls': calls}),
-            'fixture', 'fixture', None, SimpleNamespace(message='收藏'), {})
+        plan_business_actions(
+            Http({"content": "你确定吗？", "tool_calls": calls}),
+            "fixture",
+            "fixture",
+            None,
+            SimpleNamespace(message="收藏"),
+            {},
+        )

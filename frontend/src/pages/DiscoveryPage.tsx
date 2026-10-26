@@ -21,7 +21,10 @@ import { DiscoveryComparison } from '../features/discovery/DiscoveryComparison'
 import { DiscoveryPlanControl } from '../features/discovery/DiscoveryPlanControl'
 import { DiscoveryFavoriteControl } from '../features/discovery/DiscoveryFavoriteControl'
 import { DiscoveryMapCard } from '../features/discovery/DiscoveryMapCard'
-import { activityLabel, arrivalCoordinate, placeArea, placeType, routeLabel } from '../features/discovery/discoveryPresentation'
+import { PlaceTypeArtwork } from '../components/PlaceTypeArtwork'
+import { PlaceGuideLink } from '../components/PlaceGuideLink'
+import { AmapLogo } from '../components/AmapLogo'
+import { activityLabel, discoveryTitle, arrivalCoordinate, placeArea, placeType, routeLabel } from '../features/discovery/discoveryPresentation'
 import { useSessionMessages } from '../features/commands/useSessionMessages'
 import { readSavedDiscovery, restoreDiscoveryResult, saveDiscoveryReference } from '../features/discovery/restoreDiscoveryResult'
 import { AddToItinerary } from '../features/itineraries/ItineraryProvider'
@@ -53,6 +56,7 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
   const [restoreFailed, setRestoreFailed] = useState(false)
   const [requestText, setRequestText] = useState(initialMessage ?? incoming?.discoveryMessage ?? '')
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [railControls, setRailControls] = useState<HTMLDivElement | null>(null)
   const [location, setLocation] = useState<Coordinate | undefined>()
   const [locationDetails, setLocationDetails] = useState<DiscoveryLocationDetails | undefined>()
   const [locationError, setLocationError] = useState('')
@@ -430,10 +434,11 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
     address: card.place.address, coordinate: arrivalCoordinate(card),
   }, card })), [job?.cards])
   const landing = !requestText && !job && !messages.length && !busy && !locating
+  const heading = discoveryTitle(requestText, job?.display_title, job?.conversation, job?.context.region)
   return <div ref={workspaceRef} className='discovery-workspace' data-landing={landing} data-home-entry={!!incoming?.homeEntry}>
     <div className='discovery-browse' data-command-scroll tabIndex={0} aria-label='推荐内容'>
     <header className='discovery-intro'>
-      <h1><span data-discovery-motion>{requestText || '想去哪儿？'}</span></h1>
+      <h1 data-long-request={Array.from(heading).length > 22}><span data-discovery-motion>{heading}</span></h1>
       <div className='discovery-context'>
         {!landing && <DiscoveryLocationPill
           position={job?.position} fallback={job?.center_name} locating={locating} error={locationError}
@@ -453,7 +458,7 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
     <div className='discovery-results'>
     <DiscoveryWaiting active={busy && !job?.cards.length} stage={job?.stage || '正在理解这次想法…'}
       runId={jobId} notes={job?.id === jobId ? job?.progress_notes : undefined} />
-    <DiscoveryRail resetKey={job?.id} focusRequest={railFocus} actions={!!job?.cards.length && <>
+    <DiscoveryRail resetKey={job?.id} focusRequest={railFocus} controlsTarget={railControls} actions={!!job?.cards.length && <>
       <button type='button' className='text-button discovery-explore-button' title='保持当前想法，优先换成已找到但还没展示的地点'
         disabled={busy || locating || !!assistant?.busy} onClick={() => explore('batch')}>换一批</button>
       <button type='button' className='text-button discovery-explore-button' title='保持当前想法，探索其他区域；可能需要重新检索'
@@ -496,6 +501,7 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
       </div>
     </div>}
     </div>
+    <div className='discovery-results-toolbar' ref={setRailControls} />
     <div className='discovery-input' data-history-open={historyOpen}>
       {!landing && <>
       {chatStorageUnavailable && <p role='status'>当前浏览器无法保存聊天，刷新前请保留需要的内容。</p>}
@@ -513,19 +519,24 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
         suggestions={landing ? ['去公园散步', '去湖边走走', '找家书店逛逛'] : undefined} />
       {assistant?.resultLink && <a className='text-button' href={assistant.resultLink} target='_blank' rel='noreferrer'>打开刚生成的链接</a>}
     </div>
-    {detailId === comparisonId && <OverlayHost label='地点对比' onClose={layers.close} panelClassName='discovery-detail glass-panel' accessory={chat}>
+    {detailId === comparisonId && <OverlayHost label='地点对比' onClose={layers.close} className='discovery-detail-overlay' panelClassName='discovery-detail glass-panel' accessory={chat}>
       <button className='icon-button discovery-close' aria-label='返回推荐' onClick={layers.close}><X size={20} /></button>
       <h2>地点对比</h2><DiscoveryComparison cards={job?.cards.filter(card => selectedIds.includes(card.place.id)) ?? []} onOpen={layers.open} />
     </OverlayHost>}
-    {selected && <OverlayHost label={`${selected.place.name}详情`} onClose={layers.close} panelClassName='discovery-detail glass-panel' accessory={chat}>
+    {selected && <OverlayHost label={`${selected.place.name}详情`} onClose={layers.close} className='discovery-detail-overlay' panelClassName='discovery-detail glass-panel' accessory={chat}>
       <button className='icon-button discovery-close' aria-label='返回推荐' onClick={layers.close}><X size={20} /></button>
-      <h2>{selected.place.name}</h2>
-      <p>{placeArea(selected)}</p>
-      {activityLabel(selected) && <p className='discovery-activity'>{activityLabel(selected)}</p>}
-      <div className='discovery-facts'><RouteFact card={selected} /></div>
-      <div className='item-actions'><button type='button' className='text-button' data-studio-map-trigger onClick={() => { setMapFocusId(selected.place.id); layers.openMap() }}>查看位置</button>
-        <DiscoveryFavoriteControl key={`${selected.place.id}:${user?.username ?? 'guest'}`} card={selected} source={job?.source ?? 'live'} /></div>
+      <header className='discovery-detail-heading'>
+        <div><h2>{selected.place.name}</h2>
+          <p className='discovery-detail-area'>{placeArea(selected)}</p>
+          {activityLabel(selected) && <p className='discovery-detail-activity'>{activityLabel(selected)}</p>}
+          {routeLabel(selected) && <div className='discovery-facts'><RouteFact card={selected} /></div>}
+        </div>
+        <PlaceTypeArtwork typeName={selected.place.map_type} />
+      </header>
       <DiscoveryCardDetails card={selected} />
+      <footer className='discovery-detail-actions'><button type='button' className='text-button' data-studio-map-trigger onClick={() => { setMapFocusId(selected.place.id); layers.openMap() }}><AmapLogo />查看位置</button>
+        <PlaceGuideLink name={selected.place.name} city={selected.place.city} />
+        <DiscoveryFavoriteControl key={`${selected.place.id}:${user?.username ?? 'guest'}`} card={selected} source={job?.source ?? 'live'} /></footer>
     </OverlayHost>}
     {mapVisible && !!mapItems.length && <LocationMapDialog items={mapItems} selectedId={mapFocusId ?? selected?.place.id ?? mapItems[0].destination.provider_id}
       title={detailId === mapOverviewId ? '推荐地图' : '景点位置'}

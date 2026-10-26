@@ -5,6 +5,7 @@ import { amapPlaceUrl, amapSearchUrl } from './amapLink'
 
 import type { RecommendationItem } from '../../api/types'
 import { DailyWeatherList } from './DailyWeatherList'
+import { AmapLogo } from '../../components/AmapLogo'
 import { useBusinessAssistant, useCommandTarget } from '../commands/commandContext'
 import {
   distanceMatchLabel,
@@ -67,7 +68,7 @@ export function PlaceDetail({ item, onFavorite, isFavorite = false, favoritePend
           <h2>{destination.name}</h2>
           <p className="destination-address"><MapPin aria-hidden="true" size={16} />{destination.address}</p>
           <div className="place-map-actions">
-            <button className="text-button place-map-link" type="button" onClick={() => setMapOpen(true)} title="在本页查看景点位置"><MapPin aria-hidden="true" size={15} />查看位置</button>
+            <button className="text-button place-map-link" type="button" onClick={() => setMapOpen(true)} title="在本页查看景点位置"><AmapLogo />查看位置</button>
             {mapUrl && <a className="text-button place-map-link" href={amapSearchUrl(destination.name, destination.city)} target="_blank" rel="noopener noreferrer" title="在高德查看地点"><ExternalLink aria-hidden="true" size={15} />打开高德</a>}
           </div>
         </div>

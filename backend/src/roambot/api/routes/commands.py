@@ -16,8 +16,8 @@ from roambot.api.dependencies import (
 )
 from roambot.api.errors import error_response
 from roambot.domain.business_tools import (
-    TOOL_CATALOG,
     INTAKE_TOOLS,
+    TOOL_CATALOG,
     Action,
     BusinessPlan,
     CommandRequest,
@@ -93,15 +93,26 @@ def intake_plan(request, actor, body):
         if run is None:
             raise LookupError()
     except LookupError:
-        raise BusinessFailure("intake_not_found", "本轮操作理解已失效，请重新发送。", status=404) from None
+        raise BusinessFailure(
+            "intake_not_found", "本轮操作理解已失效，请重新发送。", status=404
+        ) from None
     plan = getattr(run, "plan", None)
-    expected = {"focused_id": body.context.focused_id,
-        "selected_ids": body.context.selected_ids, "layer": body.context.layer or "results"}
-    if (not plan or plan.intent != "business" or run.status != "completed"
+    expected = {
+        "focused_id": body.context.focused_id,
+        "selected_ids": body.context.selected_ids,
+        "layer": body.context.layer or "results",
+    }
+    if (
+        not plan
+        or plan.intent != "business"
+        or run.status != "completed"
         or run.body.message != body.message
         or run.body.previous_id != body.context.discovery_job_id
-        or run.body.view.model_dump() != expected):
-        raise BusinessFailure("intake_context_changed", "结果或页面层级已变化，请重新发送。", status=409)
+        or run.body.view.model_dump() != expected
+    ):
+        raise BusinessFailure(
+            "intake_context_changed", "结果或页面层级已变化，请重新发送。", status=409
+        )
     if not plan.business_plan:
         return None  # Complex tasks retain the complete business planner.
     selected = BusinessPlan.model_validate(plan.business_plan.model_dump())
@@ -168,7 +179,8 @@ async def propose(
         for action in plan.actions:
             action.validated_arguments()
             if body.context.discovery_job_id and action.tool in {
-                "update_search_conditions", "run_recommendation"
+                "update_search_conditions",
+                "run_recommendation",
             }:
                 # These legacy tasks expect scored recommendation snapshots. Never
                 # redirect a new discovery silently or act on its pre-query objects.
@@ -182,8 +194,14 @@ async def propose(
                 "run_recommendation",
                 "join_plan",
                 "describe_capabilities",
-                'create_itinerary', 'open_itinerary', 'show_itinerary_map', 'add_to_itinerary', 'edit_itinerary',
-                'move_itinerary_stop', 'remove_itinerary_stop', 'generate_itinerary',
+                "create_itinerary",
+                "open_itinerary",
+                "show_itinerary_map",
+                "add_to_itinerary",
+                "edit_itinerary",
+                "move_itinerary_stop",
+                "remove_itinerary_stop",
+                "generate_itinerary",
             }
             guest_vote = action.tool == "submit_vote" and body.context.invite_token
             if (

@@ -1,13 +1,20 @@
-from types import SimpleNamespace
 import time
+from types import SimpleNamespace
 
 from test_history import register
 
 from roambot.api.routes.discovery import get_discovery_factory
 from roambot.config import Settings
-from roambot.domain.discovery import DiscoveryRequest, RetrievalPlan, SearchContext, VenueSelection, GroundedBatch, BatchReview
-from roambot.persistence.discovery_cache import DiscoveryCache
+from roambot.domain.discovery import (
+    BatchReview,
+    DiscoveryRequest,
+    GroundedBatch,
+    RetrievalPlan,
+    SearchContext,
+    VenueSelection,
+)
 from roambot.domain.discovery_snapshot import StoredCard
+from roambot.persistence.discovery_cache import DiscoveryCache
 from roambot.providers.amap import AMapProvider
 from roambot.services.discovery_orchestrator import DiscoveryOrchestrator
 from roambot.services.discovery_workflow import DiscoveryWorkflow
@@ -15,10 +22,17 @@ from roambot.services.discovery_workflow import DiscoveryWorkflow
 
 def request_for(tmp_path, mode):
     amap = object.__new__(AMapProvider)
-    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(
-        provider_runtime=SimpleNamespace(_adapters=SimpleNamespace(places=amap)),
-        settings=Settings(data_dir=tmp_path, discovery_search_api_key="controlled-not-a-real-key"),
-        discovery_orchestration_mode=mode)))
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                provider_runtime=SimpleNamespace(_adapters=SimpleNamespace(places=amap)),
+                settings=Settings(
+                    data_dir=tmp_path, discovery_search_api_key="controlled-not-a-real-key"
+                ),
+                discovery_orchestration_mode=mode,
+            )
+        )
+    )
     bundle = SimpleNamespace(assistant=SimpleNamespace(_model="unchanged-test-model"), weather=None)
     return request, bundle
 
@@ -43,43 +57,90 @@ def test_legacy_factory_is_retained_for_comparison(tmp_path):
 
 
 def controlled_factory(folder, *, business=False):
-    places = [{"id": f"amap:coordinated{i}", "name": name, "city": "苏州", "address": "测试地址",
-               "map_type": "受控测试场所", "coordinate": {"longitude": 120, "latitude": 31, "system": "gcj02"},
-               "map_url": f"https://www.amap.com/detail/coordinated{i}", "facts": {}}
-              for i, name in enumerate(("受控书店", "受控湖边"), 1)]
-    sources = [{"title": p["name"] + "介绍", "url": f"https://example.org/{p['id']}",
-                "kind": "web_page", "excerpt": p["name"] + "具有明确公开资料，可供参观休息，属于受控测试。"}
-               for p in places]
+    places = [
+        {
+            "id": f"amap:coordinated{i}",
+            "name": name,
+            "city": "苏州",
+            "address": "测试地址",
+            "map_type": "受控测试场所",
+            "coordinate": {"longitude": 120, "latitude": 31, "system": "gcj02"},
+            "map_url": f"https://www.amap.com/detail/coordinated{i}",
+            "facts": {},
+        }
+        for i, name in enumerate(("受控书店", "受控湖边"), 1)
+    ]
+    sources = [
+        {
+            "title": p["name"] + "介绍",
+            "url": f"https://example.org/{p['id']}",
+            "kind": "web_page",
+            "excerpt": p["name"] + "具有明确公开资料，可供参观休息，属于受控测试。",
+        }
+        for p in places
+    ]
     calls = []
 
     def plan(*args):
         calls.append("plan")
-        return RetrievalPlan(context=SearchContext(region="苏州"), goal="受控测试",
-            intent="business" if business else "search", map_queries=["受控场所"], web_queries=["受控资料"],
-            business_plan={"actions": [{"tool": "close_layer", "arguments": {}}]} if business else None)
+        return RetrievalPlan(
+            context=SearchContext(region="苏州"),
+            goal="受控测试",
+            intent="business" if business else "search",
+            map_queries=["受控场所"],
+            web_queries=["受控资料"],
+            business_plan={"actions": [{"tool": "close_layer", "arguments": {}}]}
+            if business
+            else None,
+        )
 
     def search(query):
         calls.append("search")
         return sources
 
-    model = SimpleNamespace(version="controlled-api-model", plan=plan,
-        nominate=lambda *args: VenueSelection(venues=[{"name": p["name"], "place_id": p["id"]} for p in places]),
-        compose=lambda conversation, goal, context, candidates: GroundedBatch(cards=[{
-            "place_id": c["place"]["id"], "experience": "受控休闲", "reason": "来自真实结构的受控测试资料，验证发布与归档链路，不调用真实Provider。",
-            "evidence_ids": [s["id"] for s in c["sources"] if s["kind"] == "web_page"][:1]}
-            for c in candidates]))
+    model = SimpleNamespace(
+        version="controlled-api-model",
+        plan=plan,
+        nominate=lambda *args: VenueSelection(
+            venues=[{"name": p["name"], "place_id": p["id"]} for p in places]
+        ),
+        compose=lambda conversation, goal, context, candidates: GroundedBatch(
+            cards=[
+                {
+                    "place_id": c["place"]["id"],
+                    "experience": "受控休闲",
+                    "reason": "来自真实结构的受控测试资料，验证发布与归档链路，不"
+                    "调用真实Provider。",
+                    "evidence_ids": [s["id"] for s in c["sources"] if s["kind"] == "web_page"][:1],
+                }
+                for c in candidates
+            ]
+        ),
+    )
 
     def factory(body, previous):
-        return DiscoveryOrchestrator(body, SimpleNamespace(search=lambda *args: places), None,
-            SimpleNamespace(search=search), model, DiscoveryCache(folder / "facts.sqlite3"), "",
-            previous, source="demo", batch_reviewer=lambda conversation, context, cards: BatchReview(
-                approved_ids=[c["place"]["id"] for c in cards], rejected=[]))
+        return DiscoveryOrchestrator(
+            body,
+            SimpleNamespace(search=lambda *args: places),
+            None,
+            SimpleNamespace(search=search),
+            model,
+            DiscoveryCache(folder / "facts.sqlite3"),
+            "",
+            previous,
+            source="demo",
+            batch_reviewer=lambda conversation, context, cards: BatchReview(
+                approved_ids=[c["place"]["id"] for c in cards], rejected=[]
+            ),
+        )
+
     return factory, calls
 
 
 def start_controlled(client, csrf):
-    response = client.post("/api/v1/discovery/jobs", headers={"X-CSRF-Token": csrf},
-                           json={"message": "受控测试"})
+    response = client.post(
+        "/api/v1/discovery/jobs", headers={"X-CSRF-Token": csrf}, json={"message": "受控测试"}
+    )
     assert response.status_code == 200
     key = response.json()["id"]
     for _ in range(100):
@@ -109,7 +170,9 @@ def test_coordinated_job_archives_once_and_restores_without_provider(auth_api_fi
     assert all(c["reviewed"] is True for c in snapshot["cards"])
     before = list(calls)
     client.app.state.discovery_jobs.jobs.pop(key)
-    restored = client.post("/api/v1/discovery/history/" + snapshot["history_id"] + "/restore", headers=headers)
+    restored = client.post(
+        "/api/v1/discovery/history/" + snapshot["history_id"] + "/restore", headers=headers
+    )
     assert restored.status_code == 200 and restored.json()["cards"] == expected
     assert calls == before
 

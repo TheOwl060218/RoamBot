@@ -1,0 +1,62 @@
+default:
+  image: docker:29-cli
+  services:
+    - name: docker:29-dind
+      command: ["--tls=false"]
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_BUILDKIT: "1"
+
+stages:
+  - test
+  - build
+
+unit-test:
+  stage: test
+  script:
+    - docker build --progress=plain -f ci/Dockerfile -t "roambot-ci:${CI_COMMIT_SHA}" .
+    - >-
+      docker run --rm --network none
+      -e ROAMBOT_PROVIDER_MODE=mock
+      -e ROAMBOT_DEMO_MODE=true
+      -e NO_PROXY=127.0.0.1,localhost
+      "roambot-ci:${CI_COMMIT_SHA}"
+
+docker-build:
+  stage: build
+  needs: ["unit-test"]
+  script:
+    - docker build --progress=plain -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}" .
+    - >-
+      docker run --rm -d
+      --name "roambot-smoke-${CI_JOB_ID}"
+      -e ROAMBOT_PROVIDER_MODE=mock
+      -e ROAMBOT_DEMO_MODE=true
+      "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}"
+    - |
+      for attempt in $(seq 1 30); do
+        status="$(docker inspect --format '{{.State.Health.Status}}' "roambot-smoke-${CI_JOB_ID}" 2>/dev/null || true)"
+        if [ "$status" = "healthy" ]; then
+          break
+        fi
+        if [ "$status" = "unhealthy" ] || [ "$attempt" = "30" ]; then
+          docker logs "roambot-smoke-${CI_JOB_ID}"
+          exit 1
+        fi
+        sleep 1
+      done
+    - >-
+      docker exec "roambot-smoke-${CI_JOB_ID}"
+      python -c "import json,urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3)); assert data=={'status':'ready'}"
+    - docker stop "roambot-smoke-${CI_JOB_ID}"
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}" "${CI_REGISTRY_IMAGE}:latest"
+        docker push "${CI_REGISTRY_IMAGE}:latest"
+      fi
+  after_script:
+    - docker rm -f "roambot-smoke-${CI_JOB_ID}" 2>/dev/null || true

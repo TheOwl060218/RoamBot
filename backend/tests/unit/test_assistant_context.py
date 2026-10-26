@@ -11,8 +11,9 @@ def test_signed_context_expiry_and_size():
     now = datetime(2026, 10, 10, tzinfo=UTC)
     clock = [now]
     signer = AssistantContextSigner(b"a" * 32, lambda: clock[0])
-    result = RecommendationResponse(items=[], source_state={"kind": "demo"},
-                                    generated_at=now.isoformat())
+    result = RecommendationResponse(
+        items=[], source_state={"kind": "demo"}, generated_at=now.isoformat()
+    )
     token = signer.issue(result)
     assert signer.verify(token).candidates == []
     with pytest.raises(ValueError):

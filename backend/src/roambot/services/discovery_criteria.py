@@ -18,9 +18,12 @@ def collection_assessments(criteria, assessments, available_ids):
     result = {}
     for assessment in assessments:
         index = assessment.requirement
-        if (index not in indices or index in result
-                or len(assessment.place_ids) != len(set(assessment.place_ids))
-                or not set(assessment.place_ids) <= set(available_ids)):
+        if (
+            index not in indices
+            or index in result
+            or len(assessment.place_ids) != len(set(assessment.place_ids))
+            or not set(assessment.place_ids) <= set(available_ids)
+        ):
             raise ValueError("整组判断必须引用真实的整组要求和已通过地点，不能重复或跨组借用。")
         result[index] = assessment.model_dump()
     return result
@@ -30,8 +33,11 @@ def supported_criteria(
     criteria, supports, passages, place_id, *, allow_business_inference=False, cited_ids=()
 ):
     by_index = {r["index"]: r for r in criteria}
-    required = {i for i, r in by_index.items()
-                if is_place_condition(r) and r.get("importance", "required") == "required"}
+    required = {
+        i
+        for i, r in by_index.items()
+        if is_place_condition(r) and r.get("importance", "required") == "required"
+    }
     supplied = [s.requirement for s in supports]
     if (
         len(supplied) != len(set(supplied))

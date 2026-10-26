@@ -78,8 +78,10 @@ def select_retrieved_places(query_results, *, limit=12, preserve_provider_order=
     category match must not exhaust the window ahead of all other retrievals.
     Rank within each query, then merge unique entities in stable rounds.
     """
-    groups = [places[:limit] if preserve_provider_order else select_places(places, [query], limit=limit)
-              for query, places in query_results]
+    groups = [
+        places[:limit] if preserve_provider_order else select_places(places, [query], limit=limit)
+        for query, places in query_results
+    ]
     selected, seen = [], set()
     for offset in range(max((len(group) for group in groups), default=0)):
         for group in groups:

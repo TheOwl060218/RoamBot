@@ -1,4 +1,5 @@
 """Attribution and field meaning, not a substitute for recommendation quality."""
+
 import copy
 
 import pytest
@@ -7,13 +8,37 @@ from roambot.services.discovery_task_evidence import project_fact, task_model_fa
 
 
 def card():
-    return {"place": {"id": "actual"}, "sources": [
-        {"id": "hours", "place_id": "actual", "kind": "map_record",
-         "field": "opentime_week", "value": "周一至周日 00:00-24:00"},
-        {"id": "spend", "place_id": "actual", "kind": "map_record", "field": "cost", "value": "81.00"},
-        {"id": "page", "place_id": "actual", "kind": "web_page", "excerpt": "开放街道可免费进入，室内展馆另计。"},
-        {"id": "route", "place_id": "actual", "kind": "measure_routes", "facts": {"distance_km": 2}},
-    ]}
+    return {
+        "place": {"id": "actual"},
+        "sources": [
+            {
+                "id": "hours",
+                "place_id": "actual",
+                "kind": "map_record",
+                "field": "opentime_week",
+                "value": "周一至周日 00:00-24:00",
+            },
+            {
+                "id": "spend",
+                "place_id": "actual",
+                "kind": "map_record",
+                "field": "cost",
+                "value": "81.00",
+            },
+            {
+                "id": "page",
+                "place_id": "actual",
+                "kind": "web_page",
+                "excerpt": "开放街道可免费进入，室内展馆另计。",
+            },
+            {
+                "id": "route",
+                "place_id": "actual",
+                "kind": "measure_routes",
+                "facts": {"distance_km": 2},
+            },
+        ],
+    }
 
 
 def test_projection_preserves_field_meaning_instead_of_turning_hours_or_spend_into_admission():

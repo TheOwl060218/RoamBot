@@ -71,9 +71,8 @@ def test_waiting_gate_is_cancellable_and_has_no_nested_wait():
     gate = ModelGate(1)
     budget = ExecutionBudget(threading.Event(), time.monotonic() + 2)
     with gate.slot(budget, priority=0):
-        with pytest.raises(RuntimeError, match="nested"):
-            with gate.slot(budget, priority=0):
-                pass
+        with pytest.raises(RuntimeError, match="nested"), gate.slot(budget, priority=0):
+            pass
         waiting = ExecutionBudget(threading.Event(), time.monotonic() + 2)
         with ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(lambda: _enter_gate(gate, waiting))
@@ -113,8 +112,14 @@ def test_gate_prioritizes_first_batch_over_waiting_background():
 def test_unknown_usage_is_not_zero():
     trace = ExecutionTrace()
     trace.record("composition", 1.0, 2.0, batch=0, usage=None)
-    trace.record("review", 1.5, 2.5, batch=0, queue_ms=10,
-                 usage={"prompt_tokens": 30, "completion_tokens": 10})
+    trace.record(
+        "review",
+        1.5,
+        2.5,
+        batch=0,
+        queue_ms=10,
+        usage={"prompt_tokens": 30, "completion_tokens": 10},
+    )
     snapshot = trace.snapshot()
     assert snapshot["model_usage"] is None
     assert snapshot["known_model_usage"] == {"prompt_tokens": 30, "completion_tokens": 10}

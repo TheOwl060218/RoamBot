@@ -10,9 +10,13 @@ from uuid import uuid4
 from sqlalchemy import delete, select, text, update
 from sqlalchemy.exc import IntegrityError
 
+from roambot.domain.discovery_snapshot import (
+    DiscoveryArchive,
+    DiscoveryArchiveRequest,
+    DiscoveryPlanSnapshot,
+)
 from roambot.domain.models import Coordinate, DailyWeather, SceneryType
 from roambot.domain.scoring import score_daily_weather
-from roambot.domain.discovery_snapshot import DiscoveryArchive, DiscoveryArchiveRequest, DiscoveryPlanSnapshot
 from roambot.persistence.tables import (
     HistoryTable,
     PlanAcceptableTable,
@@ -27,7 +31,11 @@ from roambot.persistence.tables import (
 )
 from roambot.providers.protocols import ProviderError
 from roambot.security.sessions import hash_token, new_token
-from roambot.services.personal_data import _origin_labels, _remove_private_strings, public_discovery_snapshot
+from roambot.services.personal_data import (
+    _origin_labels,
+    _remove_private_strings,
+    public_discovery_snapshot,
+)
 from roambot.services.snapshot_metadata import display_city
 
 CHINA = timezone(timedelta(hours=8))
@@ -217,27 +225,63 @@ class PlanService:
         available = {c.place.id: c for c in result.cards}
         if any(cid not in available for cid in body.candidate_ids):
             raise PlanError("candidate_not_in_history", "所选候选不在本次历史中。")
-        public = public_discovery_snapshot(query.model_dump(mode="json"), result.model_dump(mode="json"), user_id)
-        public_cards = {c.place.id: p for c, p in zip(result.cards, public['cards'], strict=True)}
+        public = public_discovery_snapshot(
+            query.model_dump(mode="json"), result.model_dump(mode="json"), user_id
+        )
+        public_cards = {c.place.id: p for c, p in zip(result.cards, public["cards"], strict=True)}
         city = "、".join(dict.fromkeys(available[cid].place.city for cid in body.candidate_ids))
-        plan = TravelPlanTable(id=str(uuid4()), owner_user_id=user_id,
+        plan = TravelPlanTable(
+            id=str(uuid4()),
+            owner_user_id=user_id,
             name=body.name or plan_name(city, start.isoformat(), end.isoformat(), today.year),
-            city=city, start_date=start.isoformat(), end_date=end.isoformat(),
-            expected_count=body.expected_count or 1, status="voting", created_at=now, updated_at=now)
-        db.add(plan); db.flush()
+            city=city,
+            start_date=start.isoformat(),
+            end_date=end.isoformat(),
+            expected_count=body.expected_count or 1,
+            status="voting",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(plan)
+        db.flush()
         for position, cid in enumerate(body.candidate_ids):
             card = available[cid]
             public_card = public_cards[cid]
-            weather = public_card['weather'] or []
-            weather = [day for day in weather if start.isoformat() <= day['date'] <= end.isoformat()]
-            snapshot = DiscoveryPlanSnapshot(destination=public_card['place'], experience=public_card['experience'],
-                reason=public_card['reason'], sources=public_card['sources'], weather=weather, source=result.source)
-            db.add(PlanCandidateTable(id=str(uuid4()), plan_id=plan.id, provider_id=cid, position=position,
-                snapshot_json=snapshot.model_dump_json(), longitude=card.place.coordinate.longitude,
-                latitude=card.place.coordinate.latitude))
+            weather = public_card["weather"] or []
+            weather = [
+                day for day in weather if start.isoformat() <= day["date"] <= end.isoformat()
+            ]
+            snapshot = DiscoveryPlanSnapshot(
+                destination=public_card["place"],
+                experience=public_card["experience"],
+                reason=public_card["reason"],
+                sources=public_card["sources"],
+                weather=weather,
+                source=result.source,
+            )
+            db.add(
+                PlanCandidateTable(
+                    id=str(uuid4()),
+                    plan_id=plan.id,
+                    provider_id=cid,
+                    position=position,
+                    snapshot_json=snapshot.model_dump_json(),
+                    longitude=card.place.coordinate.longitude,
+                    latitude=card.place.coordinate.latitude,
+                )
+            )
         user = db.get(UserTable, user_id)
-        db.add(PlanParticipantTable(id=str(uuid4()), plan_id=plan.id, user_id=user_id,
-            nickname=user.username, normalized_nickname=normalized(user.username), role="owner", joined_at=now))
+        db.add(
+            PlanParticipantTable(
+                id=str(uuid4()),
+                plan_id=plan.id,
+                user_id=user_id,
+                nickname=user.username,
+                normalized_nickname=normalized(user.username),
+                role="owner",
+                joined_at=now,
+            )
+        )
         db.flush()
         return self.serialize(db, plan)
 
@@ -505,7 +549,8 @@ class PlanService:
             previous = self.weather_checks(db, plan)
             self.require_weather_check(plan, previous, now)
             candidates = [
-                c for c in self.candidates(db, plan)
+                c
+                for c in self.candidates(db, plan)
                 if plan.status != "decided" or c.provider_id == plan.final_candidate_id
             ]
             original_dates = (plan.start_date, plan.end_date)
@@ -527,9 +572,16 @@ class PlanService:
             ]
             before = weather_risk(baseline, tags) if baseline and not discovery else None
             row = PlanWeatherCheckTable(
-                id=str(uuid4()), plan_id=plan_id, candidate_id=candidate.id,
-                triggered_by=user_id, checked_at=now, status="failed", source="unavailable",
-                weather_json=None, risk=None, change="unavailable",
+                id=str(uuid4()),
+                plan_id=plan_id,
+                candidate_id=candidate.id,
+                triggered_by=user_id,
+                checked_at=now,
+                status="failed",
+                source="unavailable",
+                weather_json=None,
+                risk=None,
+                change="unavailable",
             )
             try:
                 days = bundle.weather.daily(
@@ -556,13 +608,13 @@ class PlanService:
             now = self.clock()
             self.require_weather_check(plan, self.weather_checks(db, plan), now)
             current_ids = {
-                c.id for c in self.candidates(db, plan)
+                c.id
+                for c in self.candidates(db, plan)
                 if plan.status != "decided" or c.provider_id == plan.final_candidate_id
             }
-            if (
-                (plan.start_date, plan.end_date) != original_dates
-                or not current_ids <= {r.candidate_id for r in rows}
-            ):
+            if (plan.start_date, plan.end_date) != original_dates or not current_ids <= {
+                r.candidate_id for r in rows
+            }:
                 raise PlanError("invalid_plan_transition", "计划已更改，请重新检查天气。", 409)
             for row in rows:
                 if row.candidate_id not in current_ids:
@@ -674,7 +726,8 @@ class PlanService:
             successful = next((c for c in relevant if c.status == "success"), None)
             weather = json.loads(successful.weather_json) if successful else None
             tags = frozenset(
-                SceneryType(tag) for tag in serialized["snapshot"]["destination"].get("scenery_tags", [])
+                SceneryType(tag)
+                for tag in serialized["snapshot"]["destination"].get("scenery_tags", [])
             )
             serialized["latest_weather"] = (
                 {
@@ -688,7 +741,8 @@ class PlanService:
                         score_daily_weather(DailyWeather.model_validate(day), tags).model_dump(
                             mode="json"
                         )
-                        for day in (weather or []) if serialized["snapshot"].get("schema_version") != "discovery-v1"
+                        for day in (weather or [])
+                        if serialized["snapshot"].get("schema_version") != "discovery-v1"
                     ],
                     "last_success_at": iso(successful.checked_at) if successful else None,
                 }

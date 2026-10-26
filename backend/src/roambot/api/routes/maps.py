@@ -6,6 +6,7 @@ from time import monotonic
 import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
+
 from roambot.providers.amap import AMapProvider
 
 router = APIRouter(prefix="/maps", tags=["maps"])
@@ -48,15 +49,15 @@ async def map_proxy(path: str, request: Request):
     if upstream is None:
         return Response(status_code=404)
     key, security_code = _credentials(request)
-    if path == 'v3/ip':
-        runtime = getattr(request.app.state, 'provider_runtime', None)
-        adapter = getattr(getattr(runtime, '_adapters', None), 'geocoder', None)
+    if path == "v3/ip":
+        runtime = getattr(request.app.state, "provider_runtime", None)
+        adapter = getattr(getattr(runtime, "_adapters", None), "geocoder", None)
         if not isinstance(adapter, AMapProvider):
             return Response(status_code=503)
         # Web-service endpoints require the existing server-side Web key,
         # not the public JavaScript SDK key/security-code pair.
-        key, security_code = adapter._api_key, ''
-    if not key or (path != 'v3/ip' and not security_code):
+        key, security_code = adapter._api_key, ""
+    if not key or (path != "v3/ip" and not security_code):
         return Response(status_code=503)
     if len(request.url.query) > 8192:
         return Response(status_code=400)
@@ -71,9 +72,9 @@ async def map_proxy(path: str, request: Request):
         return Response(status_code=429, headers={"Retry-After": "60"})
     calls.append(now)
     params = [(k, v) for k, v in request.query_params.multi_items() if k not in {"key", "jscode"}]
-    params.append(('key', key))
+    params.append(("key", key))
     if security_code:
-        params.append(('jscode', security_code))
+        params.append(("jscode", security_code))
     # Never forward client cookies/headers, follow redirects, or expose exceptions.
     try:
         async with (
@@ -95,7 +96,7 @@ async def map_proxy(path: str, request: Request):
                     return Response(status_code=502)
                 chunks.append(chunk)
             body = b"".join(chunks)
-            private_values = [security_code, key if path == 'v3/ip' else '']
+            private_values = [security_code, key if path == "v3/ip" else ""]
             if any(value and value.encode() in body for value in private_values):
                 return Response(status_code=502)
             return Response(

@@ -116,21 +116,39 @@ def test_frozen_direct_batch_contains_only_ids_and_never_publishes_unwritten_tex
 
 
 @pytest.mark.parametrize("used", [False, True])
-def test_direct_publication_does_not_label_every_retrieved_page_as_recommendation_basis(tmp_path, used):
+def test_direct_publication_does_not_label_every_retrieved_page_as_recommendation_basis(
+    tmp_path, used
+):
     run, ids, worker = prepared(tmp_path)
     name = run.places[ids[0]]["name"]
-    evidence = run.add_evidence(ids[0], {"kind": "web_page", "title": name + "相关资料",
-        "url": "https://example.org/retrieved", "excerpt": name + "的另一份已检索介绍，不自动证明推荐。"})
+    evidence = run.add_evidence(
+        ids[0],
+        {
+            "kind": "web_page",
+            "title": name + "相关资料",
+            "url": "https://example.org/retrieved",
+            "excerpt": name + "的另一份已检索介绍，不自动证明推荐。",
+        },
+    )
 
     def review(conversation, context, cards):
-        assert any(s["kind"] == "web_page" for c in cards
-                   if c["place"]["id"] == ids[0] for s in c["sources"])
+        assert any(
+            s["kind"] == "web_page"
+            for c in cards
+            if c["place"]["id"] == ids[0]
+            for s in c["sources"]
+        )
         result = observed_decision(context, cards)
         if used:
             observations = NativeBatchAssessment.model_validate(result.source_assessment)
             item = observations.assessments[0]
-            fragment = next(s["id"] for c in cards if c["place"]["id"] == item.place_id
-                            for s in c["sources"] if s["kind"] == "web_page")
+            fragment = next(
+                s["id"]
+                for c in cards
+                if c["place"]["id"] == item.place_id
+                for s in c["sources"]
+                if s["kind"] == "web_page"
+            )
             item.evidence_ids = [fragment]
             item.checks[0].evidence_ids = [fragment]
             return decide_assessment(observations, context, cards)
@@ -144,7 +162,9 @@ def test_direct_publication_does_not_label_every_retrieved_page_as_recommendatio
     card = next(c for c in run.cards if c["place"]["id"] == ids[0])
     assert (evidence["id"] in {source["id"] for source in card["sources"]}) is used
     assert any(source["kind"] == "map_record" for source in card["sources"])
-    assert evidence["id"] in run.evidence, "Do not delete retrieved evidence from the internal ledger"
+    assert evidence["id"] in run.evidence, (
+        "Do not delete retrieved evidence from the internal ledger"
+    )
 
 
 @pytest.mark.parametrize(
@@ -281,6 +301,7 @@ def test_parallel_direct_assessments_finalize_the_real_complete_collection_once(
     import threading
 
     from test_discovery_orchestrator import EightModel, build
+
     from roambot.domain.discovery_assessment import CollectionReview
 
     first_entered, tail_entered = threading.Event(), threading.Event()
@@ -309,8 +330,11 @@ def test_parallel_direct_assessments_finalize_the_real_complete_collection_once(
         ids = [c["place"]["id"] for c in cards]
         whole_lists.append(ids)
         assert len(ids) == 8 and run.gate.active == 1
-        return CollectionReview(collection_assessments=[
-            {"requirement": 2, "satisfied": True, "place_ids": ids, "note": "判断完整实际列表"}])
+        return CollectionReview(
+            collection_assessments=[
+                {"requirement": 2, "satisfied": True, "place_ids": ids, "note": "判断完整实际列表"}
+            ]
+        )
 
     model.assess_collection = final
     run = build(tmp_path, model=model, reviewer=review)

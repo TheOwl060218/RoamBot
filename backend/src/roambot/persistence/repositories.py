@@ -248,11 +248,14 @@ class PlaceRepository:
                 },
                 # Client-supplied favorite metadata cannot rewrite a place used by another user.
                 where=(
-                    ~select(FavoriteTable.id).where(
+                    ~select(FavoriteTable.id)
+                    .where(
                         FavoriteTable.place_id == PlaceTable.id,
                         FavoriteTable.user_id != favorite_user_id,
-                    ).exists()
-                    if favorite_user_id is not None else None
+                    )
+                    .exists()
+                    if favorite_user_id is not None
+                    else None
                 ),
             )
         )
@@ -287,9 +290,7 @@ class FavoriteRepository:
                 place_id=place_id,
                 created_at=_utc_for_write(created_at),
             )
-            .on_conflict_do_nothing(
-                index_elements=[FavoriteTable.user_id, FavoriteTable.place_id]
-            )
+            .on_conflict_do_nothing(index_elements=[FavoriteTable.user_id, FavoriteTable.place_id])
         )
         created = result.rowcount == 1
         row = self._owned_row(
@@ -394,9 +395,7 @@ class HistoryRepository:
         return result.rowcount == 1
 
     def clear_owned(self, user_id: str) -> int:
-        result = self._db.execute(
-            delete(HistoryTable).where(HistoryTable.user_id == user_id)
-        )
+        result = self._db.execute(delete(HistoryTable).where(HistoryTable.user_id == user_id))
         return result.rowcount
 
 
@@ -521,18 +520,12 @@ class CacheRepository:
         self._db.execute(
             statement.on_conflict_do_update(
                 index_elements=[ApiCacheTable.cache_key],
-                set_={
-                    key: value
-                    for key, value in values.items()
-                    if key != "cache_key"
-                },
+                set_={key: value for key, value in values.items() if key != "cache_key"},
             )
         )
 
     def delete(self, cache_key: str) -> None:
-        self._db.execute(
-            delete(ApiCacheTable).where(ApiCacheTable.cache_key == cache_key)
-        )
+        self._db.execute(delete(ApiCacheTable).where(ApiCacheTable.cache_key == cache_key))
 
     def delete_expired(self, now: datetime) -> int:
         result = self._db.execute(
@@ -554,11 +547,7 @@ def _utc_from_database(value: datetime) -> datetime:
 
 
 def _cache_utc(value: datetime) -> datetime:
-    if (
-        value.tzinfo is None
-        or value.utcoffset() is None
-        or value.utcoffset() != timedelta(0)
-    ):
+    if value.tzinfo is None or value.utcoffset() is None or value.utcoffset() != timedelta(0):
         raise ValueError("cache datetime must be aware UTC")
     return value.astimezone(UTC)
 
@@ -578,9 +567,7 @@ def _session_record(row: UserSessionTable) -> SessionRecord:
         user_id=row.user_id,
         csrf_hash=row.csrf_hash,
         expires_at=_utc_from_database(row.expires_at),
-        revoked_at=(
-            _utc_from_database(row.revoked_at) if row.revoked_at is not None else None
-        ),
+        revoked_at=(_utc_from_database(row.revoked_at) if row.revoked_at is not None else None),
     )
 
 
@@ -627,9 +614,7 @@ def _share_record(row: ShareTable) -> ShareRecord:
         history_id=row.history_id,
         token_hash=row.token_hash,
         created_at=_utc_from_database(row.created_at),
-        revoked_at=(
-            _utc_from_database(row.revoked_at) if row.revoked_at is not None else None
-        ),
+        revoked_at=(_utc_from_database(row.revoked_at) if row.revoked_at is not None else None),
     )
 
 

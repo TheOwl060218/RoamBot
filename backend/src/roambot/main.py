@@ -23,7 +23,8 @@ from roambot.api.routes.favorites import router as favorites_router
 from roambot.api.routes.health import router as health_router
 from roambot.api.routes.history import router as history_router
 from roambot.api.routes.itineraries import router as itineraries_router
-from roambot.api.routes.maps import router as maps_router, sdk_router as maps_sdk_router
+from roambot.api.routes.maps import router as maps_router
+from roambot.api.routes.maps import sdk_router as maps_sdk_router
 from roambot.api.routes.places import router as places_router
 from roambot.api.routes.plans import public_router as public_plans_router
 from roambot.api.routes.plans import router as plans_router
@@ -88,9 +89,11 @@ def create_app(
 
     app = FastAPI(title="RoamBot API", version="0.1.0", lifespan=lifespan)
     app.state.settings = configured_settings
+    app.state.discovery_orchestration_mode = configured_settings.discovery_orchestration_mode
     app.state.assistant_limiter = AssistantLimiter()
     app.state.assistant_context_signer = AssistantContextSigner(
-        token_bytes(32), lambda: datetime.now(UTC))
+        token_bytes(32), lambda: datetime.now(UTC)
+    )
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
     app.add_exception_handler(AuthApiError, auth_api_exception_handler)
     app.add_exception_handler(Exception, unexpected_exception_handler)

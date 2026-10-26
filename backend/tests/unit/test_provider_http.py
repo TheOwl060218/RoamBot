@@ -28,9 +28,12 @@ def assert_sanitized(text: str) -> None:
 
 def test_missing_llm_model_is_reported_as_configuration_failure():
     client = ProviderHttpClient(
-        httpx.Client(transport=httpx.MockTransport(
-            lambda _: httpx.Response(404, json={"error": SECRETS[2]})
-        )), provider="llm", base_url="https://provider.example.com/v1", secrets=SECRETS,
+        httpx.Client(
+            transport=httpx.MockTransport(lambda _: httpx.Response(404, json={"error": SECRETS[2]}))
+        ),
+        provider="llm",
+        base_url="https://provider.example.com/v1",
+        secrets=SECRETS,
     )
     with pytest.raises(ProviderError) as captured:
         client.post_json(operation="assistant_turn", path="chat/completions", json_body={})
@@ -96,10 +99,13 @@ def test_http_and_payload_failures_are_stable_and_sanitized(
 ) -> None:
     client = make_http(httpx.MockTransport(handler))
 
-    with caplog.at_level(
-        logging.INFO,
-        logger="roambot.providers.http",
-    ), pytest.raises(ProviderError) as captured:
+    with (
+        caplog.at_level(
+            logging.INFO,
+            logger="roambot.providers.http",
+        ),
+        pytest.raises(ProviderError) as captured,
+    ):
         client.get_json(
             operation="weather",
             path="/v7/weather/7d",
@@ -119,10 +125,13 @@ def test_timeout_is_translated_without_exposing_the_request(
 
     client = make_http(httpx.MockTransport(timeout))
 
-    with caplog.at_level(
-        logging.INFO,
-        logger="roambot.providers.http",
-    ), pytest.raises(ProviderError) as captured:
+    with (
+        caplog.at_level(
+            logging.INFO,
+            logger="roambot.providers.http",
+        ),
+        pytest.raises(ProviderError) as captured,
+    ):
         client.get_json(
             operation="llm",
             path="/chat/completions",

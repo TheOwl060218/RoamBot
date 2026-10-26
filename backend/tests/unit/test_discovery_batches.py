@@ -1,8 +1,8 @@
 import copy
 
 import pytest
-
 from test_discovery_workflow import workflow
+
 from roambot.domain.discovery import BatchReview
 from roambot.domain.discovery_execution import BatchResult
 from roambot.services.discovery_batches import BatchWorker, freeze_batch, prepare_review
@@ -22,6 +22,7 @@ def worker_for(run, seen):
     def review(conversation, context, cards):
         seen.append(copy.deepcopy(cards))
         return BatchReview(approved_ids=[c["place"]["id"] for c in cards], rejected=[])
+
     return BatchWorker(run.model, review)
 
 
@@ -70,7 +71,9 @@ def test_commit_rechecks_live_state_and_hard_constraints(tmp_path, change):
     elif change == "foreign_owner":
         run.scope = "other"
     elif change == "evidence":
-        next(e for e in run.evidence.values() if e["kind"] == "search_excerpt")["excerpt"] = "changed"
+        next(e for e in run.evidence.values() if e["kind"] == "search_excerpt")["excerpt"] = (
+            "changed"
+        )
     else:
         run.context = run.context.model_copy(update={"max_distance_km": 1})
     with pytest.raises((ValueError, RuntimeError)):

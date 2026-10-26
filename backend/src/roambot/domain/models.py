@@ -155,19 +155,21 @@ class RecommendationRequest(TravelRequestBase):
     scenery_match_mode: SceneryMatchMode = SceneryMatchMode.ANY
     destination_regions: list[str] = Field(default_factory=list)
 
-    @field_validator('scenery_query')
+    @field_validator("scenery_query")
     @classmethod
     def validate_scenery_query(cls, value):
         from roambot.domain.semantic_preferences import normalize_scenery_query
+
         return normalize_scenery_query(value)
 
-    @field_validator('scenery_keywords')
+    @field_validator("scenery_keywords")
     @classmethod
     def validate_scenery_keywords(cls, values):
         from roambot.domain.semantic_preferences import normalize_scenery_keywords
+
         return normalize_scenery_keywords(values)
 
-    @field_validator('destination_regions')
+    @field_validator("destination_regions")
     @classmethod
     def normalize_regions(cls, values: list[str]) -> list[str]:
         return normalize_destination_regions(values)
