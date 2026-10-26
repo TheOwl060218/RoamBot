@@ -1,3 +1,4 @@
+import { fulfillApiFixture } from './helpers'
 import { expect, test } from '@playwright/test'
 
 test('participant can inspect weather while voting and keeps an unsubmitted draft', async ({ page }, info) => {
@@ -19,7 +20,7 @@ test('participant can inspect weather while voting and keeps an unsubmitted draf
       expect(route.request().headers()['x-plan-csrf']).toBe('fixture')
       plan = { ...plan, me: { ...plan.me, preferred_id: 'b' } }
     }
-    await route.fulfill({ json: path.endsWith('/auth/me') ? { user: null } : { plan, anonymous_csrf: 'fixture' } })
+    await fulfillApiFixture(route, { json: path.endsWith('/auth/me') ? { user: null } : { plan, anonymous_csrf: 'fixture' } })
   })
   await page.goto('/join/fixture')
   await page.getByRole('button', { name: '查看苏州博物馆详情' }).click()

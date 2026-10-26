@@ -183,6 +183,10 @@ class BusinessExecutor:
         return data["plan"]
 
     async def ui_places(self):
+        # A saved recommendation may support cross-page tasks, but current
+        # favorites use saved favorite IDs, not the earlier provider IDs.
+        if self.context.get("page") == "/favorites":
+            return await self.places()
         # Client presentation objects can drive local UI only, never backend writes.
         if self.context.get("discovery_job_id"):
             return await self.places()

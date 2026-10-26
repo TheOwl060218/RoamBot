@@ -1,12 +1,17 @@
 import { expect, test, type Page } from '@playwright/test'
 
+let lastCommandAt = 0
 async function command(page: Page, message: string, confirm = false) {
+  const wait = Math.max(0, 8000 - (Date.now() - lastCommandAt))
+  if (wait) await page.waitForTimeout(wait)
+  lastCommandAt = Date.now()
+  console.info('command:', message)
   await page.keyboard.press('Alt+/')
   await expect.poll(() => page.evaluate(() => document.activeElement?.hasAttribute('data-command-input'))).toBe(true)
   await page.keyboard.press('ControlOrMeta+A')
   await page.keyboard.insertText(message)
-  const planning = page.waitForResponse(r => r.url().endsWith('/assistant/commands/proposals'))
-  const execution = page.waitForResponse(r => r.url().endsWith('/assistant/commands/execute'))
+  const planning = page.waitForResponse(r => r.url().endsWith('/assistant/commands/proposals'), { timeout: 15000 })
+  const execution = page.waitForResponse(r => r.url().endsWith('/assistant/commands/execute'), { timeout: 15000 })
   await page.keyboard.press('Enter')
   const response = await planning
   expect(response.ok(), await response.text()).toBeTruthy()
@@ -28,7 +33,7 @@ async function command(page: Page, message: string, confirm = false) {
 }
 
 test('uses chat and keyboard without pointer input from an empty session', async ({ page, context }, info) => {
-  test.setTimeout(120000)
+  test.setTimeout(300000)
   await page.addInitScript(() => {
     Object.assign(window, { pointerInputs: 0 })
     document.addEventListener('pointerdown', () => {
@@ -38,6 +43,15 @@ test('uses chat and keyboard without pointer input from an empty session', async
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
   await page.goto('/')
+  // The home entry now leads to live discovery. Enter the business workspace
+  // through its real home link, using only keyboard input; discovery intake
+  // handoff is covered independently in discovery.spec.ts.
+  const plansLink = page.getByRole('link', { name: '行程中心', exact: true })
+  for (let i = 0; i < 12 && !await plansLink.evaluate(node => node === document.activeElement); i++)
+    await page.keyboard.press('Tab')
+  await expect(plansLink).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/itineraries$/)
   await command(page, '能做什么')
   await expect(page.getByText(/可以直接修改条件并查询/)).toBeVisible()
   await command(page, '打开注册')

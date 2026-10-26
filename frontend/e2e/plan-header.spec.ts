@@ -1,3 +1,4 @@
+import { fulfillApiFixture } from './helpers'
 import { expect, test } from '@playwright/test'
 import { workbenchPlan } from '../tests/fixtures/workbenchPlan'
 
@@ -8,7 +9,7 @@ test('mobile active plan stays one line and truncates its expanded destination',
   plan.status = 'decided'
   plan.final_candidate_id = '0'
   plan.candidates[0].snapshot.destination.name = '金鸡湖景区特别长的地点名称用于检查单行省略显示'
-  await page.route('**/api/v1/**', route => route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/auth/me')
+  await page.route('**/api/v1/**', route => fulfillApiFixture(route, { json: new URL(route.request().url()).pathname.endsWith('/auth/me')
     ? { user: { username: 'fixture' } } : { plans: [plan] } }))
   await page.goto('/recommend')
   const capsule = page.locator('.mobile-plan-anchor .plan-status-link')
@@ -33,7 +34,7 @@ for (const role of ['owner', 'voter']) {
     const plan = workbenchPlan()
     plan.participants = [{ id: 'owner', nickname: '发起者', role: 'owner', voted: true }, { id: 'a', nickname: '同行甲', role: 'guest', voted: true }, { id: 'b', nickname: '同行乙', role: 'guest', voted: false }]
     if (role === 'voter') plan.participants = null
-    await page.route('**/api/v1/**', route => route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/auth/me')
+    await page.route('**/api/v1/**', route => fulfillApiFixture(route, { json: new URL(route.request().url()).pathname.endsWith('/auth/me')
       ? { user: role === 'owner' ? { username: 'fixture' } : null }
       : { plan, anonymous_csrf: 'fixture' } }))
     await page.goto(role === 'owner' ? '/plans/workbench' : '/join/fixture')

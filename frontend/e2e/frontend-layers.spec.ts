@@ -1,3 +1,4 @@
+import { installLegacyAssistantFixture, fulfillApiFixture } from './helpers'
 import { expect, test } from '@playwright/test'
 import { studioResponse } from '../tests/fixtures/studio'
 import { createStudioState } from '../src/features/studio/studioState'
@@ -7,7 +8,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/v1/**', route => route.fulfill({ json: route.request().url().endsWith('/maps/config') ? { enabled: false }
+  await page.route('**/api/v1/**', route => fulfillApiFixture(route, { json: route.request().url().endsWith('/maps/config') ? { enabled: false }
     : route.request().url().endsWith('/recommendations') ? studioResponse : { user: null, plans: [], histories: [], favorites: [] } }))
   const draft = { ...createStudioState().draft, mainOrigin: '苏州站', startDate: chinaDate(1), endDate: chinaDate(1), sceneryTypes: ['lake' as const] }
   await page.addInitScript(({ result, draft }) => {
@@ -47,26 +48,33 @@ test.beforeEach(async ({ page }) => {
     }).observe(document, { subtree: true, attributes: true, attributeFilter: ['data-workspace-phase'] })
   }, { result: studioResponse, draft })
 })
+test.beforeEach(async ({ page }) => { await installLegacyAssistantFixture(page) })
+
 
 for (const width of [1920, 1280, 390]) for (const reduced of [false, true]) {
 test(`plan entry and layer conversations ${width} reduced=${reduced}`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' })
-  await page.route('**/api/v1/auth/me', route => route.fulfill({ json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic' } }))
-  await page.route('**/api/v1/recommendations', route => route.fulfill({ json: { ...studioResponse, history_id: 'fresh-history', assistant_context: 'synthetic-context' } }))
+  await page.route('**/api/v1/auth/me', route => fulfillApiFixture(route, { json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic' } }))
+  await page.route('**/api/v1/recommendations', route => fulfillApiFixture(route, { json: { ...studioResponse, history_id: 'fresh-history', assistant_context: 'synthetic-context' } }))
   let creations = 0
   await page.route('**/api/v1/plans', route => {
-    if (route.request().method() !== 'POST') return route.fulfill({ json: { plans: [] } })
+    if (route.request().method() !== 'POST') return fulfillApiFixture(route, { json: { plans: [] } })
     creations++; expect(route.request().postDataJSON()).toMatchObject({ history_id: 'fresh-history', candidate_ids: ['place-0', 'place-1'] })
-    return route.fulfill({ json: { plan: { id: 'fixture-plan' } } })
+    return fulfillApiFixture(route, { json: { plan: { id: 'fixture-plan' } } })
   })
-  await page.route('**/api/v1/plans/fixture-plan', route => route.fulfill({ json: { plan: workbenchPlan() } }))
+  await page.route('**/api/v1/plans/fixture-plan', route => fulfillApiFixture(route, { json: { plan: workbenchPlan() } }))
   const turns: { message: string; focused_destination_id?: string }[] = []
   await page.route('**/api/v1/assistant/turns', route => {
     const body = route.request().postDataJSON(); turns.push(body)
-    return route.fulfill({ json: { revision: body.revision, patch: { max_distance_km: turns.length === 1 ? 80 : 100 }, reply: '已收到这条条件', source: 'demo' } })
+    return fulfillApiFixture(route, { json: { revision: body.revision, patch: { max_distance_km: turns.length === 1 ? 80 : 100 }, reply: '已收到这条条件', source: 'demo' } })
   })
   await page.goto('/plans')
   await page.getByRole('link', { name: '发起同行计划', exact: true }).click()
+  await expect(page).toHaveURL(/\/explore$/)
+  await expect(page.getByRole('textbox', { name: '继续补充条件' })).toBeVisible()
+  await page.goto('/recommend')
+  await page.getByRole('button', { name: '更多功能', exact: true }).click()
+  await page.getByRole('button', { name: '发起同行挑选', exact: true }).click()
   await expect(page.getByText('同行挑选中', { exact: false })).toBeVisible()
   await expect(page.getByRole('textbox', { name: '继续补充条件' })).toBeVisible()
   await expect(page.getByRole('button', { name: '发起同行计划', exact: true })).toBeDisabled()
@@ -84,7 +92,7 @@ test(`plan entry and layer conversations ${width} reduced=${reduced}`, async ({ 
   const historyLength = await page.evaluate(() => history.length)
   const detailOrb = page.getByRole('button', { name: '打开详情对话', exact: true })
   const hit = async (node: import('@playwright/test').Locator) => node.evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, hit: el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)) } })
-  const orb = await hit(detailOrb); expect(orb.hit).toBe(true); expect(orb.x).toBeLessThan(width * .3); expect(orb.y).toBeGreaterThan(900 * .5); expect(orb.y).toBeLessThan(900 * .85)
+  const orb = await hit(detailOrb); expect(orb.hit).toBe(true); expect(orb.x).toBeGreaterThanOrEqual(0); expect(orb.x + (await detailOrb.boundingBox())!.width).toBeLessThanOrEqual(width); expect(orb.y).toBeGreaterThan(900 * .5); expect(orb.y + (await detailOrb.boundingBox())!.height).toBeLessThanOrEqual(900 - 12)
   await detailOrb.click()
   const detailChat = page.getByRole('region', { name: '详情对话', exact: true })
   await settle(page, '.layer-chat-panel')
@@ -124,7 +132,7 @@ test(`plan entry and layer conversations ${width} reduced=${reduced}`, async ({ 
 }
 
 test('plan entry continues after login without discarding selected places', async ({ page }) => {
-  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic' } }))
+  await page.route('**/api/v1/auth/login', route => fulfillApiFixture(route, { json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic' } }))
   await page.goto('/recommend'); await page.locator('.candidate-toggle').nth(0).click(); await page.locator('.candidate-toggle').nth(1).click()
   await page.getByRole('button', { name: '发起同行计划', exact: true }).click()
   const auth = page.getByRole('dialog', { name: '登录 RoamBot' })
@@ -136,12 +144,12 @@ test('plan entry continues after login without discarding selected places', asyn
 })
 
 test('changed or failed plan refresh never creates a plan or reuses missing candidates', async ({ page }) => {
-  await page.route('**/api/v1/auth/me', route => route.fulfill({ json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic' } }))
+  await page.route('**/api/v1/auth/me', route => fulfillApiFixture(route, { json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic' } }))
   let refresh = 0, creations = 0
   await page.route('**/api/v1/recommendations', route => ++refresh === 1
-    ? route.fulfill({ status: 503, json: { detail: 'unavailable' } })
-    : route.fulfill({ json: { ...studioResponse, items: studioResponse.items.slice(1), history_id: 'new-history' } }))
-  await page.route('**/api/v1/plans', route => { if (route.request().method() === 'POST') creations++; return route.fulfill({ json: { plans: [] } }) })
+    ? fulfillApiFixture(route, { status: 503, json: { detail: 'unavailable' } })
+    : fulfillApiFixture(route, { json: { ...studioResponse, items: studioResponse.items.slice(1), history_id: 'new-history' } }))
+  await page.route('**/api/v1/plans', route => { if (route.request().method() === 'POST') creations++; return fulfillApiFixture(route, { json: { plans: [] } }) })
   await page.goto('/recommend'); await page.locator('.candidate-toggle').nth(0).click(); await page.locator('.candidate-toggle').nth(1).click()
   await page.getByRole('button', { name: '发起同行计划', exact: true }).click()
   await page.getByRole('button', { name: '更新推荐并继续', exact: true }).click()
@@ -158,7 +166,7 @@ test('changed or failed plan refresh never creates a plan or reuses missing cand
 for (const [width, reduced] of [[1280, false], [390, false], [390, true]] as const) {
 test(`conversation pocket fade ${width} reduced=${reduced}`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' })
-  await page.route('**/api/v1/assistant/turns', route => route.fulfill({ json: { revision: route.request().postDataJSON().revision,
+  await page.route('**/api/v1/assistant/turns', route => fulfillApiFixture(route, { json: { revision: route.request().postDataJSON().revision,
     reply: '这是一段用于观察滚动交接的长对话记录，内容经过顶部时应逐渐淡出。'.repeat(24), patch: {}, source: 'demo' } }))
   await page.goto('/recommend'); await page.getByRole('button', { name: /^了解/ }).first().click()
   await page.getByRole('button', { name: '打开详情对话' }).click()
@@ -225,7 +233,10 @@ test(`draggable conversation grows to the right ${width} reduced=${reduced}`, as
   await page.getByRole('button',{name:/^了解/}).first().click();await settle(page,'.destination-detail-layer')
   const orb=page.getByRole('button',{name:'打开详情对话',exact:true})
   const initial=(await orb.boundingBox())!
-  await page.mouse.move(initial.x+26,initial.y+26);await page.mouse.down();await page.mouse.move(width-38,initial.y+26,{steps:12});await page.mouse.up()
+  await page.mouse.move(initial.x+initial.width/2,initial.y+initial.height/2);await page.mouse.down();await page.mouse.move(80,initial.y+initial.height/2,{steps:12});await page.mouse.up()
+  await expect(orb).toHaveAttribute('aria-expanded','false')
+  const left=(await orb.boundingBox())!
+  await page.mouse.move(left.x+left.width/2,left.y+left.height/2);await page.mouse.down();await page.mouse.move(width-38,left.y+left.height/2,{steps:12});await page.mouse.up()
   await expect(orb).toHaveAttribute('aria-expanded','false')
   const right=(await orb.boundingBox())!;expect(right.x).toBeGreaterThan(width-100)
   await orb.click();const chat=page.getByRole('region',{name:'详情对话',exact:true})
@@ -273,9 +284,9 @@ test('conversation orb touch drag does not toggle or scroll its background', asy
   const client=await page.context().newCDPSession(page);await client.send('Emulation.setTouchEmulationEnabled',{enabled:true})
   const scrollBefore=await page.evaluate(()=>scrollY)
   await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:before.x+26,y:before.y+26}]})
-  await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:before.x+130,y:before.y-100}]})
+  await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:before.x-100,y:before.y-100}]})
   await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
-  const after=(await orb.boundingBox())!;expect(after.x).toBeGreaterThan(before.x+80);expect(after.y).toBeLessThan(before.y-80)
+  const after=(await orb.boundingBox())!;expect(after.x).toBeLessThan(before.x-80);expect(after.y).toBeLessThan(before.y-80)
   await expect(orb).toHaveAttribute('aria-expanded','false');expect(await page.evaluate(()=>scrollY)).toBe(scrollBefore)
   await client.send('Emulation.setTouchEmulationEnabled',{enabled:false});await client.detach()
 })
@@ -327,6 +338,8 @@ test(`map close after route travel ${width} reduced=${reduced} must not capture 
   await expect(page).toHaveURL(/\/favorites$/)
   await expect.poll(() => page.evaluate(() => document.getAnimations().filter(a => a instanceof CSSAnimation && a.animationName.startsWith('coastal-route-') && a.playState === 'running').length)).toBe(0)
   await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '推荐', exact: true }).click()
+  await expect(page).toHaveURL(/\/explore$/)
+  await page.goto('/recommend')
   await expect(page).toHaveURL(/\/recommend$/)
   await expect.poll(() => page.evaluate(() => document.getAnimations().filter(a => a instanceof CSSAnimation && a.animationName.startsWith('coastal-route-') && a.playState === 'running').length)).toBe(0)
   await page.getByRole('button', { name: /^了解/ }).first().click()
@@ -368,7 +381,7 @@ for (const width of [1920, 1280, 390]) {
     await expect(page.locator('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'results')
     await settle(page, '.route-content')
     await page.evaluate(() => { document.body.style.minHeight = '1800px'; window.scrollTo(0, 110) })
-    await expect(page.locator('.shell-main')).toHaveClass(/is-scrolled/)
+    await expect(page.locator('.shell-header')).toHaveClass(/is-scrolled/)
     await expect(page.locator('.shell-header-veil')).toHaveCount(0)
     await page.screenshot({ path: info.outputPath('top-after.png') })
     await page.evaluate(() => window.scrollTo(0, 0))
@@ -599,9 +612,9 @@ test('rapid close cannot skip from map through detail into query', async ({ page
 })
 
 test('programmatic navigation gets one entrance and respects reduced motion', async ({ page }) => {
-  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic-test-only' } }))
+  await page.route('**/api/v1/auth/login', route => fulfillApiFixture(route, { json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic-test-only' } }))
   await page.goto('/')
-  await page.getByRole('button', { name: '我的计划', exact: true }).click()
+  await page.getByRole('button', { name: '同行计划', exact: true }).click()
   await page.getByLabel('用户名', { exact: true }).fill('fixture_user')
   await page.getByLabel('密码', { exact: true }).fill('synthetic-password')
   await page.getByRole('dialog', { name: '登录 RoamBot' }).getByRole('button', { name: '登录', exact: true }).click()
@@ -611,6 +624,8 @@ test('programmatic navigation gets one entrance and respects reduced motion', as
   await expect(page.locator('[data-exit-snapshot]')).toHaveCount(0)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '推荐', exact: true }).click()
+  await expect(page).toHaveURL(/\/explore$/)
+  await page.goto('/recommend')
   await expect(page).toHaveURL(/\/recommend$/)
   expect(await page.locator('.route-content').evaluate(node => node.getAnimations().filter(animation => animation.playState === 'running').length)).toBe(0)
 })
@@ -655,8 +670,8 @@ test('account reaches the browser top layer above an existing native modal', asy
 })
 
 test('history toolbar exits in place on desktop and mobile', async ({ page }) => {
-  await page.route('**/api/v1/auth/me', route => route.fulfill({ json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic-test-only' } }))
-  await page.route('**/api/v1/history', route => route.fulfill({ json: { histories: [{ id: 'fixture-history', mode: 'recommendation', city: '苏州',
+  await page.route('**/api/v1/auth/me', route => fulfillApiFixture(route, { json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic-test-only' } }))
+  await page.route('**/api/v1/history', route => fulfillApiFixture(route, { json: { histories: [{ id: 'fixture-history', mode: 'recommendation', city: '苏州',
     start_date: chinaDate(1), end_date: chinaDate(1), item_count: 4, created_at: '2026-10-13T08:00:00Z' }] } }))
   await page.goto('/history')
   for (const width of [1280, 390]) {
@@ -682,7 +697,7 @@ test('history toolbar exits in place on desktop and mobile', async ({ page }) =>
 })
 
 test('native create-plan dialog exits in place and restores the results layer', async ({ page }) => {
-  await page.route('**/api/v1/auth/me', route => route.fulfill({ json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic-test-only' } }))
+  await page.route('**/api/v1/auth/me', route => fulfillApiFixture(route, { json: { user: { username: 'fixture_user' }, csrf_token: 'synthetic-test-only' } }))
   await page.goto('/recommend')
   await page.getByRole('button', { name: '更多功能', exact: true }).click()
   await page.getByRole('button', { name: '发起同行挑选', exact: true }).click()
@@ -713,7 +728,7 @@ for (const width of [1920, 1280, 390]) for (const reduced of [false, true]) {
       requests++; submitted = route.request().postDataJSON()
       const result = structuredClone(studioResponse)
       result.items[0].destination.name = '更新后的金鸡湖'
-      return route.fulfill({ json: result })
+      return fulfillApiFixture(route, { json: result })
     })
     await page.goto('/recommend')
     await settle(page, '.route-content')
@@ -727,13 +742,13 @@ for (const width of [1920, 1280, 390]) for (const reduced of [false, true]) {
     const original = await page.evaluate(() => ({ state: history.state, length: history.length }))
     const range = page.getByRole('button', { name: /编辑目的地范围/ })
     await range.click()
-    await page.getByLabel('最大距离（km）').fill('120')
+    await page.getByRole('dialog', { name: '目的地范围', exact: true }).getByLabel('最大距离（km）').fill('120')
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog', { name: '目的地范围' })).toHaveCount(0)
     await expect(page.locator('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'results')
     await expect(range).toContainText('50 km')
     await range.click()
-    await page.getByLabel('最大距离（km）').fill('120')
+    await page.getByRole('dialog', { name: '目的地范围', exact: true }).getByLabel('最大距离（km）').fill('120')
     await page.getByRole('button', { name: '保存条件' }).click()
     await expect(page.getByRole('button', { name: '更新推荐', exact: true })).toBeVisible()
     await expect(page.locator('.destination-card h2').first()).toHaveText('金鸡湖景区')

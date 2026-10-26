@@ -18,6 +18,8 @@ export default defineConfig({
   testDir: './e2e',
   outputDir: '../test-results/playwright',
   fullyParallel: false,
+  // Real Mock-backed flows share one SQLite app and one IP rate-limit bucket.
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: [['line']],
   use: {

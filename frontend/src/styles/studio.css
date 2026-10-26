@@ -178,7 +178,7 @@
 .spatial-workspace .studio-conversation-current p { margin: 4px 0; background: transparent; padding: 0; font-size: .88rem; }
 .spatial-workspace .studio-conversation-current p.assistant { margin: 6px 0; background: var(--coastal-glass-strong); border-left: 3px solid var(--primary); border-radius: 12px; padding: 10px 14px; font-size: .95rem; font-weight: 600; color: var(--coastal-ink); }
 .spatial-workspace .studio-actions { margin-top: 24px; }
-.spatial-workspace .studio-search { display: flex; align-items: center; justify-content: space-between; width: min(380px, 100%); min-height: 64px; padding: 18px 28px; border-radius: 22px; font-size: 1.1rem; }
+.spatial-workspace .studio-search { display: flex; align-items: center; justify-content: space-between; width: min(380px, 100%); min-height: 64px; padding: 18px 28px; border-radius: 999px; font-size: 1.1rem; }
 .studio-result-navigation { display: flex; gap: 26px; margin: 5px 0 26px; }
 .studio-detail-host { width: min(1120px, 100%); }
 .studio-detail-host .destination-detail, .studio-detail-host .studio-comparison { width: 100%; }
@@ -262,3 +262,6 @@
 .studio-assistant-recovery > div { display: flex; flex-wrap: wrap; gap: 14px; }
 .studio-assistant-recovery button { border: 0; background: transparent; color: var(--coastal-ink); padding: 6px 0; text-decoration: underline; }
 @media(max-width:760px) { .condition-puzzle-compact .condition-piece-edit { min-height: 48px; padding: 10px 16px; } }
+
+/* Suggestions belong to the modal form's flow, keeping its footer clickable. */
+.studio-place-field .studio-place-options { position: static; inset: auto; max-height: min(240px,40svh); }

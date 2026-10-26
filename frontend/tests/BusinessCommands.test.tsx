@@ -216,3 +216,18 @@ describe('business chat execution', () => {
     ] } })
   })
 })
+
+
+it('home keyboard shortcut enters discovery without restoring the removed floating button', async () => {
+  function DiscoveryInput() {
+    useCommandTarget('discovery', () => ({}), () => false)
+    return <textarea data-command-input aria-label='探索输入' />
+  }
+  render(<MemoryRouter initialEntries={['/']}><Routes><Route element={<CommandRoot />}>
+    <Route path='/' element={<h1>首页</h1>} />
+    <Route path='/explore' element={<DiscoveryInput />} />
+  </Route></Routes></MemoryRouter>)
+  expect(screen.queryByRole('button', { name: '打开操作助手' })).not.toBeInTheDocument()
+  await userEvent.setup().keyboard('{Alt>}/{/Alt}')
+  await waitFor(() => expect(screen.getByRole('textbox', { name: '探索输入' })).toHaveFocus())
+})

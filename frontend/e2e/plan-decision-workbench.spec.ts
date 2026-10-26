@@ -1,3 +1,4 @@
+import { fulfillApiFixture } from './helpers'
 import { expect, test } from '@playwright/test'
 import { workbenchPlan } from '../tests/fixtures/workbenchPlan'
 
@@ -6,7 +7,7 @@ test('one and two candidates do not add empty cards and reduced motion preserves
   plan.candidates = plan.candidates.slice(0, 1)
   await page.route('**/api/v1/**', route => {
     const path = new URL(route.request().url()).pathname
-    return route.fulfill({ json: path.endsWith('/auth/me') ? { user: null } : { plan, anonymous_csrf: 'fixture' } })
+    return fulfillApiFixture(route, { json: path.endsWith('/auth/me') ? { user: null } : { plan, anonymous_csrf: 'fixture' } })
   })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/join/fixture')
@@ -48,7 +49,7 @@ for (const role of ['owner', 'voter']) {
         if (role === 'voter') expect(route.request().headers()['x-plan-csrf']).toBe('fixture')
         plan = { ...plan, me: { ...plan.me!, preferred_id: '1' } }
       }
-      await route.fulfill({ json: path.endsWith('/auth/me') ? role === 'owner' ? { user: { username: 'fixture' }, csrf_token: 'fixture' } : { user: null } : path.endsWith('/plans') ? { plans: [] } : { plan, anonymous_csrf: 'fixture' } })
+      await fulfillApiFixture(route, { json: path.endsWith('/auth/me') ? role === 'owner' ? { user: { username: 'fixture' }, csrf_token: 'fixture' } : { user: null } : path.endsWith('/plans') ? { plans: [] } : { plan, anonymous_csrf: 'fixture' } })
     })
     await page.goto(role === 'owner' ? '/plans/workbench' : '/join/fixture')
     const cards = page.locator('.plan-comparison-card'), comparison = page.locator('.plan-comparison-region')

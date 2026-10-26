@@ -28,5 +28,5 @@ test('real POI fixture offers detail and name search without overflowing the hea
   expect(await detail.locator('header').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await detail.scrollIntoViewIfNeeded()
-  await page.screenshot({ path: `../evidence/amap-actions-${info.project.name}-20261009.png` })
+  await page.screenshot({ path: info.outputPath(`amap-actions-${info.project.name}-20261009.png`) })
 })

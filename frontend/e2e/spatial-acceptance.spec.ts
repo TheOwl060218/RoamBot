@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { fillStudioConditions, registerUser, tomorrowInChina } from './helpers'
+import { installLegacyAssistantFixture, openCondition, fillStudioConditions, registerUser, tomorrowInChina } from './helpers'
 
+
+test.beforeEach(async ({ page }) => { await installLegacyAssistantFixture(page) })
 test.use({ video: 'on' })
 for (const width of [1440, 1280, 390, 320]) for (const reduced of [false, true]) {
   test(`${width}px ${reduced ? 'reduced' : 'normal'} spatial flow`, async ({ page }, testInfo) => {
@@ -27,7 +29,7 @@ for (const width of [1440, 1280, 390, 320]) for (const reduced of [false, true])
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await fillStudioConditions(page, ['湖景', '博物馆', '公园'])
     await expect(page.locator('.studio-query-page .condition-piece')).toHaveCount(4)
-    await page.getByRole('button', { name: /编辑日期/ }).click()
+    await openCondition(page, '日期')
     await page.getByRole('button', { name: '明天', exact: true }).click()
     await expect(page.locator('input[type=date]')).toHaveCount(0)
     await page.getByRole('button', { name: '保存条件' }).click()
@@ -70,7 +72,7 @@ for (const width of [1440, 1280, 390, 320]) for (const reduced of [false, true])
     await expect(page.locator('.studio-dirty')).toHaveCount(0)
     await page.getByRole('button', { name: '← 返回修改' }).click()
     await expect(page.locator('.spatial-workspace')).toHaveAttribute('data-workspace-phase', 'query')
-    await page.getByRole('button', { name: /编辑日期/ }).click()
+    await openCondition(page, '日期')
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: '移除日期' }).click()
     await expect(page.getByRole('button', { name: /编辑日期/ })).toHaveCount(0)

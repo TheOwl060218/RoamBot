@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { fillStudioConditions, registerUser } from './helpers'
+import { openCondition, fillStudioConditions, registerUser } from './helpers'
 async function selectRegion(page: Page, query: string, option: string) {
   await page.getByRole('combobox', { name: '目的地城市范围' }).fill(query)
   await page.getByRole('option', { name: option, exact: true }).click()
@@ -7,7 +7,7 @@ async function selectRegion(page: Page, query: string, option: string) {
 test('one editor at a time, origin suggestions and closing focus, no blank error space', async ({ page }) => {
   await page.goto('/recommend')
   const trigger = page.getByRole('button', { name: /编辑出发地/ })
-  await trigger.click()
+  await openCondition(page, '出发地')
   await expect(page.getByRole('dialog')).toHaveCount(1)
   await expect(page.getByLabel('出发城市')).toHaveCount(0)
   const origin = page.getByLabel('主出发地', { exact: true }); await origin.fill('苏州站')
@@ -20,7 +20,7 @@ test('one editor at a time, origin suggestions and closing focus, no blank error
 })
 test('region reset keeps distance and popup stays within 320px without moving puzzle', async ({ page }) => {
   await page.goto('/recommend')
-  await page.getByRole('button', { name: /编辑目的地范围/ }).click()
+  await openCondition(page, '目的地范围')
   await page.getByLabel('最大距离（km）').fill('125')
   const puzzle = (await page.getByRole('region', { name: '当前出行条件' }).boundingBox())!
   await selectRegion(page, '杭', '杭州市 · 浙江省')
@@ -47,7 +47,7 @@ test('region reset keeps distance and popup stays within 320px without moving pu
 })
 test('guest selected provinces override 50km and later edits mark old results', async ({ page }) => {
   await page.goto('/recommend'); await fillStudioConditions(page)
-  await page.getByRole('button', { name: /编辑目的地范围/ }).click()
+  await openCondition(page, '目的地范围')
   await page.getByLabel('最大距离（km）').fill('50')
   await selectRegion(page, '江苏', '江苏省'); await selectRegion(page, '杭', '杭州市 · 浙江省')
   await page.getByRole('button', { name: '保存条件' }).click()
@@ -59,23 +59,23 @@ test('guest selected provinces override 50km and later edits mark old results', 
   expect(new Set(body.items.map((i: { destination: { city_adcode: string } }) => i.destination.city_adcode))).toEqual(new Set(['320500','330100']))
   expect(body.items.some((i: { distances: { distance_km: number }[] }) => i.distances[0].distance_km > 50)).toBe(true)
   expect(body.history_id ?? null).toBeNull()
-  await page.getByRole('button', { name: /编辑目的地范围/ }).click()
+  await openCondition(page, '目的地范围')
   await page.getByRole('button', { name: '选择省市', exact: true }).click()
   await page.getByRole('button', { name: '恢复不限', exact: true }).click(); await page.getByRole('button', { name: '完成选择' }).click()
   await expect(page.getByLabel('最大距离（km）')).toBeEnabled(); await expect(page.getByLabel('最大距离（km）')).toHaveValue('50')
   await page.getByRole('button', { name: '保存条件' }).click()
-  await expect(page.getByText(/下方是上次结果/)).toBeVisible()
+  await expect(page.getByText(/条件已修改/).first()).toBeVisible()
   await expect(page.getByTestId('destination-card').first()).toBeVisible()
 })
 test('account history rerun preserves destination scope into editable puzzle', async ({ page }, info) => {
   await page.goto('/recommend'); await registerUser(page, info.project.name); await fillStudioConditions(page)
-  await page.getByRole('button', { name: /编辑目的地范围/ }).click()
+  await openCondition(page, '目的地范围')
   await selectRegion(page, '杭', '杭州市 · 浙江省'); await page.getByRole('button', { name: '保存条件' }).click()
   await page.getByRole('button', { name: '开始推荐' }).click(); await expect(page.getByTestId('destination-card').first()).toBeVisible()
   await page.goto('/history'); await page.getByRole('button', { name: '更多历史操作' }).first().click()
   const pending = page.waitForResponse(r => r.url().endsWith('/rerun') && r.request().method() === 'POST')
   await page.getByRole('button', { name: '重新查询', exact: true }).click(); expect((await pending).status()).toBe(200)
   await expect(page).toHaveURL(/\/recommend$/)
-  await page.getByRole('button', { name: /编辑目的地范围/ }).click()
+  await openCondition(page, '目的地范围')
   await expect(page.getByRole('button', { name: /移除杭州市/ })).toBeVisible()
 })

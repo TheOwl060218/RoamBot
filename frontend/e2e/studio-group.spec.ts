@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { fillStudioConditions } from './helpers'
+import { openCondition, fillStudioConditions } from './helpers'
 test('guest cancel keeps results, comparison uses the same IDs, edited conditions block invite', async ({ page }) => {
   await page.goto('/recommend')
   await fillStudioConditions(page, ['湖景','博物馆'])
@@ -9,11 +9,12 @@ test('guest cancel keeps results, comparison uses the same IDs, edited condition
   const chosen = await page.locator('.candidate-chips button').allTextContents()
   await page.getByRole('button', { name: '查看对比（2）' }).click()
   expect(await page.locator('.comparison-card-grid h3').allTextContents()).toEqual(chosen.map(v => v.replace(' ×', '')))
+  await page.getByRole('button', { name: '收起对比', exact: true }).click()
   await page.getByRole('button', { name: '发起同行计划' }).click()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page).toHaveURL(/\/recommend$/)
   await expect(page.locator('.candidate-chips button')).toHaveCount(2)
-  await page.getByRole('button', { name: /编辑目的地范围/ }).click()
+  await openCondition(page, '目的地范围')
   await page.getByLabel('最大距离（km）').fill('120')
   await page.getByRole('button', { name: '保存条件' }).click()
   await expect(page.getByRole('button', { name: '发起同行计划' })).toBeDisabled()

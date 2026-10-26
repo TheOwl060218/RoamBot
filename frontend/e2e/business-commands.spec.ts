@@ -1,14 +1,20 @@
 import { expect, test, type Page } from '@playwright/test'
 
+let lastCommandAt = 0
 async function chat(page: Page, message: string, confirm = false) {
+  // Keep this long interaction under the real 10/minute budget, including explanations.
+  const wait = Math.max(0, 8000 - (Date.now() - lastCommandAt))
+  if (wait) await page.waitForTimeout(wait)
+  lastCommandAt = Date.now()
+  console.info('chat:', message)
   await page.keyboard.press('Alt+/')
   await expect.poll(() => page.evaluate(() => document.activeElement?.hasAttribute('data-command-input'))).toBe(true)
-  const input = new URL(page.url()).pathname === '/recommend'
-    ? page.getByRole('textbox', { name: '继续补充条件' }).last()
-    : page.getByRole('textbox', { name: '继续补充条件' })
+  const input = page.locator('[data-command-input]:focus')
+  await expect(input).toHaveCount(1)
+  expect(await input.evaluate(node => !!node.closest('[inert]'))).toBe(false)
   await input.fill(message)
-  const planning = page.waitForResponse(r => r.url().endsWith('/assistant/commands/proposals'))
-  const execution = page.waitForResponse(r => r.url().endsWith('/assistant/commands/execute'))
+  const planning = page.waitForResponse(r => r.url().endsWith('/assistant/commands/proposals'), { timeout: 15000 })
+  const execution = page.waitForResponse(r => r.url().endsWith('/assistant/commands/execute'), { timeout: 15000 })
   await input.press('Enter')
   const proposal = await planning
   expect(proposal.ok(), await proposal.text()).toBeTruthy()
@@ -29,7 +35,7 @@ async function chat(page: Page, message: string, confirm = false) {
 }
 
 test('chat drives selection, nested layers, favorites, plans, invitations and history', async ({ page, context }, info) => {
-  test.setTimeout(90000)
+  test.setTimeout(240000)
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   const username = 'cmd_' + crypto.randomUUID().replaceAll('-', '').slice(0, 10)

@@ -16,7 +16,7 @@ export function defaultPlanName(city: string, start: string, end: string) {
 }
 
 export function planProgress(plan: TravelPlan) {
-  const count = plan.summary?.voted_count ?? 0
+  const count = plan.summary?.voted_count ?? plan.participants?.filter(member => member.voted).length ?? 0
   return count > plan.expected_count ? `${count} 人已参与` : `${count}/${plan.expected_count} 人已投票`
 }
 

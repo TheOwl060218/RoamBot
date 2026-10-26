@@ -9,6 +9,7 @@ import json
 import sqlite3
 import sys
 import time
+from contextlib import closing
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,10 +29,9 @@ def copy_cache_snapshot(source, destination):
         }
         if path.is_file() and path.name in aliases:
             with (
-                sqlite3.connect(
-                    path.resolve().as_uri() + "?mode=ro", uri=True
-                ) as original,
-                sqlite3.connect(destination / aliases[path.name]) as target,
+                closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as original,
+                closing(sqlite3.connect(destination / aliases[path.name])) as target,
+                target,
             ):
                 original.backup(target)
 

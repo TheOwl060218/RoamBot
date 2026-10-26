@@ -1,4 +1,7 @@
+import { installLegacyAssistantFixture } from './helpers'
 import { expect, test } from '@playwright/test'
+
+test.beforeEach(async ({ page }) => { await installLegacyAssistantFixture(page) })
 
 for (const failed of [false, true]) test(`${failed ? 'failed' : 'successful'} input stays in a viewport-sized page without body scrolling`, async ({ page }) => {
   await page.route('**/api/v1/assistant/turns', route => route.fulfill(failed ? { status: 503, json: {

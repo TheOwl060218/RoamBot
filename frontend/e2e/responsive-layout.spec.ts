@@ -1,20 +1,22 @@
 import { expect, test } from '@playwright/test'
-import { fillStudioConditions } from './helpers'
+import { openCondition, fillStudioConditions } from './helpers'
 test('conditions, layered detail, weights and composer retain responsive relationship', async ({ page }) => {
   await page.goto('/recommend')
   await expect(page.locator('.travel-form')).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: '继续补充条件' })).toBeVisible()
-  await page.getByRole('button', { name: '更多工具' }).click()
-  await page.getByRole('button', { name: '偏好权重', exact: true }).click()
+  await openCondition(page, '推荐偏好')
+  await page.getByRole('dialog', { name: '偏好权重' }).evaluate(async node => {
+    await Promise.all(node.getAnimations({ subtree: true }).filter(a => a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => undefined)))
+  })
   const handles = page.getByRole('slider')
   await expect(handles).toHaveCount(2)
   for (const handle of await handles.all()) { const b = (await handle.boundingBox())!; expect(b.width).toBeGreaterThanOrEqual(44); expect(b.height).toBeGreaterThanOrEqual(44) }
-  await page.getByRole('button', { name: '取消', exact: true }).click()
+  await page.getByRole('button', { name: '关闭条件编辑', exact: true }).click()
   await fillStudioConditions(page, ['湖景', '博物馆', '古镇/历史街区'])
   await page.getByRole('button', { name: '开始推荐', exact: true }).click()
   await expect(page.getByTestId('destination-card')).toHaveCount(3)
   await page.getByRole('button', { name: /^了解/ }).first().click()
-  const firstName = await page.locator('.destination-detail h2').innerText()
+  const firstName = await page.locator('.destination-detail[data-detail-id] h2').innerText()
   await expect(page.locator('.weather-day')).toHaveCount(1)
   await expect(page.locator('.weather-condition')).toBeVisible()
   await expect(page.locator('.weather-facts')).toBeVisible()
@@ -23,8 +25,10 @@ test('conditions, layered detail, weights and composer retain responsive relatio
   await page.getByRole('button', { name: /返回地点/ }).click()
   await expect(page.getByTestId('destination-card').first()).toBeVisible()
   await page.getByRole('button', { name: /^了解/ }).nth(1).click()
-  await expect(page.locator('.destination-detail h2')).not.toHaveText(firstName)
-  await page.getByRole('button', { name: /编辑出发地/ }).click()
+  await expect(page.locator('.destination-detail[data-detail-id] h2')).not.toHaveText(firstName)
+  await page.getByRole('button', { name: /返回地点/ }).click()
+  await page.getByRole('button', { name: '← 返回修改', exact: true }).click()
+  await openCondition(page, '出发地')
   await expect(page.getByLabel('主出发地')).toHaveValue('苏州站')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 })

@@ -14,6 +14,7 @@ test('same 2–3 candidates compare real metrics, deselect, without horizontal o
   await expect(comparison.getByText('天气适宜度').first()).toBeVisible()
   await expect(comparison.getByText('平均路程').first()).toBeVisible()
   await expect(comparison.locator('.metric-best').first()).toBeVisible()
+  await comparison.getByRole('button', { name: '收起对比', exact: true }).click()
   await page.locator('.candidate-chips button').nth(1).click()
   await expect(comparison).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)

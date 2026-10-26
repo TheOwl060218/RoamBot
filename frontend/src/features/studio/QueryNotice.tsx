@@ -6,5 +6,5 @@ export function QueryNotice({ message, busy }: { message: string; busy: boolean 
     const timer = setTimeout(() => setVisible(false), 2000)
     return () => clearTimeout(timer)
   }, [])
-  return visible ? <div className='studio-query-notice' role={busy ? 'status' : 'alert'}>{message}</div> : null
+  return busy || visible ? <div className='studio-query-notice' role={busy ? 'status' : 'alert'}>{message}</div> : null
 }

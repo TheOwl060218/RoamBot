@@ -23,7 +23,7 @@ test('plan detail compares one day with final destination first and optional man
   await expect(cards.first().getByRole('button', { name: '查看金鸡湖详情' })).toHaveAttribute('aria-expanded', 'false')
   await expect(cards.nth(1).locator('.weather-condition svg')).toHaveCount(1)
   await page.getByRole('button', { name: '查看苏州博物馆详情' }).click()
-  await expect(cards.nth(1).getByText(/创建时天气/)).toBeVisible()
+  await expect(cards.nth(1).getByText(/创建时保存的天气/)).toBeVisible()
   await expect(cards.nth(1).locator('.weather-condition svg')).toHaveCount(1)
   await expect(cards.nth(1).getByText('旧推荐理由')).toHaveCount(0)
   await page.getByRole('button', { name: '收起苏州博物馆详情' }).click()

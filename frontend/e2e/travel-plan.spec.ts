@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test'
-import path from 'node:path'
 import { fillStudioConditions } from './helpers'
 
 test('guest recommendation becomes an owned plan after explicit rerun, anonymous vote and decision', async ({ page, browser }, testInfo) => {
@@ -9,6 +8,7 @@ test('guest recommendation becomes an owned plan after explicit rerun, anonymous
   await page.getByRole('button', { name: /^加入候选：/ }).nth(0).click()
   await page.getByRole('button', { name: /^加入候选：/ }).nth(0).click()
   await page.getByRole('button', { name: '查看对比（2）' }).click()
+  await page.getByRole('button', { name: '收起对比', exact: true }).click()
   await page.getByRole('button', { name: '发起同行计划', exact: true }).click()
   await page.getByRole('tab', { name: '创建账户', exact: true }).click()
   await page.getByLabel('用户名', { exact: true }).fill(`plan_${Date.now()}_${page.viewportSize()!.width}`)
@@ -19,9 +19,7 @@ test('guest recommendation becomes an owned plan after explicit rerun, anonymous
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('button', { name: '确认创建' })).toHaveCount(0)
   await dialog.getByRole('button', { name: '更新推荐' }).click()
-  await expect(dialog).toHaveCount(0)
-  await page.getByRole('button', { name: '查看对比（2）' }).click()
-  await page.getByRole('button', { name: '发起同行计划', exact: true }).click()
+  await expect(dialog.getByRole('button', { name: '确认创建', exact: true })).toBeVisible()
   await page.getByRole('dialog').getByLabel('计划名称').fill('同行验收计划')
   const people = page.getByRole('dialog').getByLabel('预计同行人数')
   await people.fill('')
@@ -32,13 +30,29 @@ test('guest recommendation becomes an owned plan after explicit rerun, anonymous
   await expect(feedback).toHaveText('预计同行人数需为 1–100 的整数。')
   expect(await feedback.evaluate(el => getComputedStyle(el).borderRadius)).toBe('24px')
   await people.fill('2')
+  // Observe the four-second reveal from its actual start, rather than assuming
+  // it is still visible after the route transition and heading assertions.
+  const mobileReveal = testInfo.project.name.startsWith('mobile') ? page.evaluate(() => new Promise<{ text: string; height: number }>((resolve, reject) => {
+    const observer = new MutationObserver(check)
+    const timeout = setTimeout(() => { observer.disconnect(); reject(new Error('New plan capsule did not expand')) }, 7000)
+    function check() {
+      const link = document.querySelector<HTMLElement>('.mobile-plan-anchor .plan-status-link.expanded')
+      const detail = link?.querySelector<HTMLElement>('.plan-status-detail')
+      if (!link || !detail || getComputedStyle(detail).display === 'none') return
+      observer.disconnect(); clearTimeout(timeout)
+      resolve({ text: detail.textContent ?? '', height: link.getBoundingClientRect().height })
+    }
+    observer.observe(document.body, { attributes: true, childList: true, subtree: true })
+    check()
+  })) : null
   await page.getByRole('button', { name: '确认创建' }).click()
   await expect(page.getByRole('heading', { name: '同行验收计划' })).toBeVisible()
   await expect(page.locator('.primary-nav .plan-status-link')).toBeVisible()
   if (testInfo.project.name.startsWith('mobile')) {
     const mobileState = page.locator('.mobile-plan-anchor .plan-status-detail')
-    await expect(mobileState).toBeVisible({ timeout: 1000 })
-    await expect(mobileState).toHaveText(/投票中/)
+    const revealed = await mobileReveal!
+    expect(revealed.text).toMatch(/投票中/)
+    expect(revealed.height).toBe(36)
     await expect(mobileState).toBeHidden({ timeout: 7000 })
   }
   await page.getByRole('button', { name: '管理计划', exact: true }).click()
@@ -100,12 +114,12 @@ test('guest recommendation becomes an owned plan after explicit rerun, anonymous
       expect(overflow).toBe(false)
     }
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
-    await page.screenshot({ path: path.resolve('../docs/competition/evidence', `travel-plan-detail-${testInfo.project.name}.png`),
+    await page.screenshot({ path: testInfo.outputPath(`travel-plan-detail-${testInfo.project.name}.png`),
       fullPage: true, mask: [page.getByLabel('邀请链接')] })
-    await guest.screenshot({ path: path.resolve('../docs/competition/evidence', `travel-plan-guest-${testInfo.project.name}.png`), fullPage: true })
-    await page.getByRole('link', { name: '计划中心', exact: true }).click()
+    await guest.screenshot({ path: testInfo.outputPath(`travel-plan-guest-${testInfo.project.name}.png`), fullPage: true })
+    await page.getByRole('link', { name: '同行计划', exact: true }).click()
     await expect(page.getByRole('link', { name: /同行验收计划/ })).toBeVisible()
-    await page.screenshot({ path: path.resolve('../docs/competition/evidence', `travel-plan-${testInfo.project.name}.png`), fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`travel-plan-${testInfo.project.name}.png`), fullPage: true })
     await page.goto('/history')
     await page.getByRole('button', { name: '更多历史操作' }).first().click()
     await page.getByRole('button', { name: '重新查询', exact: true }).click()

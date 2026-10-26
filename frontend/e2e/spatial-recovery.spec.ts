@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test'
-import { registerUser } from './helpers'
+import { installLegacyAssistantFixture, registerUser } from './helpers'
+
+test.beforeEach(async ({ page }) => { await installLegacyAssistantFixture(page) })
 
 test('corrupt session and unavailable assistant still allow explicit condition editing', async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('roambot.studio.session.v1', '{broken'))

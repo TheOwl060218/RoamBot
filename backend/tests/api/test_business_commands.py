@@ -499,3 +499,18 @@ def test_vote_ordinal_uses_the_visible_candidate_order_not_database_order(auth_a
         {"plan_id": plan["id"], "visible_places": visible},
     )
     assert voted["plan"]["me"]["preferred_id"] == visible[0]["id"]
+
+
+def test_favorite_detail_uses_current_list_ids_instead_of_previous_recommendation(auth_api_fixture):
+    client, _, _ = auth_api_fixture()
+    csrf = register(client, "favorite_current_list")
+    previous = history_context(client, csrf)
+    run(client, csrf, "favorite_place", {"place": 1}, previous)
+    favorite = client.get("/api/v1/favorites").json()["favorites"][0]
+    context = previous | {
+        "page": "/favorites",
+        "visible_places": [{"id": "stale-provider-id", "name": "old card"}],
+        "visible_resources": {"kind": "favorites", "ids": [favorite["id"]]},
+    }
+    response = run(client, csrf, "open_detail", {"place": 1}, context)
+    assert response["effect"] == {"tool": "open_detail", "arguments": {"id": favorite["id"]}}

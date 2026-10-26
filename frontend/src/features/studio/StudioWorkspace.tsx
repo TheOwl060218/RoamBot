@@ -238,17 +238,36 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
     } else return false
     return true
   })
+  function finishConditionEditor() {
+    const key = editor
+    setEditor(null)
+    requestAnimationFrame(() => {
+      const trigger = workspace.current?.querySelector<HTMLElement>(`[data-condition-id="${key}"] .condition-piece-edit`)
+      const fallback = workspace.current?.querySelector<HTMLElement>('.studio-tools > button')
+      ;(trigger ?? fallback)?.focus({ preventScroll: true })
+    })
+  }
   const featureMenu = <StudioMenu onEdit={setEditor} onNew={stage.restartAll} onClear={() => undefined} onFavorites={() => user ? setFavoritesOpen(true) : requestAccountDialog()}
     onTeam={() => dispatch({ type: 'enterTeamPickMode' })} />
   const composer = <Composer busy={!!state.aiRequestId} onSend={sendAssistant} focusedPlace={detail?.destination.name}>{featureMenu}</Composer>
   const recentMessages = state.messages.slice(-2)
   const latestAssistant = [...state.messages].reverse().find(message => message.role === 'assistant' && message.resultVersion === state.result?.version)
+  const feedback = <div className='studio-feedback'>
+    {state.teamPick.active && <div className='studio-team-mode' role='status'>同行挑选中<button type='button' onClick={() => dispatch({ type: 'exitTeamPickMode' })}>结束挑选</button></div>}
+    {state.newQuerySnapshot && stage.phase === 'query' && <div className='studio-undo-query' role='status'>已开始新查询 <button type='button' onClick={stage.undoNewQuery}>撤销</button></div>}
+    {state.aiStatus && <div className='studio-assistant-recovery' data-busy={state.aiRequestId ? 'true' : undefined}><p role='status'>{state.aiStatus}</p>{!state.aiRequestId && <div>
+      {!state.draft.mainOrigin && <button type='button' onClick={() => setEditor('mainOrigin')}>补充出发地</button>}
+      {!state.draft.startDate && <button type='button' onClick={() => setEditor('dates')}>选择日期</button>}
+      {!state.draft.sceneryTypes.length && !state.draft.destinationRegions?.length && <button type='button' onClick={() => setEditor('sceneryTypes')}>描述想找的地方</button>}
+    </div>}</div>}
+  </div>
   return <div ref={workspace} className={`studio-workspace spatial-workspace phase-${stage.phase}`} data-workspace-phase={stage.phase}>
     <div className='studio-query-page' aria-hidden={stage.phase !== 'query'} inert={stage.phase !== 'query'}>
     <StudioStage state={state}>
       <div className='studio-stage-copy'>
         <header className='studio-intro'><h1>想去哪儿？</h1></header>
         {recentMessages.length > 0 && <section className='studio-conversation studio-conversation-current' aria-label='最近对话'>{recentMessages.map(m => <p key={m.id} className={m.role}>{m.content}</p>)}</section>}
+        {stage.phase !== 'results' && feedback}
       </div>
         {state.queryStatus && !state.queryRequestId && <p className='studio-query-feedback'>{state.queryStatus}</p>}
       <div className='studio-stage-controls'>
@@ -284,15 +303,9 @@ export function StudioWorkspace(props: SearchWorkspaceProps) {
         accessory={<LayerConversation label='比较对话' focusedPlace='候选比较' messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />}>
         <ComparisonCards items={chosen} onClose={() => setComparing(false)} /></OverlayHost>}
     </section></ResultsStage>}
-    {state.teamPick.active && <div className='studio-team-mode' role='status'>同行挑选中<button type='button' onClick={() => dispatch({ type: 'exitTeamPickMode' })}>结束挑选</button></div>}
-    {state.newQuerySnapshot && stage.phase === 'query' && <div className='studio-undo-query' role='status'>已开始新查询 <button type='button' onClick={stage.undoNewQuery}>撤销</button></div>}
-    {state.aiStatus && <div className='studio-assistant-recovery' data-busy={state.aiRequestId ? 'true' : undefined}><p role='status'>{state.aiStatus}</p>{!state.aiRequestId && <div>
-      {!state.draft.mainOrigin && <button type='button' onClick={() => setEditor('mainOrigin')}>补充出发地</button>}
-      {!state.draft.startDate && <button type='button' onClick={() => setEditor('dates')}>选择日期</button>}
-      {!state.draft.sceneryTypes.length && !state.draft.destinationRegions?.length && <button type='button' onClick={() => setEditor('sceneryTypes')}>描述想找的地方</button>}
-    </div>}</div>}
+    {stage.phase === 'results' && feedback}
     {favorite.notice && <p role='status'>{favorite.notice}</p>}
-    {editor && <ConditionEditor key={editor} conditionKey={editor} draft={state.draft} onSave={draft => { dispatch({ type: 'edit', draft, keys: [editor] }); setEditor(null); if (editor === 'sceneryTypes' && draft.sceneryQuery?.trim()) setPendingScenery(draft.sceneryQuery) }} onClose={() => setEditor(null)}
+    {editor && <ConditionEditor key={editor} conditionKey={editor} draft={state.draft} onSave={draft => { dispatch({ type: 'edit', draft, keys: [editor] }); finishConditionEditor(); if (editor === 'sceneryTypes' && draft.sceneryQuery?.trim()) setPendingScenery(draft.sceneryQuery) }} onClose={finishConditionEditor}
       accessory={<LayerConversation label='条件对话' focusedPlace='编辑条件' messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />} />}
     {otherOpen && <OverlayHost label='其他偏好' onClose={() => setOtherOpen(false)} panelClassName='studio-feature-library glass-panel'
       accessory={<LayerConversation label='偏好对话' focusedPlace='其他偏好' messages={state.messages} status={state.aiStatus} busy={!!state.aiRequestId} onSend={sendAssistant} />}>

@@ -22,11 +22,12 @@ test('content-sized plan capsule and history toolbar stay usable at both viewpor
     await status.hover()
     await expect(status).toContainText('金鸡湖')
     await expect.poll(async () => (await status.boundingBox())!.width).toBeLessThan(320)
-    const shortWidth = (await status.boundingBox())!.width
+    const shortRight = (await status.boundingBox())!.x + (await status.boundingBox())!.width
     destination = '苏州金鸡湖文化旅游景区'
     await page.evaluate(() => window.dispatchEvent(new Event('roambot.plan-changed')))
     await expect(status).toContainText(destination)
-    await expect.poll(async () => (await status.boundingBox())!.width).toBeGreaterThan(shortWidth + 15)
+    await expect(status).toHaveAttribute('title', new RegExp(destination))
+    expect(Math.abs((await status.boundingBox())!.x + (await status.boundingBox())!.width - shortRight)).toBeLessThan(1)
     expect((await status.boundingBox())!.width).toBeLessThanOrEqual(340)
   }
   await page.getByRole('button', { name: '更多历史操作' }).click()
@@ -43,8 +44,8 @@ test('content-sized plan capsule and history toolbar stay usable at both viewpor
   await expect(page.getByRole('button', { name: '更多历史操作' })).toBeFocused()
   await page.getByRole('button', { name: '更多历史操作' }).click()
   await page.getByRole('button', { name: '创建分享' }).click()
-  await expect(toolbar).toBeHidden()
-  await page.getByRole('button', { name: '更多历史操作' }).click()
+  // Keep the new link available immediately for copying or revocation.
+  await expect(toolbar).toBeVisible()
   await expect(page.getByRole('button', { name: '复制分享链接' })).toBeVisible()
   await expect(page.getByRole('button', { name: '撤销分享' })).toBeVisible()
   const sharedBounds = (await toolbar.boundingBox())!

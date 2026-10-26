@@ -73,11 +73,14 @@ export function CommandRoot() {
     const shortcut = (event: KeyboardEvent) => {
       if (!event.altKey || (event.code !== 'Slash' && event.key !== '/') || event.isComposing) return
       event.preventDefault()
-      focusConversation()
+      if (location.pathname === '/') {
+        navigate('/explore', { viewTransition: true })
+        void bridge.waitFor('discovery').then(() => requestAnimationFrame(focusConversation)).catch(() => undefined)
+      } else focusConversation()
     }
     window.addEventListener('keydown', shortcut)
     return () => window.removeEventListener('keydown', shortcut)
-  }, [])
+  }, [bridge, location.pathname, navigate])
   const latest = useRef({ page: location.pathname, lastLink, messages })
   useLayoutEffect(() => { latest.current = { page: location.pathname, lastLink, messages } }, [location.pathname, lastLink, messages])
   useLayoutEffect(() => {

@@ -40,7 +40,7 @@ test('current-batch team picking, nested map, and route continuity', async ({ pa
     document.querySelector('.coastal-backdrop')?.setAttribute('data-identity', 'same-background')
     document.querySelector('.shell-header')?.setAttribute('data-identity', 'same-nav')
   })
-  for (const [name, path] of [['收藏', 'favorites'], ['历史', 'history'], ['计划中心', 'plans']]) {
+  for (const [name, path] of [['收藏', 'favorites'], ['历史', 'history'], ['同行计划', 'plans']]) {
     await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name, exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/${path}$`))
     await expect(page.locator('.coastal-backdrop')).toHaveAttribute('data-identity', 'same-background')

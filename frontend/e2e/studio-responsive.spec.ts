@@ -12,7 +12,7 @@ for (const width of [1440,1280,390,320]) {
     }
     await page.addInitScript(data => sessionStorage.setItem('roambot.session.search-result.v1', JSON.stringify(data)), result)
     await page.goto('/recommend')
-    await expect(page.getByTestId('destination-card')).toHaveCount(3)
+    await expect(page.getByTestId('destination-card')).toHaveCount(result.items.length)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
     await page.screenshot({ path: info.outputPath(`studio-${width}-cards.png`), fullPage: true })
     for (let i = 0; i < 3; i++) await page.getByRole('button', { name: /^加入候选：/ }).first().click()

@@ -1,3 +1,4 @@
+import { fulfillApiFixture } from './helpers'
 import { expect, test } from '@playwright/test'
 import { workbenchPlan } from '../tests/fixtures/workbenchPlan'
 
@@ -5,13 +6,15 @@ for (const role of ['owner', 'voter']) {
   test(`${role} explanation preserves layout and stays within screen edges`, async ({ page }, info) => {
     const plan = workbenchPlan()
     plan.candidates[2].snapshot.daily_suitability![0].summary = '户外出行请留意降雨，准备雨具并及时调整路线。'.repeat(30)
-    await page.route('**/api/v1/**', route => route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/auth/me')
+    await page.route('**/api/v1/**', route => fulfillApiFixture(route, { json: new URL(route.request().url()).pathname.endsWith('/auth/me')
       ? { user: role === 'owner' ? { username: 'fixture' } : null }
       : { plan, anonymous_csrf: 'fixture' } }))
     await page.goto(role === 'owner' ? '/plans/workbench' : '/join/fixture')
     await page.getByRole('button', { name: '查看全部日期', exact: true }).click()
     const trigger = page.getByRole('button', { name: '查看苏州博物馆详情' })
     await trigger.scrollIntoViewIfNeeded()
+    await trigger.hover()
+    await trigger.evaluate(async node => { await Promise.all(node.getAnimations().map(a => a.finished)) })
     const before = (await trigger.boundingBox())!
     const card = page.locator('.plan-comparison-card').first()
     const height = (await card.boundingBox())!.height

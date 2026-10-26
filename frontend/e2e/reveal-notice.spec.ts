@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { fillStudioConditions } from './helpers'
+import { fulfillApiFixture, fillStudioConditions } from './helpers'
 import { workbenchPlan } from '../tests/fixtures/workbenchPlan'
 
 test('all dates announces offscreen content, expires, and stays quiet when the table is visible', async ({ page }, info) => {
   const plan = workbenchPlan()
-  await page.route('**/api/v1/**', route => route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/auth/me') ? { user: null } : { plan, anonymous_csrf: 'fixture' } }))
+  await page.route('**/api/v1/**', route => fulfillApiFixture(route, { json: new URL(route.request().url()).pathname.endsWith('/auth/me') ? { user: null } : { plan, anonymous_csrf: 'fixture' } }))
   await page.setViewportSize({ width: page.viewportSize()!.width, height: 600 })
   await page.goto('/join/fixture')
   await page.getByRole('button', { name: '查看全部日期', exact: true }).click()

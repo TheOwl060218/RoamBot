@@ -1,3 +1,4 @@
+import { fulfillApiFixture } from './helpers'
 import { expect, test } from '@playwright/test'
 import { workbenchPlan } from '../tests/fixtures/workbenchPlan'
 
@@ -6,7 +7,7 @@ for (const role of ['owner', 'voter']) {
     const plan = workbenchPlan()
     plan.status = 'decided'
     plan.final_candidate_id = '1'
-    await page.route('**/api/v1/**', route => route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/auth/me')
+    await page.route('**/api/v1/**', route => fulfillApiFixture(route, { json: new URL(route.request().url()).pathname.endsWith('/auth/me')
       ? { user: role === 'owner' ? { username: 'fixture' } : null }
       : { plan, anonymous_csrf: 'fixture' } }))
     await page.goto(role === 'owner' ? '/plans/workbench' : '/join/fixture')

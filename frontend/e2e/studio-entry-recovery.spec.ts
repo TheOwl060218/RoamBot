@@ -1,4 +1,7 @@
+import { installLegacyAssistantFixture } from './helpers'
 import { test, expect } from '@playwright/test'
+
+test.beforeEach(async ({ page }) => { await installLegacyAssistantFixture(page) })
 
 test('manual entry is available on an empty workspace', async ({ page }) => {
   await page.goto('/recommend')

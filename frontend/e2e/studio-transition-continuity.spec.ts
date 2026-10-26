@@ -51,7 +51,7 @@ test('closing layers retain their full visual content until the exit finishes', 
 
 test('guest plan navigation enters its page instead of opening an unrelated modal', async ({ page }) => {
   await page.goto('/recommend')
-  await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '计划中心', exact: true }).click()
+  await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '同行计划', exact: true }).click()
   await expect(page).toHaveURL(/\/plans$/)
   await expect(page.getByText('登录后可查看此页面。')).toBeVisible()
   await expect(page.getByRole('dialog')).toHaveCount(0)

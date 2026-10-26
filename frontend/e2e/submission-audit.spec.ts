@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { fillStudioConditions, registerUser } from './helpers'
+import { openCondition, fillStudioConditions, registerUser } from './helpers'
 
 // Audit only: real local Mock backend and disposable test users, no provider calls.
 test('submission audit cancelling evaluation editor must not change query mode', async ({ page }, info) => {
@@ -30,7 +30,7 @@ for (const focus of ['input', 'option']) {
 test(`submission audit region Escape from ${focus} must preserve underlying condition editor`, async ({ page }, info) => {
   await page.goto('/recommend')
   await fillStudioConditions(page)
-  await page.getByRole('button', { name: /编辑目的地范围/ }).click()
+  await openCondition(page, '目的地范围')
   const editor = page.getByRole('dialog', { name: '目的地范围', exact: true })
   await expect(editor).toBeVisible()
   await editor.getByRole('combobox', { name: '目的地城市范围' }).fill('江苏')
