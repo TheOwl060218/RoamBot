@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
-from math import asin, cos, isfinite, radians, sin, sqrt
+from math import asin, cos, degrees, isfinite, radians, sin, sqrt
 from unicodedata import normalize
 
 from roambot.domain.models import (
@@ -12,9 +12,15 @@ from roambot.domain.models import (
     PlaceSuggestion,
     SceneryType,
 )
+from roambot.domain.regions import (
+    matches_destination_regions,
+    missing_region_membership,
+    normalize_destination_regions,
+    resolve_region_codes,
+)
 from roambot.domain.scenery import classify_scenery
 from roambot.providers.http import ProviderHttpClient
-from roambot.providers.protocols import ProviderError
+from roambot.providers.protocols import PlaceSearchResults, ProviderError
 
 SEARCH_TERMS = {
     SceneryType.LAKE: "湖泊景区",
@@ -40,9 +46,7 @@ class AMapProvider:
         city_hint = city.strip()
         if city_hint:
             params["city"] = city_hint
-        payload = self._http.get_json(
-            operation="geocode", path="/v3/geocode/geo", params=params
-        )
+        payload = self._http.get_json(operation="geocode", path="/v3/geocode/geo", params=params)
         self._require_success(payload)
         geocodes = payload.get("geocodes")
         if not isinstance(geocodes, list):
@@ -112,18 +116,53 @@ class AMapProvider:
         city: str,
         scenery_types: tuple[SceneryType, ...],
         radius_km: float,
+        destination_regions: tuple[str, ...] = (),
+        scenery_keywords: tuple[str, ...] = (),
     ) -> list[Destination]:
         selected_types = tuple(dict.fromkeys(scenery_types))[:6]
+        from roambot.domain.semantic_preferences import normalize_scenery_keywords
+
+        semantic = normalize_scenery_keywords(list(scenery_keywords)) or []
         if not selected_types:
             return []
 
         candidate_groups: list[list[Destination]] = []
+        destination_regions = tuple(normalize_destination_regions(list(destination_regions)))
+        missing_metadata = False
         seen: set[str] = set()
         use_around = radius_km <= 50
-        for scenery_type in selected_types:
-            params = self._place_params(SEARCH_TERMS[scenery_type], city)
-            filter_locally = not use_around
-            if use_around:
+        # v3 text supports OR keywords: one request per normalized region,
+        # rather than multiplying region count by every scenery type.
+        searches = (
+            [
+                (region, "|".join(SEARCH_TERMS[kind] for kind in selected_types))
+                for region in destination_regions
+            ]
+            if destination_regions
+            else [(None, SEARCH_TERMS[kind]) for kind in selected_types]
+        )
+        if semantic:
+            searches = [
+                (region, "|".join(dict.fromkeys([*terms.split("|"), *semantic])))
+                for region, terms in searches
+            ]
+        for region, keywords in searches:
+            params = self._place_params(keywords, city)
+            params.pop("region")
+            params.pop("city_limit")
+            if region:
+                path = "/v3/place/text"
+                params = {
+                    "key": self._api_key,
+                    "keywords": keywords,
+                    "city": region,
+                    "citylimit": "true",
+                    "offset": "25",
+                    "page": "1",
+                    "extensions": "all",
+                    "output": "json",
+                }
+            elif use_around:
                 params.update(
                     {
                         "location": _format_coordinate(center),
@@ -133,7 +172,16 @@ class AMapProvider:
                 )
                 path = "/v5/place/around"
             else:
-                path = "/v5/place/text"
+                path = "/v3/place/polygon"
+                params = {
+                    "key": self._api_key,
+                    "keywords": keywords,
+                    "polygon": _radius_rectangle(center, radius_km),
+                    "offset": "25",
+                    "page": "1",
+                    "extensions": "all",
+                    "output": "json",
+                }
 
             payload = self._http.get_json(
                 operation="poi_search",
@@ -142,24 +190,21 @@ class AMapProvider:
             )
             candidates = [
                 candidate.model_copy(update={"popularity_rank": rank})
-                for rank, candidate in enumerate(self._parse_pois(payload, city), start=1)
-            ]
-            if use_around and not candidates:
-                payload = self._http.get_json(
-                    operation="poi_search",
-                    path="/v5/place/text",
-                    params=self._place_params(SEARCH_TERMS[scenery_type], city),
+                for rank, candidate in enumerate(
+                    self._parse_pois(payload, "", v3=bool(region) or not use_around), start=1
                 )
-                candidates = [
-                    candidate.model_copy(update={"popularity_rank": rank})
-                    for rank, candidate in enumerate(
-                        self._parse_pois(payload, city), start=1
-                    )
-                ]
-                filter_locally = True
+            ]
             group: list[Destination] = []
             for candidate in candidates:
-                if filter_locally and _haversine_km(center, candidate.coordinate) > radius_km:
+                if (
+                    not destination_regions
+                    and _haversine_km(center, candidate.coordinate) > radius_km
+                ):
+                    continue
+                if not matches_destination_regions(candidate, destination_regions):
+                    missing_metadata |= missing_region_membership(candidate, destination_regions)
+                    continue
+                if not candidate.scenery_tags.intersection(selected_types):
                     continue
                 if candidate.provider_id in seen:
                     continue
@@ -186,13 +231,18 @@ class AMapProvider:
         for group, quota in zip(candidate_groups, quotas, strict=True):
             merged.extend(group[:quota])
 
-        return merged
+        return PlaceSearchResults(merged, region_metadata_missing=missing_metadata)
 
     def resolve(self, name: str, city: str) -> Destination:
+        city = city.strip()
+        params = self._place_params(name.strip(), city)
+        if not city:
+            params.pop("region")
+            params["city_limit"] = "false"
         payload = self._http.get_json(
             operation="poi_search",
             path="/v5/place/text",
-            params=self._place_params(name.strip(), city),
+            params=params,
         )
         candidates = self._parse_pois(payload, city)
         if not candidates:
@@ -246,14 +296,14 @@ class AMapProvider:
             )
         return estimates
 
-    def _parse_pois(self, payload: dict[str, object], city: str) -> list[Destination]:
+    def _parse_pois(self, payload: dict[str, object], city: str, *, v3=False) -> list[Destination]:
         self._require_success(payload)
         declared_count = _count(payload.get("count"))
         pois = payload.get("pois")
         if not isinstance(pois, list):
             raise _bad_response()
 
-        candidates = [candidate for poi in pois if (candidate := _parse_poi(poi, city))]
+        candidates = [candidate for poi in pois if (candidate := _parse_poi(poi, city, v3=v3))]
         if declared_count > 0 and not candidates:
             raise _bad_response()
         return candidates
@@ -279,7 +329,7 @@ class AMapProvider:
         }
 
 
-def _parse_poi(raw: object, fallback_city: str) -> Destination | None:
+def _parse_poi(raw: object, fallback_city: str, *, v3=False) -> Destination | None:
     if not isinstance(raw, dict):
         return None
     name = _required_text(raw.get("name"))
@@ -303,8 +353,10 @@ def _parse_poi(raw: object, fallback_city: str) -> Destination | None:
     address = raw_address if isinstance(raw_address, str) else ""
     raw_city = raw.get("cityname")
     city = raw_city if isinstance(raw_city, str) and raw_city else fallback_city
-    business = raw.get("business")
+    business = raw.get("biz_ext" if v3 else "business")
     rating = _optional_rating(business.get("rating")) if isinstance(business, dict) else None
+    adcode = _required_text(raw.get("adcode"))
+    province_code, city_code = resolve_region_codes(adcode, _required_text(raw.get("pcode")))
     return Destination(
         provider_id=provider_id,
         name=name,
@@ -316,6 +368,9 @@ def _parse_poi(raw: object, fallback_city: str) -> Destination | None:
         scenery_tags=classify_scenery(name, type_name, type_code, {}),
         popularity_rank=1,
         rating=rating,
+        adcode=adcode,
+        province_adcode=province_code,
+        city_adcode=city_code,
     )
 
 
@@ -400,6 +455,19 @@ def _haversine_km(left: Coordinate, right: Coordinate) -> float:
         cos(left_latitude) * cos(right_latitude) * sin(longitude_delta / 2) ** 2
     )
     return 2 * earth_radius_km * asin(sqrt(haversine))
+
+
+def _radius_rectangle(center: Coordinate, radius_km: float) -> str:
+    angular = radius_km / 6371.0088
+    latitude = radians(center.latitude)
+    south, north = center.latitude - degrees(angular), center.latitude + degrees(angular)
+    if south <= -90 or north >= 90:
+        raise ProviderError("bad_request", "该位置无法进行当前距离范围检索")
+    delta = degrees(asin(sin(angular) / cos(latitude)))
+    west, east = center.longitude - delta, center.longitude + delta
+    if west < -180 or east > 180:
+        raise ProviderError("bad_request", "该位置无法进行当前距离范围检索")
+    return f"{west:.6f},{north:.6f}|{east:.6f},{south:.6f}"
 
 
 def _bad_response() -> ProviderError:

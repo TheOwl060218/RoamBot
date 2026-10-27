@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from secrets import compare_digest
 from threading import Lock
 
@@ -16,9 +16,12 @@ from roambot.persistence.database import (
     create_engine_and_session_factory,
     initialize_schema,
 )
+from roambot.providers.assistant import UnavailableAssistantProvider
 from roambot.providers.budget import ProviderOperation
 from roambot.providers.factory import ProviderBundle, build_provider_runtime
+from roambot.security.assistant_context import AssistantContextSigner
 from roambot.security.sessions import hash_token
+from roambot.services.assistant import AssistantService
 from roambot.services.auth import AuthenticatedSession, AuthService, InvalidSessionError
 from roambot.services.personal_data import PersonalDataService
 from roambot.services.recommendations import RecommendationService
@@ -35,6 +38,10 @@ def get_settings(request: Request) -> Settings:
 SETTINGS_DEPENDENCY = Depends(get_settings)
 
 
+def get_assistant_context_signer(request: Request) -> AssistantContextSigner:
+    return request.app.state.assistant_context_signer
+
+
 def get_provider_bundle(request: Request) -> ProviderBundle:
     runtime = getattr(request.app.state, "provider_runtime", None)
     if runtime is None:
@@ -45,6 +52,17 @@ def get_provider_bundle(request: Request) -> ProviderBundle:
 
 
 PROVIDER_BUNDLE_DEPENDENCY = Depends(get_provider_bundle)
+
+
+def get_assistant_service(
+    request: Request, bundle: ProviderBundle = PROVIDER_BUNDLE_DEPENDENCY
+) -> AssistantService:
+    return AssistantService(
+        bundle.assistant or UnavailableAssistantProvider(),
+        get_assistant_context_signer(request),
+        today=lambda: datetime.now(timezone(timedelta(hours=8))).date(),
+        demo="demo" in bundle.trace.events,
+    )
 
 
 def get_recommendation_service(
@@ -98,9 +116,7 @@ def get_session_factory(
         with _SESSION_FACTORY_LOCK:
             session_factory = getattr(request.app.state, "session_factory", None)
             if session_factory is None:
-                engine, session_factory = create_engine_and_session_factory(
-                    settings.database_path
-                )
+                engine, session_factory = create_engine_and_session_factory(settings.database_path)
                 initialize_schema(engine)
                 request.app.state.auth_engine = engine
                 request.app.state.session_factory = session_factory
@@ -135,7 +151,7 @@ def get_optional_session(
     request: Request,
     service: AuthService = AUTH_SERVICE_DEPENDENCY,
 ) -> RequestSession | None:
-    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    session_token = request.cookies.get(get_settings(request).session_cookie_name)
     if not session_token:
         return None
     try:
@@ -193,12 +209,23 @@ async def auth_api_exception_handler(
     request: Request,
     exc: AuthApiError,
 ) -> JSONResponse:
-    del request
-    return error_response(
+    response = error_response(
         status_code=exc.status_code,
         code=exc.code,
         message=exc.message,
     )
+    if exc.status_code == 401 and exc.code == "authentication_required":
+        response.headers["Cache-Control"] = "no-store"
+        cookie_name = get_settings(request).session_cookie_name
+        if request.cookies.get(cookie_name):
+            response.delete_cookie(
+                cookie_name,
+                path="/",
+                secure=get_settings(request).secure_cookies,
+                httponly=True,
+                samesite="lax",
+            )
+    return response
 
 
 def _authentication_required() -> AuthApiError:

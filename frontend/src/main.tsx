@@ -6,8 +6,14 @@ import './styles/tokens.css'
 import './styles/app.css'
 import './styles/forms.css'
 import './styles/results.css'
+import './styles/location-map.css'
 import './styles/auth.css'
 import './styles/personal.css'
+import './styles/plans.css'
+import './styles/home.css'
+import './styles/commands.css'
+import './styles/actions.css'
+import './styles/home-explore-motion.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

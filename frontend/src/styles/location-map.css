@@ -1,0 +1,49 @@
+.dialog-backdrop.location-backdrop { z-index: 160; padding: 20px; }
+.location-backdrop { animation: layer-veil-in 260ms ease-out both; backdrop-filter: blur(6px); }
+.location-backdrop .location-dialog { animation: coastal-card-in 280ms cubic-bezier(.22,.75,.18,1) both; }
+@media(prefers-reduced-motion:reduce) { .location-backdrop, .location-backdrop .location-dialog { animation: none !important; } }
+.location-dialog { width: min(920px, 100%); max-height: calc(100dvh - 40px); overflow: auto; background: var(--surface, #fff); border: 1px solid var(--border); border-radius: 24px; padding: 24px; box-shadow: 0 24px 80px #142c3840; }
+.location-heading, .location-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.location-heading h2 { margin: 0 0 6px; }
+.location-heading p, .location-footer p, .location-disclaimer { margin: 0; color: var(--muted, #7d8e95); font-size: 13px; line-height: 1.6; }
+.location-candidates { display: flex; gap: 8px; overflow-x: auto; padding: 16px 0; scrollbar-width: none; }
+.location-candidates::-webkit-scrollbar { display: none; }
+.location-candidates button { white-space: nowrap; flex-shrink: 0; }
+.location-candidates button[aria-pressed="true"] { color: var(--primary); background: #e8f3f6; border-color: var(--primary); }
+.location-map-wrap { position: relative; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: #f3f7f8; }
+.location-map { height: clamp(240px, 48dvh, 440px); width: 100%; background: #fafbf9; }
+.location-marker-name { position: absolute; z-index: 20; max-width: calc(100% - 16px); padding: 7px 11px; border: 1px solid #7daeb9; border-radius: 12px; background: #fafffff5; color: #205b6c; box-shadow: 0 3px 12px #19485320; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; pointer-events: none; }
+.location-marker-name[hidden] { display: none; }
+.location-dialog-with-card { width: min(1120px, 100%); }
+.location-dialog-with-card .location-content { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
+.location-selected-card { min-width: 0; max-height: clamp(240px, 48dvh, 440px); overflow-y: auto; scrollbar-width: thin; }
+.location-map-status { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; padding: 16px; pointer-events: none; }
+.location-map-status-pill { display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; max-width: 100%; border: 1px solid #ffffffb0; border-radius: 999px; background: #f9fdfdf2; color: #426a76; box-shadow: 0 6px 24px #19485316; font-size: 13px; pointer-events: auto; }
+.location-map-status-pill > svg { flex-shrink: 0; }
+.location-map-status-pill .text-button { padding: 4px 8px; white-space: nowrap; font-size: 12px; }
+.location-map-status p { margin: 0; }
+.location-footer { padding: 16px 0 10px; }
+.location-footer > div { min-width: 0; }
+.location-footer strong, .location-footer p { overflow-wrap: anywhere; }
+.location-footer a { flex-shrink: 0; }
+.location-marker { --pin-fill: #fff; --pin-edge: #367c8c; position: relative; display: block; width: 36px; height: 46px; min-width: 36px; padding: 0; border: 0; border-radius: 0; background: transparent; color: #255d6b; cursor: pointer; }
+.location-marker::before, .location-marker::after { content: ''; position: absolute; left: 50%; width: 0; height: 0; transform: translateX(-50%); border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 14px solid var(--pin-edge); bottom: 0; }
+.location-marker::after { border-left-width: 6px; border-right-width: 6px; border-top: 10px solid var(--pin-fill); bottom: 4px; }
+.location-marker-head { position: absolute; top: 0; left: 0; z-index: 1; display: grid; place-items: center; width: 36px; height: 36px; box-sizing: border-box; border: 2px solid var(--pin-edge); border-radius: 50%; background: var(--pin-fill); font-size: 14px; font-weight: 700; line-height: 1; box-shadow: 0 2px 6px #173e4926; transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease; }
+.location-marker.is-selected { --pin-fill: #125b6e; --pin-edge: #125b6e; color: white; }
+.location-marker:hover .location-marker-head, .location-marker:focus-visible .location-marker-head { box-shadow: 0 0 0 4px #237c912b, 0 2px 6px #173e4926; }
+.location-marker:focus-visible { outline: none; }
+@media (max-width: 600px) {
+  .dialog-backdrop.location-backdrop { padding: 12px; }
+  .location-dialog { padding: 16px; border-radius: 20px; max-height: calc(100dvh - 24px); }
+  .location-heading h2 { font-size: 20px; }
+  .location-footer { align-items: flex-start; }
+}
+@media (max-width: 800px) {
+  .location-dialog-with-card .location-content { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .location-dialog-with-card .location-map { height: clamp(240px, 42dvh, 380px); }
+  .location-selected-card { max-height: none; overflow: visible; }
+  .location-dialog-with-card .location-heading { position: sticky; top: -16px; z-index: 30; padding-block: 8px; background: var(--surface, #fff); }
+}
+
+.location-overview-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 0 10px; color: var(--muted); font-size: .8rem; }

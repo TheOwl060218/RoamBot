@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from roambot.api.dependencies import (
-    SESSION_COOKIE_NAME,
     AuthApiError,
     RequestSession,
     get_auth_service,
@@ -60,6 +60,7 @@ CSRF_DEPENDENCY = Depends(require_csrf)
 @router.post("/register", status_code=201, response_model=AuthResponse)
 def register(
     credentials: CredentialsRequest,
+    request: Request,
     response: Response,
     service: AuthService = AUTH_SERVICE_DEPENDENCY,
     settings: Settings = SETTINGS_DEPENDENCY,
@@ -73,6 +74,7 @@ def register(
             message="Username is already taken.",
         )
     _set_session_cookie(response, grant, settings)
+    _adopt_guest_discovery(request, response, grant, settings)
     _set_no_store(response)
     return _auth_response(grant.username, grant.csrf_token)
 
@@ -80,6 +82,7 @@ def register(
 @router.post("/login", response_model=AuthResponse)
 def login(
     credentials: CredentialsRequest,
+    request: Request,
     response: Response,
     service: AuthService = AUTH_SERVICE_DEPENDENCY,
     settings: Settings = SETTINGS_DEPENDENCY,
@@ -93,6 +96,7 @@ def login(
             message="Invalid username or password.",
         )
     _set_session_cookie(response, grant, settings)
+    _adopt_guest_discovery(request, response, grant, settings)
     _set_no_store(response)
     return _auth_response(grant.username, grant.csrf_token)
 
@@ -132,7 +136,7 @@ def logout(
         ) from exc
     response.status_code = 204
     response.delete_cookie(
-        key=SESSION_COOKIE_NAME,
+        key=settings.session_cookie_name,
         path="/",
         secure=settings.secure_cookies,
         httponly=True,
@@ -142,9 +146,36 @@ def logout(
     return response
 
 
+def _adopt_guest_discovery(
+    request: Request, response: Response, grant: SessionGrant, settings: Settings
+) -> None:
+    from roambot.api.routes.commands import COOKIE
+
+    identity = request.cookies.get(COOKIE)
+    if not identity:
+        return
+    from roambot.services.itineraries import ItineraryService
+
+    factory = getattr(request.app.state, "session_factory", None)
+    if factory:
+        ItineraryService(factory).adopt(
+            "guest:" + hashlib.sha256(identity.encode()).hexdigest(), "user:" + grant.user_id
+        )
+    from roambot.api.routes.discovery import get_jobs
+
+    jobs = get_jobs(request)
+    guest = "guest:" + hashlib.sha256(identity.encode()).hexdigest()
+    scope = hashlib.sha256(grant.session_token.encode()).hexdigest()[:32]
+    jobs.adopt_guest(guest, "user:" + grant.user_id + ":" + scope)
+    # The old guest credential cannot be reused to move these results to another account.
+    response.delete_cookie(
+        COOKIE, path="/", httponly=True, secure=settings.secure_cookies, samesite="lax"
+    )
+
+
 def _set_session_cookie(response: Response, grant: SessionGrant, settings: Settings) -> None:
     response.set_cookie(
-        key=SESSION_COOKIE_NAME,
+        key=settings.session_cookie_name,
         value=grant.session_token,
         httponly=True,
         secure=settings.secure_cookies,

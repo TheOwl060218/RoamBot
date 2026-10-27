@@ -1,0 +1,14 @@
+.weather-strip { min-width: 0; padding: 14px 8px 10px; border: 1px solid var(--coastal-line, var(--border)); border-radius: 18px; background: rgb(246 252 252 / 42%); }
+.weather-strip-heading { padding: 0 8px 12px; color: var(--coastal-muted, var(--muted)); font-size: .8rem; }
+.weather-strip-scroll { min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: #a6c3ca transparent; border-radius: 10px; }
+.weather-strip-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.weather-strip-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(84px,1fr); width: 100%; margin: 0; padding: 0 0 5px; list-style: none; }
+.weather-strip-day { display: grid; grid-template-rows: auto 30px minmax(2.8em,auto) auto; justify-items: center; align-items: center; align-content: start; gap: 7px; min-width: 0; padding: 5px 8px; color: var(--coastal-ink, var(--ink)); text-align: center; font-size: .78rem; line-height: 1.4; }
+.weather-strip-day + .weather-strip-day { border-left: 1px solid var(--coastal-line, var(--border)); }
+.weather-strip-day time { color: var(--coastal-muted, var(--muted)); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.weather-strip-icon { color: #548c9a; }
+.weather-strip-condition { align-self: start; width: 100%; overflow-wrap: anywhere; }
+.weather-strip-temperature { white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media(max-width:600px) {
+  .weather-strip-days { grid-auto-columns: 86px; }
+}

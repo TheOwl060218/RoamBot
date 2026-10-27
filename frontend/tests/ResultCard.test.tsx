@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import type { RecommendationItem } from '../src/api/types'
@@ -63,6 +63,43 @@ function recommendationItem(originCount: 1 | 2 = 1): RecommendationItem {
 }
 
 describe('PlaceDetail', () => {
+  it('offers the real POI link near the title and omits it for demo places', () => {
+    const item = recommendationItem()
+    item.destination.provider_id = 'amap:B01234'
+    const view = render(<PlaceDetail item={item} />)
+    const link = screen.getByRole('link', { name: '打开高德' })
+    expect(link.closest('header')).not.toBeNull()
+    expect(link).toHaveAttribute('target', '_blank')
+    const searchUrl = new URL(link.getAttribute('href')!)
+    expect(searchUrl.pathname).toBe('/search')
+    expect(searchUrl.searchParams.get('keyword')).toBe('金鸡湖景区')
+    expect(searchUrl.searchParams.get('city')).toBe('苏州')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.getByRole('button', { name: '查看位置' })).toBeInTheDocument()
+    view.rerender(<PlaceDetail item={recommendationItem()} />)
+    expect(screen.queryByRole('link', { name: '打开高德' })).not.toBeInTheDocument()
+  })
+  it('opens the location dialog locally and Escape restores focus', () => {
+    render(<PlaceDetail item={recommendationItem()} />)
+    const trigger = screen.getByRole('button', { name: '查看位置' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    const dialog = screen.getByRole('dialog', { name: '景点位置' })
+    expect(dialog).toBeVisible()
+    expect(screen.queryByText('本页查看位置，无需登录高德')).not.toBeInTheDocument()
+    expect(dialog.querySelector('.location-disclaimer')).not.toBeInTheDocument()
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+  it('keeps every weather row without adding filler to empty reminder cells', () => {
+    const item = recommendationItem()
+    item.daily_suitability[0].summary = ''
+    const { container } = render(<PlaceDetail item={item} />)
+    expect(container.querySelectorAll('.weather-day')).toHaveLength(1)
+    expect(container.querySelector('.weather-summary')).toBeNull()
+    expect(screen.getByText('谨慎考虑')).toBeVisible()
+  })
   it('presents an integer trip match index and qualitative dimensions', () => {
     render(<PlaceDetail item={recommendationItem()} />)
 

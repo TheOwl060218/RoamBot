@@ -1,6 +1,42 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { startSmoothScrollTo } from '../src/features/search/scrolling'
+import { startSmoothScrollInContainer, startSmoothScrollTo } from '../src/features/search/scrolling'
+
+describe('startSmoothScrollInContainer', () => {
+  it('finishes with the target aligned to the container after layout shifts', () => {
+    const frames: FrameRequestCallback[] = []
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback)
+      return frames.length
+    })
+    const container = document.createElement('aside')
+    const target = document.createElement('section')
+    target.style.scrollMarginTop = '24px'
+    let targetTop = 500
+    Object.defineProperty(container, 'scrollTop', { configurable: true, writable: true, value: 100 })
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue({
+      top: 100, left: 0, right: 0, bottom: 700, width: 400, height: 600, x: 0, y: 100, toJSON: () => ({}),
+    })
+    vi.spyOn(target, 'getBoundingClientRect').mockImplementation(() => ({
+      top: targetTop, left: 0, right: 0, bottom: targetTop + 100, width: 400, height: 100, x: 0, y: targetTop, toJSON: () => ({}),
+    }))
+    const onComplete = vi.fn()
+
+    try {
+      startSmoothScrollInContainer(container, () => target, onComplete)
+      frames.shift()!(0)
+      frames.shift()!(0)
+      frames.shift()!(0)
+      targetTop = 450
+      frames.shift()!(552)
+
+      expect(container.scrollTop).toBeCloseTo(426, 0)
+      expect(onComplete).toHaveBeenCalledTimes(1)
+    } finally {
+      requestAnimationFrame.mockRestore()
+    }
+  })
+})
 
 describe('startSmoothScrollTo', () => {
   it('moves through intermediate positions before reaching the target', () => {

@@ -16,9 +16,10 @@ const chineseDate = new Intl.DateTimeFormat('zh-CN', {
 type DailyWeatherListProps = {
   weather: DailyWeather[]
   suitability: DailySuitability[]
+  showSummary?: boolean
 }
 
-export function DailyWeatherList({ weather, suitability }: DailyWeatherListProps) {
+export function DailyWeatherList({ weather, suitability, showSummary = true }: DailyWeatherListProps) {
   const variant = weather.length === 1 ? 'single' : 'multi'
 
   return (
@@ -36,12 +37,12 @@ export function DailyWeatherList({ weather, suitability }: DailyWeatherListProps
             </div>
             <div className="weather-facts">
               <div className="weather-temperature"><span>温度</span><strong>{day.temp_min_c}–{day.temp_max_c}°C</strong></div>
-              <div className="weather-advice">
+              {advice && <div className="weather-advice">
                 <span>出行建议</span>
-                <strong>{advice ? adviceLabels[advice.status] : '暂无判断'}</strong>
-              </div>
+                <strong>{adviceLabels[advice.status]}</strong>
+              </div>}
             </div>
-            {advice && <p className="weather-summary">{advice.summary}</p>}
+            {showSummary && advice?.summary && <p className="weather-summary">{advice.summary}</p>}
           </article>
         )
       })}

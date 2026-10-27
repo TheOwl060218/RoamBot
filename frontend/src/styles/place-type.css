@@ -1,0 +1,11 @@
+.place-art-space { display: block; position: relative; min-height: 48px; flex: 0 0 48px; margin-top: 10px; pointer-events: none; }
+.place-artwork { position: absolute; right: 0; bottom: 0; width: 92px; height: 48px; color: #718b91; opacity: .38; pointer-events: none; }
+.place-artwork[data-kind=park] { color: #638574; }
+.place-artwork[data-kind=water] { color: #548699; }
+.place-artwork[data-kind=museum] { color: #95836d; }
+.place-artwork[data-kind=street] { color: #668785; }
+.place-artwork[data-kind=food] { color: #a17d67; }
+.place-artwork[data-kind=book] { color: #878099; }
+.place-artwork[data-kind=garden] { color: #7b8c65; }
+.favorite-detail .place-art-space, .discovery-detail .place-art-space { margin: 0; }
+.discovery-map-card .place-artwork { width: 92px; height: 48px; }

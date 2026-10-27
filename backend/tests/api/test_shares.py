@@ -78,6 +78,23 @@ def public_url(url: str) -> str:
     return f"/api/v1/public/shares/{token_from_url(url)}"
 
 
+def test_nationwide_share_displays_destination_city_without_changing_query(auth_api_fixture):
+    client, _, _ = auth_api_fixture()
+    csrf = register(client, "nationwide_share_owner")
+    response = client.post(
+        "/api/v1/recommendations",
+        json={**recommendation_payload(), "city": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 200
+    history_id = response.json()["history_id"]
+    share = create_share(client, csrf, history_id)
+    assert share.status_code == 201
+    snapshot = client.get(public_url(share.json()["share"]["url"])).json()["snapshot"]
+    assert snapshot["city"] == "苏州"
+    assert client.get(f"{HISTORY_URL}/{history_id}").json()["history"]["request"]["city"] == ""
+
+
 def assert_error(response, status_code: int, code: str) -> None:
     assert response.status_code == status_code
     assert response.json()["error"]["code"] == code

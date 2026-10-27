@@ -8,7 +8,7 @@ describe('search accessibility baseline', () => {
     const { container } = render(<TravelForm onSubmit={vi.fn()} />)
 
     expect(screen.getByRole('radiogroup', { name: '查询模式' })).toBeInTheDocument()
-    expect(screen.getByLabelText('城市')).toBeInTheDocument()
+    expect(screen.queryByLabelText('出发城市')).not.toBeInTheDocument()
     expect(screen.getByLabelText('最大距离（km）')).toBeInTheDocument()
     expect(screen.getByLabelText('主出发地')).toBeInTheDocument()
     expect(screen.getAllByRole('slider')).toHaveLength(2)

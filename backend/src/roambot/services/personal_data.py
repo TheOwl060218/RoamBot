@@ -3,15 +3,24 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel
 
+from roambot.domain.discovery_snapshot import (
+    DiscoveryArchive,
+    DiscoveryArchiveRequest,
+    PublicCard,
+    PublicDiscoverySnapshot,
+)
 from roambot.domain.models import (
     Destination,
     PlaceEvaluationRequest,
+    PlaceIdentity,
     RecommendationRequest,
+    RecommendationResponse,
 )
 from roambot.persistence.database import SessionFactory
 from roambot.persistence.repositories import (
@@ -25,13 +34,18 @@ from roambot.persistence.repositories import (
 )
 from roambot.security.sessions import hash_token, new_token
 from roambot.services.recommendations import RecommendationService
+from roambot.services.snapshot_metadata import display_city
 
 
 class ResourceNotFoundError(RuntimeError):
     pass
 
 
-HistoryMode = Literal["recommendation", "place_evaluation"]
+class HistoryDatesExpiredError(RuntimeError):
+    pass
+
+
+HistoryMode = Literal["recommendation", "place_evaluation", "discovery"]
 
 
 @dataclass(frozen=True)
@@ -66,7 +80,7 @@ class PersonalDataService:
         *,
         user_id: str,
         provider: str,
-        destination: Destination,
+        destination: Destination | PlaceIdentity,
     ) -> tuple[FavoriteRecord, bool]:
         now = self._now()
         with self._session_factory.begin() as db:
@@ -74,6 +88,7 @@ class PersonalDataService:
                 provider=provider,
                 destination=destination,
                 updated_at=now,
+                favorite_user_id=user_id,
             )
             return FavoriteRepository(db).create_or_get(
                 user_id=user_id,
@@ -101,10 +116,13 @@ class PersonalDataService:
         request: BaseModel,
         result: BaseModel,
     ) -> HistorySnapshot:
+        history_id = str(uuid4())
+        if isinstance(result, RecommendationResponse):
+            result = result.model_copy(update={"history_id": history_id})
         request_json = _canonical_json(
             request.model_dump(mode="json", exclude_computed_fields=True)
         )
-        result_json = _canonical_json(result.model_dump(mode="json"))
+        result_json = _canonical_json(result.model_dump(mode="json", exclude={"assistant_context"}))
         with self._session_factory.begin() as db:
             record = HistoryRepository(db).create(
                 user_id=user_id,
@@ -112,6 +130,7 @@ class PersonalDataService:
                 request_json=request_json,
                 result_json=result_json,
                 created_at=self._now(),
+                history_id=history_id,
             )
         return _snapshot(record)
 
@@ -119,6 +138,27 @@ class PersonalDataService:
         with self._session_factory() as db:
             records = HistoryRepository(db).list_owned(user_id)
         return [_snapshot(record) for record in records]
+
+    def capture_discovery(self, *, user_id, body, snapshot):
+        archive = DiscoveryArchive.model_validate({**snapshot, "generated_at": self._now()})
+        request = DiscoveryArchiveRequest(
+            message=body.message,
+            context=snapshot["context"],
+            location=None
+            if not body.use_location or (snapshot.get("position") or {}).get("approximate")
+            else body.location,
+            conversation=snapshot.get("conversation", []),
+            search_request=snapshot.get("search_request"),
+        )
+        with self._session_factory.begin() as db:
+            record = HistoryRepository(db).create(
+                user_id=user_id,
+                mode="discovery",
+                request_json=_canonical_json(request.model_dump(mode="json")),
+                result_json=_canonical_json(archive.model_dump(mode="json")),
+                created_at=self._now(),
+            )
+        return _snapshot(record)
 
     def get_history(self, *, user_id: str, history_id: str) -> HistorySnapshot:
         with self._session_factory() as db:
@@ -138,6 +178,12 @@ class PersonalDataService:
         recommendation_service: RecommendationService,
     ) -> HistorySnapshot:
         old = self.get_history(user_id=user_id, history_id=history_id)
+        today = self._now().astimezone(timezone(timedelta(hours=8))).date()
+        start, end = (
+            date.fromisoformat(str(old.request[key])) for key in ("start_date", "end_date")
+        )
+        if start < today or end < start or end > today + timedelta(days=6):
+            raise HistoryDatesExpiredError
         if old.mode == "recommendation":
             request = RecommendationRequest.model_validate(old.request)
             result = recommendation_service.recommend(request)
@@ -154,10 +200,13 @@ class PersonalDataService:
     def delete_history(self, *, user_id: str, history_id: str) -> None:
         with self._session_factory.begin() as db:
             histories = HistoryRepository(db)
-            if histories.get_owned(
-                history_id=history_id,
-                user_id=user_id,
-            ) is None:
+            if (
+                histories.get_owned(
+                    history_id=history_id,
+                    user_id=user_id,
+                )
+                is None
+            ):
                 raise ResourceNotFoundError
             ShareRepository(db).revoke_for_history(history_id, self._now())
             if not histories.delete_owned(history_id=history_id, user_id=user_id):
@@ -175,10 +224,13 @@ class PersonalDataService:
     def create_share(self, *, user_id: str, history_id: str) -> ShareLink:
         now = self._now()
         with self._session_factory.begin() as db:
-            if HistoryRepository(db).get_owned(
-                history_id=history_id,
-                user_id=user_id,
-            ) is None:
+            if (
+                HistoryRepository(db).get_owned(
+                    history_id=history_id,
+                    user_id=user_id,
+                )
+                is None
+            ):
                 raise ResourceNotFoundError
             token = new_token()
             share = ShareRepository(db).create_replacing_active(
@@ -227,9 +279,13 @@ def _canonical_json(value: dict[str, object]) -> str:
 
 
 def _snapshot(record: HistoryRecord) -> HistorySnapshot:
-    if record.mode not in {"recommendation", "place_evaluation"}:
+    if record.mode not in {"recommendation", "place_evaluation", "discovery"}:
         raise ValueError("unsupported history mode")
-    result = _normalize_history_result(_mapping(json.loads(record.result_json)))
+    result = (
+        DiscoveryArchive.model_validate_json(record.result_json).model_dump(mode="json")
+        if record.mode == "discovery"
+        else _normalize_history_result(_mapping(json.loads(record.result_json)))
+    )
     return HistorySnapshot(
         id=record.id,
         mode=record.mode,
@@ -240,6 +296,7 @@ def _snapshot(record: HistoryRecord) -> HistorySnapshot:
 
 
 def _normalize_history_result(result: dict[str, object]) -> dict[str, object]:
+    result.pop("assistant_context", None)
     raw_items = result.get("items")
     if raw_items is None:
         raw_items = [result["item"]]
@@ -257,7 +314,8 @@ def _normalize_history_result(result: dict[str, object]) -> dict[str, object]:
             day = _mapping(raw_day)
             status = day.get("status") or _derive_legacy_daily_status(day)
             day["status"] = status
-            day["summary"] = day.get("summary") or _legacy_daily_summary(status)
+            if day.get("summary") is None:
+                day["summary"] = _legacy_daily_summary(status)
             normalized_suitability.append(day)
         item["overall_advice"] = item.get("overall_advice") or (
             _derive_legacy_overall_advice(normalized_suitability)
@@ -294,6 +352,8 @@ def _public_snapshot(record: PublicShareRecord) -> dict[str, object]:
     history = record.history
     request = _mapping(json.loads(history.request_json))
     result = _mapping(json.loads(history.result_json))
+    if history.mode == "discovery":
+        return public_discovery_snapshot(request, result, history.user_id)
     companions = request["companion_origins"]
     if not isinstance(companions, list):
         raise ValueError("history companion origins must be a list")
@@ -304,7 +364,7 @@ def _public_snapshot(record: PublicShareRecord) -> dict[str, object]:
         raise ValueError("history result items must be a list")
     snapshot: dict[str, object] = {
         "mode": history.mode,
-        "city": request["city"],
+        "city": display_city(request, [_mapping(item) for item in raw_items]),
         "companion_count": len(companions),
         "start_date": request["start_date"],
         "end_date": request["end_date"],
@@ -324,6 +384,38 @@ def _public_snapshot(record: PublicShareRecord) -> dict[str, object]:
     return _remove_private_strings(snapshot, ordered_private_strings)
 
 
+def public_discovery_snapshot(request, result, user_id=""):
+    archive = DiscoveryArchive.model_validate(result)
+    query = DiscoveryArchiveRequest.model_validate(request)
+    cities = list(dict.fromkeys(c.place.city for c in archive.cards))
+    cards = [
+        PublicCard(
+            place=c.place.model_dump(),
+            experience=c.experience,
+            reason=c.reason,
+            sources=[s for s in c.sources if s.kind in {"web_page", "search_excerpt"}],
+            weather=c.weather if isinstance(c.weather, list) else None,
+        ).model_dump(mode="json")
+        for c in archive.cards
+    ]
+    private = [user_id] if user_id else []
+    origin = query.context.origin
+    if origin and origin.removesuffix("市") not in {c.removesuffix("市") for c in cities}:
+        private.append(origin)
+    if query.location:
+        private.extend(
+            str(v) for v in (query.location.longitude, query.location.latitude) if len(str(v)) > 4
+        )
+    public = PublicDiscoverySnapshot(
+        city="、".join(cities),
+        start_date=query.context.start_date.isoformat() if query.context.start_date else None,
+        end_date=query.context.end_date.isoformat() if query.context.end_date else None,
+        generated_at=archive.generated_at,
+        cards=cards,
+    ).model_dump(mode="json")
+    return _remove_private_strings(public, tuple(sorted(private, key=len, reverse=True)))
+
+
 def _public_item(item: dict[str, object]) -> dict[str, object]:
     weather = item["weather"]
     suitability = item["daily_suitability"]
@@ -332,16 +424,10 @@ def _public_item(item: dict[str, object]) -> dict[str, object]:
     destination = _mapping(item["destination"])
     public_destination = _project(destination, _DESTINATION_FIELDS)
     public_destination["rating"] = destination.get("rating")
-    public_suitability = [
-        _public_suitability(_mapping(day))
-        for day in suitability
-    ]
+    public_suitability = [_public_suitability(_mapping(day)) for day in suitability]
     return {
         "destination": public_destination,
-        "weather": [
-            _project(_mapping(day), _WEATHER_FIELDS)
-            for day in weather
-        ],
+        "weather": [_project(_mapping(day), _WEATHER_FIELDS) for day in weather],
         "daily_suitability": public_suitability,
         "score": _project(_mapping(item["score"]), _SCORE_FIELDS),
         "explanation": item["explanation"],
@@ -356,7 +442,9 @@ def _public_suitability(day: dict[str, object]) -> dict[str, object]:
     public = _project(day, _SUITABILITY_FIELDS)
     status = day.get("status") or _derive_legacy_daily_status(day)
     public["status"] = status
-    public["summary"] = day.get("summary") or _legacy_daily_summary(status)
+    public["summary"] = (
+        day.get("summary") if day.get("summary") is not None else _legacy_daily_summary(status)
+    )
     return public
 
 
@@ -394,9 +482,7 @@ def _derive_legacy_overall_advice(
 
 
 def _mapping(value: object) -> dict[str, object]:
-    if not isinstance(value, dict) or not all(
-        isinstance(key, str) for key in value
-    ):
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
         raise ValueError("history value must be an object")
     return value
 
@@ -432,8 +518,5 @@ def _remove_private_strings(value: object, private_strings: tuple[str, ...]) -> 
     if isinstance(value, list):
         return [_remove_private_strings(item, private_strings) for item in value]
     if isinstance(value, dict):
-        return {
-            key: _remove_private_strings(item, private_strings)
-            for key, item in value.items()
-        }
+        return {key: _remove_private_strings(item, private_strings) for key, item in value.items()}
     return value

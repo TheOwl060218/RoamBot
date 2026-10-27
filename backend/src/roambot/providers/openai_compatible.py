@@ -40,10 +40,13 @@ class OpenAICompatibleExplanationProvider:
         http: ProviderHttpClient,
         api_key: str,
         model: str,
+        *,
+        enable_thinking: bool | None = None,
     ) -> None:
         self._http = http
         self._api_key = api_key
         self._model = model
+        self._enable_thinking = enable_thinking
 
     def explain(
         self,
@@ -61,6 +64,11 @@ class OpenAICompatibleExplanationProvider:
             headers={"Authorization": f"Bearer {self._api_key}"},
             json_body={
                 "model": self._model,
+                **(
+                    {"enable_thinking": self._enable_thinking}
+                    if self._enable_thinking is not None
+                    else {}
+                ),
                 "temperature": 0.2,
                 "response_format": {"type": "json_object"},
                 "messages": [
@@ -68,6 +76,11 @@ class OpenAICompatibleExplanationProvider:
                         "role": "system",
                         "content": (
                             "你只根据给定事实生成简短中文推荐理由，不得虚构。"
+                            "比较完整日期区间和本组地点，突出已知的类型、评分、路程与用时差异。"
+                            "检查前后日期的大风、降温、升温、降水变化及其实际影响；"
+                            "相同影响持续多天只说一次并注明日期范围，不重复逐日提醒或无特别提醒。"
+                            "天气近似时不要强行选最佳日；不要逐行复述advice_summary。"
+                            "不得推断逐小时天气、阵风、开放时间、票价、用户评论或安全保证。"
                             "输出严格 JSON：explanations 数组，每项含 destination_id 和 reason。"
                         ),
                     },
@@ -78,12 +91,9 @@ class OpenAICompatibleExplanationProvider:
                                 "destinations": [_public_summary(item) for item in items],
                                 "preferences": {
                                     "requested_scenery_types": [
-                                        tag.value
-                                        for tag in context.requested_scenery_types
+                                        tag.value for tag in context.requested_scenery_types
                                     ],
-                                    "scenery_match_mode": (
-                                        context.scenery_match_mode.value
-                                    ),
+                                    "scenery_match_mode": (context.scenery_match_mode.value),
                                     "display_weights": (
                                         context.display_weights.model_dump(mode="json")
                                     ),
@@ -136,9 +146,7 @@ def _public_summary(item: RecommendationItem) -> dict[str, object]:
         ),
         "maximum_distance_km": round(item.group_accessibility.max_distance_km, 2),
         "average_duration_minutes": _average_duration(item),
-        "overall_advice": (
-            item.overall_advice.value if item.overall_advice is not None else None
-        ),
+        "overall_advice": (item.overall_advice.value if item.overall_advice is not None else None),
         "local_reason": item.explanation,
         "weather": [
             {
@@ -147,6 +155,9 @@ def _public_summary(item: RecommendationItem) -> dict[str, object]:
                 "temp_min_c": day.temp_min_c,
                 "temp_max_c": day.temp_max_c,
                 "precipitation_mm": day.precipitation_mm,
+                "wind_speed_kmh": day.wind_speed_kmh,
+                "visibility_km": day.visibility_km,
+                "uv_index": day.uv_index,
                 "advice_status": suitability.status,
                 "advice_summary": suitability.summary,
             }

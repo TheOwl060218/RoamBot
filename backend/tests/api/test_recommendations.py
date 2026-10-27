@@ -1,17 +1,34 @@
 from __future__ import annotations
 
+import base64
 from dataclasses import replace
 from datetime import date, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 
 from roambot.main import create_app
 from roambot.providers.mock import DESTINATIONS, ORIGINS, MockProviderBundle
 from roambot.providers.protocols import ProviderError
+from roambot.security.assistant_context import AssistantContextSigner
 
 VALID_CITY = next(iter(ORIGINS))[1]
 VALID_ORIGIN = next(iter(ORIGINS))[0]
 VALID_DESTINATION = DESTINATIONS[0]
+
+
+@pytest.mark.parametrize("path", ["/api/v1/recommendations", "/api/v1/place-evaluations"])
+def test_optional_assistant_context_failure_does_not_break_query(monkeypatch, path):
+    def unavailable(self, result):
+        raise ValueError("facts too large")
+
+    monkeypatch.setattr(AssistantContextSigner, "issue", unavailable)
+    with TestClient(create_app(), raise_server_exceptions=False) as client:
+        response = client.post(
+            path, json=payload() if path.endswith("recommendations") else evaluation_payload()
+        )
+    assert response.status_code == 200
+    assert response.json()["assistant_context"] is None
 
 
 def payload() -> dict[str, object]:
@@ -53,7 +70,7 @@ def test_guest_recommendation_returns_ranked_items() -> None:
         "caution",
         "not_recommended",
     }
-    assert body["items"][0]["daily_suitability"][0]["summary"]
+    assert isinstance(body["items"][0]["daily_suitability"][0]["summary"], str)
     assert body["items"][0]["overall_advice"] in {
         "suitable",
         "some_dates_caution",
@@ -61,6 +78,11 @@ def test_guest_recommendation_returns_ranked_items() -> None:
     }
     assert body["uncovered_scenery_types"] == []
     assert body["source_state"]["kind"] == "demo"
+    assert body["history_id"] is None
+    assert body["assistant_context"]
+    facts = base64.urlsafe_b64decode(body["assistant_context"].split(".")[0] + "==").decode()
+    assert VALID_ORIGIN not in facts
+    assert '"coordinate"' not in facts
 
 
 def test_guest_place_evaluation_returns_requested_item() -> None:

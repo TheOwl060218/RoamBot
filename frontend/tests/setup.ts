@@ -7,4 +7,7 @@ afterEach(() => {
   cleanup()
   localStorage.clear()
   sessionStorage.clear()
+  // Native history is persistent session state, independent of MemoryRouter.
+  // Give each test a fresh page while leaving its Back/Forward assertions intact.
+  window.history.replaceState({}, '', window.location.href)
 })

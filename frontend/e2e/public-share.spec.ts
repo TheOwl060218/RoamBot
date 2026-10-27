@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { registerUser, submitRecommendation } from './helpers'
 
 test('anonymous share omits account and origin details', async ({ browser, page }, testInfo) => {
-  await page.goto('/')
+  await page.goto('/recommend')
   const username = await registerUser(page, `share_${testInfo.project.name.replaceAll('-', '_')}`)
   await submitRecommendation(page)
   await page.goto('/history')
@@ -16,12 +16,16 @@ test('anonymous share omits account and origin details', async ({ browser, page 
   const shareResponse = await shareResponsePromise
   const { share } = await shareResponse.json() as { share: { url: string } }
 
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('toolbar', { name: '历史快捷操作' })).toBeHidden()
   await page.locator('.history-row-main').first().click()
   const backButton = await page.locator('.history-detail-actions .link-button').boundingBox()
   const shareSlot = await page.locator('.history-detail-share-slot').boundingBox()
   expect(backButton).not.toBeNull()
   expect(shareSlot).not.toBeNull()
-  expect(shareSlot!.y).toBeGreaterThanOrEqual(backButton!.y + backButton!.height)
+  // Current toolbar keeps both capsule actions on one row when room allows.
+  const separate = shareSlot!.x >= backButton!.x + backButton!.width || shareSlot!.y >= backButton!.y + backButton!.height
+  expect(separate).toBe(true)
 
   const anonymousContext = await browser.newContext()
   const anonymousPage = await anonymousContext.newPage()

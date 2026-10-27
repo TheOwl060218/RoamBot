@@ -11,6 +11,7 @@ from roambot.api.dependencies import (
     require_csrf,
 )
 from roambot.api.errors import error_response
+from roambot.domain.discovery_snapshot import PublicDiscoverySnapshot
 from roambot.domain.models import (
     DailySuitability,
     DailyWeather,
@@ -74,7 +75,7 @@ class PublicSnapshotResponse(BaseModel):
 class PublicShareEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    snapshot: PublicSnapshotResponse
+    snapshot: PublicSnapshotResponse | PublicDiscoverySnapshot
 
 
 PERSONAL_DATA_DEPENDENCY = Depends(get_personal_data_service)

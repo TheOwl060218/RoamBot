@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
 
 type ConfirmDialogProps = {
   open: boolean
@@ -7,9 +7,10 @@ type ConfirmDialogProps = {
   confirmLabel: string
   onConfirm: () => void
   onCancel: () => void
+  children?: ReactNode
 }
 
-export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, onCancel, children }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null)
   const titleId = useId()
   const messageId = useId()
@@ -31,7 +32,7 @@ export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, o
     }
     if (event.key !== 'Tab') return
     const focusable = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled])'),
+      event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled])'),
     )
     if (!focusable.length) return
     const first = focusable[0]
@@ -59,6 +60,7 @@ export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, o
       >
         <h2 id={titleId}>{title}</h2>
         <p id={messageId}>{message}</p>
+        {children}
         <div className="confirm-actions">
           <button ref={cancelRef} className="text-button" type="button" onClick={onCancel}>取消</button>
           <button className="danger-button" type="button" onClick={onConfirm}>{confirmLabel}</button>

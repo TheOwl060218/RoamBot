@@ -2,15 +2,23 @@ import { Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { apiClient } from '../api/client'
-import type { HistoryDetail, HistorySummary } from '../api/types'
+import { apiClient, ApiError } from '../api/client'
+import type { LegacyHistoryDetail, HistorySummary } from '../api/types'
 import { ConfirmDialog } from '../app/ConfirmDialog'
 import { HistoryList } from '../features/history/HistoryList'
+import { restoreHistorySearch } from '../features/history/restoreHistorySearch'
+import { useAuth } from '../features/auth/authContext'
+import { useBusinessRevision } from '../features/commands/commandEvents'
+import { useCommandTarget } from '../features/commands/commandContext'
 
 export function HistoryPage() {
+  const businessRevision = useBusinessRevision()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [histories, setHistories] = useState<HistorySummary[]>([])
   const [loading, setLoading] = useState(true)
+  useCommandTarget('history-list', () => ({ page_loading: loading, visible_resources: {
+    kind: 'history', ids: histories.slice(0, 100).map(item => item.id) } }), () => false)
   const [status, setStatus] = useState('')
   const [toast, setToast] = useState('')
   const [rerunningId, setRerunningId] = useState<string | null>(null)
@@ -23,7 +31,7 @@ export function HistoryPage() {
       .then((response) => setHistories(response.histories))
       .catch(() => setStatus('历史加载失败，请稍后重试。'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [businessRevision])
 
   useEffect(() => () => {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
@@ -40,10 +48,17 @@ export function HistoryPage() {
     rerunLock.current = true
     setRerunningId(id)
     try {
-      const response = await apiClient.post<{ history: HistoryDetail }>(`/history/${id}/rerun`)
-      navigate(`/history/${response.history.id}`)
-    } catch {
-      setStatus('重新查询失败。')
+      if (histories.find(item => item.id === id)?.mode === 'discovery') {
+        const started = await apiClient.post<{ id: string; message: string }>(`/discovery/history/${id}/rerun`)
+        navigate('/explore', { state: { discoveryJobId: started.id, discoveryMessage: started.message }, viewTransition: true })
+        return
+      }
+      const response = await apiClient.post<{ history: LegacyHistoryDetail }>(`/history/${id}/rerun`)
+      const restoredSearch = restoreHistorySearch(response.history, user?.username ?? null)
+      navigate('/recommend', { state: { restoredSearch } })
+    } catch (error) {
+      setStatus(error instanceof ApiError && error.code === 'history_dates_expired'
+        ? error.message : '重新查询失败。')
     } finally {
       rerunLock.current = false
       setRerunningId(null)
@@ -83,7 +98,7 @@ export function HistoryPage() {
   return (
     <section className="personal-page">
       <header className="page-heading">
-        <div><p className="eyebrow">不可变结果记录</p><h1>历史</h1></div>
+        <div><h1>历史</h1></div>
         {histories.length > 0 && (
           <button className="icon-text-button" type="button" onClick={clear}><Trash2 aria-hidden="true" size={16} />清空历史</button>
         )}

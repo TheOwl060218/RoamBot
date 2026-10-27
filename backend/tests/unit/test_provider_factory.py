@@ -78,8 +78,7 @@ def test_live_runtime_reports_only_the_missing_provider(
     assert all(value.strip() not in message for value in fake_values.values() if value.strip())
 
 
-def test_live_runtime_adapters_satisfy_protocols_and_trace_is_request_local(
-) -> None:
+def test_live_runtime_adapters_satisfy_protocols_and_trace_is_request_local() -> None:
     runtime = build_provider_runtime(
         live_settings(),
         {

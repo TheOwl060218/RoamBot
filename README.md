@@ -1,209 +1,98 @@
 # RoamBot
 
-RoamBot 是一个支持单人和多人汇合的天气感知风景出行推荐 Web 应用。用户给出出发地、日期、最大距离和风景偏好后，系统综合天气、驾车距离、地点评分和风景偏好进行排序；多人查询还会以相对路程差异控制同行人的出行负担。系统也可以直接评估一个指定地点是否值得去。
+当前阶段包含对话推荐、地图联动、收藏、历史、同行计划与行程中心。2026-10-27阶段产物已发布到公网；本次主仓库集成与检查边界见 `docs/MAIN_INTEGRATION_2026-10-27.md`，发布记录见 `docs/PUBLIC_RELEASE_2026-10-27.md`。
+比赛仓库的 `submission/2026-10-15` 分支保留原始 388 文件快照，提交 `44ecc7b`；
+对应原演示发布 `b53320af-d347-4b9e-be47-8422dc23e797`（2026-10-14）。
+`SOURCE_MANIFEST.json` 仅用于核对该参赛基线，不代表当前开发分支的文件哈希。
+改造范围和当前验收见 `docs/PROJECT_HANDOFF.md`、`docs/conversational-business-acceptance.md`。
 
-跨设备继续开发或让新的 Codex 接手时，请先阅读 [`AGENTS.md`](AGENTS.md) 和 [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md)。
+## 使用入口
 
-## 功能
+当前阶段公网体验：https://roambot-production.up.railway.app （已更新为2026-10-27阶段版）
 
-- 游客可使用推荐与指定地点评估，无需注册。
-- 支持主出发地和最多两个同行人出发地，以相对驾车时间与距离衡量同行出行差异。
-- 展示地点距离、每日天气、定性分项、出游匹配指数和推荐理由。
-- 用户可调整天气、距离和地点评分三项显式权重；多人公平性作为固定内部排序因素。
-- 本地账户支持注册、登录、退出、收藏、历史快照、重新查询和匿名只读分享。
-- Mock 模式提供确定性的苏州演示数据；Live 模式可接入高德、QWeather 和 OpenAI-compatible LLM。
+评委本地复现推荐使用Mock模式，无需配置真实服务凭据。Mock的自然语言解析仅支持有限示例；
+可用条件拼图手动设置苏州站、明天、湖景等条件。Mock不替代线上真实模型和地图的验收。
 
-RoamBot 不是导航或行程规划工具。V1 不显示地图、不绘制路线，也不提供导航、交通预订或逐日行程安排。
+### Docker方式
 
-## 公网部署
+安装Docker并在本目录执行：
 
-- WebUI：[https://roambot-production.up.railway.app](https://roambot-production.up.railway.app)
-- Railway production 当前从 `main` 部署单副本服务，并通过 HTTPS 对外提供 FastAPI API 与 React 页面。
-- SQLite 数据库和加密凭据库保存在 Railway 托管的 `/data` 卷中；当前卷上限为 500 MB，区域为 EU West（Amsterdam）。
-- 生产环境启用 `ROAMBOT_SECURE_COOKIES=true`。API key、主密码等秘密只保存在 Railway 变量或加密凭据库中，不进入仓库和镜像。
-- 当前公网功能基线为提交 `2a3cd3665d9f20d8c2bd7c5e7d7db109b6407e9c`；对应 GitHub Actions [run 31598691090](https://github.com/TheOwl060218/RoamBot/actions/runs/31598691090) 已通过。
-- 一次真实公网推荐人工观测约耗时 29 秒。远程部署会叠加 Railway 区域网络与第三方 provider 延迟，因此通常慢于本地运行。
-
-## 安装与运行
-
-前置条件：Git 与 Docker Desktop。以下命令在仓库根目录执行，不需要 API key，也不会消耗 provider 配额。
-
-```powershell
-git clone https://github.com/TheOwl060218/RoamBot.git
-Set-Location RoamBot
+```shell
+docker build -t roambot:submission .
+docker run --rm -p 8000:8000 -v roambot-submission-data:/data -e ROAMBOT_PROVIDER_MODE=mock -e ROAMBOT_DEMO_MODE=true roambot:submission
 ```
 
-```powershell
-docker build -t roambot:local .
-docker run --rm -p 8000:8000 -v roambot-data:/data -e ROAMBOT_PROVIDER_MODE=mock -e ROAMBOT_DEMO_MODE=true roambot:local
-```
+然后打开 http://127.0.0.1:8000 。也可以执行 `docker compose up --build roambot`。
+首次构建需要网络下载Node/Python依赖；依赖和构建产物没有打入源码包。
 
-打开 [http://127.0.0.1:8000](http://127.0.0.1:8000)。也可以使用 Compose：
+### 不使用Docker：Windows PowerShell
 
-```powershell
-docker compose up --build roambot
-```
-
-`roambot-data` 保存 SQLite 数据与加密凭据库，重建容器不会删除该卷。停止服务可按 `Ctrl+C`；Compose 用户可运行 `docker compose down`，不要附加 `--volumes`，除非确实要永久删除数据。
-
-## 分发
-
-CI 已将提交 `219437a` 对应的 Linux/amd64 镜像发布到公开 GHCR。无需克隆源码即可运行固定版本：
-
-```powershell
-docker pull ghcr.io/theowl060218/roambot:219437a849f65df40c5e9511536458174a527d96
-docker run --rm -p 8000:8000 -v roambot-data:/data -e ROAMBOT_PROVIDER_MODE=mock -e ROAMBOT_DEMO_MODE=true ghcr.io/theowl060218/roambot:219437a849f65df40c5e9511536458174a527d96
-```
-
-公开镜像使用提交 SHA 标签保证可复现；默认分支 `main` 的成功 CI 还会发布 `latest`。目标机器上的真实 key 仍必须按“凭据安全”一节通过隐藏 CLI 写入其数据卷，不能构建进镜像或作为命令参数传入。
-
-## 本地开发
-
-需要 Python 3.12 或 3.13、Node.js 24 LTS。Windows PowerShell 初始化：
+安装Python 3.12或3.13，以及Node.js 24。在本目录执行：
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".\backend[dev]"
-Set-Location frontend
+Push-Location frontend
 npm ci
-npx playwright install chromium
-Set-Location ..
+npm run build
+Pop-Location
+$env:ROAMBOT_DATA_DIR = 'data-submission'
+$env:ROAMBOT_PROVIDER_MODE = 'mock'
+$env:ROAMBOT_DEMO_MODE = 'true'
+.\.venv\Scripts\python.exe -m uvicorn roambot.main:app --host 127.0.0.1 --port 8000
 ```
 
-分别启动后端与前端：
+新数据库在初次应用启动时初始化。现有数据库迁移脚本位于`backend/alembic/`；
+本包不含任何真实数据库或已登录账号，需要自行注册演示账号。
+
+## Live方式与凭据
+
+Live模式使用高德、和风天气和兼容OpenAI协议的模型服务，必须由运行者配置自己的凭据。
+代码包不含API Key、主密码、Cookie、Token、加密凭据库或生产数据库。
+用 `.\.venv\Scripts\python.exe -m roambot.cli credentials --help` 查看凭据配置入口；
+CLI通过隐藏交互输入接收凭据。相关服务配置见`backend/src/roambot/config.py`和Compose的live profile。
+地图JS能力还需要浏览器地图Key与安全码，不能将已有线上凭据复制到本包。
+
+## 功能与验收范围
+
+支持推荐、指定地点评估、同行出发地与权重、地点详情和地图、条件聊天、收藏、比较、历史分享，
+以及计划创建、匿名邀请、首选/可接受投票、天气复查、关闭投票和定案。
+当前开发分支接入 60 项具名业务/页面动作：模型提出有序步骤，后端校验对象、身份和状态后执行，
+前端同步查询、收藏、计划、邀请、投票、天气、历史分享及页面浮层。原有按钮保留。
+登录密码仍通过账户表单输入，不交给模型；凭据管理与部署操作不向聊天开放。
+多步方案、确认、并发与重试分别受程序约束；真实模型验收范围见本分支验收文档。
+
+本地体验版支持 `Alt+/` 唤起或聚焦当前层的聊天；跨页面和浮层可继续发指令，不需要先点击聊天球。
+可直接按名称操作自己的计划、收藏和历史。登录/注册由聊天打开，密码只在安全表单中用键盘输入。
+无鼠标验收与剩余边界见 `docs/mouseless-control.md`，不能把工具数量当作任意表达都正确的证明。
+
+以下为参赛基线的历史记录，不作为当前改造版本的验收：
+2026-10-14线上手机宽度390×844完整13阶段交互通过，桌面完成业务串联后对地图修复做专项复验。
+原句模型、上海同行角色、金鸡湖原名评估通过；地图底图已实际查看。
+正常生产链路可能使用有效缓存，部分推荐理由回退本地模板；真机/Safari和泛化自然语言仍有验收边界。
+详见`docs/验证与版本.md`。脚本在`docs/competition/移动杯视频操作脚本.md`，SRT共33条、4分35秒，
+源码包不含最终录制视频。
+
+## 自动测试
+
+安装上述开发依赖后执行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn roambot.main:app --app-dir backend/src --reload --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m pytest backend/tests -q
+Push-Location frontend
+npm test
+npm run build
+Pop-Location
 ```
 
-```powershell
-Set-Location frontend
-npm run dev
-```
+Playwright旅程测试通过`frontend/playwright.config.ts`配置，运行前安装浏览器：
+`npx playwright install chromium`，然后执行`npm run e2e`。
+日期与外部服务状态会随时间变化；历史通过记录不等于任意日期的新运行结果。
 
-开发页面位于 `http://127.0.0.1:5173`，Vite 将 `/api` 代理到后端。生产镜像则由 FastAPI 在同一个 `8000` 端口提供 API 与构建后的 React 页面。
+## AI协作归属与材料
 
-## 数据与迁移
+湛卢候选比较开发记录见`docs/competition/AI_CODING_PROCESS.md`；
+后续Codex同行增量单列于`CODEX_PLAN_IMPLEMENTATION.md`。这些记录不能替代湛卢原生IDE截图。
+作品说明文档、实际演示视频和原生过程证据应作为参赛材料另行附上。
 
-本地默认数据目录为 `data`，可通过非敏感变量 `ROAMBOT_DATA_DIR` 修改。升级数据库：
-
-```powershell
-.\.venv\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head
-```
-
-备份前应停止写入，然后备份整个数据目录或 Docker 命名卷。主机目录可直接复制；命名卷可导出：
-
-```powershell
-docker run --rm -v roambot-data:/data -v "${PWD}:/backup" alpine tar czf /backup/roambot-data-backup.tar.gz -C /data .
-```
-
-## 凭据安全
-
-真实高德、QWeather 和 LLM key 保存在 `ROAMBOT_DATA_DIR/credentials.vault`，由主密码经 Scrypt 派生密钥并使用 AES-256-GCM 加密。key 不进入源码、Git、`.env`、日志、浏览器、Docker 镜像、CI 变量或聊天。
-
-本地 CLI 使用隐藏输入：
-
-```powershell
-.\.venv\Scripts\roambot.exe credentials init
-.\.venv\Scripts\roambot.exe credentials status
-.\.venv\Scripts\roambot.exe credentials set amap
-.\.venv\Scripts\roambot.exe credentials set qweather
-.\.venv\Scripts\roambot.exe credentials set llm
-.\.venv\Scripts\roambot.exe credentials clear amap
-.\.venv\Scripts\roambot.exe credentials reset
-```
-
-Docker 命名卷可通过同一个 CLI 管理：
-
-```powershell
-docker run --rm -it -v roambot-data:/data --entrypoint roambot roambot:local credentials init
-docker run --rm -it -v roambot-data:/data --entrypoint roambot roambot:local credentials status
-```
-
-`status` 只显示是否已配置，不显示 key。忘记主密码后无法恢复原来的 API key；`reset` 只删除加密凭据库，不删除 `roambot.db`，之后必须重新录入并在供应商控制台吊销旧 key。能执行 reset 的人已经拥有本机文件系统或 Docker 主机权限；reset 不会让他得到原 key，但他可以配置自己的 key，因此操作系统账户、Docker 权限和主机访问控制仍然重要。
-
-## Live 模式
-
-先用隐藏 CLI 将 key 写入与服务相同的数据目录，再设置这些非敏感参数：
-
-```powershell
-$env:ROAMBOT_PROVIDER_MODE = "live"
-$env:ROAMBOT_DEMO_MODE = "false"
-$env:ROAMBOT_QWEATHER_API_HOST = "https://YOUR-ACCOUNT-HOST.qweatherapi.com"
-$env:ROAMBOT_LLM_BASE_URL = "https://YOUR-SCHOOL-API-HOST"
-$env:ROAMBOT_LLM_MODEL = "YOUR-MODEL-NAME"
-```
-
-交互式容器会在 TTY 中隐藏询问主密码。无人值守 Compose 使用 `ROAMBOT_MASTER_PASSWORD_FILE_SOURCE` 指向仓库外、权限受限的主密码文件；不要把该文件提交到 Git。
-
-人工连通性检查命令为 `roambot providers smoke`。完整运行最多调用高德 3 次、QWeather 1 次、LLM 1 次，不自动重试；也可以使用 `--only amap|qweather|llm` 或 `--skip-llm`。执行前应明确确认可能消耗配额。当前仓库未保存真实凭据，最终证据会如实标注是否执行过真实 smoke。
-
-## 缓存与降级
-
-- 地理编码缓存 30 天，POI 检索缓存 7 天，距离缓存 1 天，天气缓存 1 小时。
-- Live 模式优先使用未过期缓存；损坏或类型不符的缓存会被删除。
-- 苏州演示场景可在地点服务不可用时使用内置演示数据；其他地区会明确返回 provider 不可用。
-- 距离服务失败时可显示直线距离估算；天气覆盖不足的候选会被排除。
-- LLM 只生成理由，不能修改地点、天气、分数或排序；失败时使用确定性模板理由。
-
-## 测试与 CI
-
-Windows 一键测试：
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
-```
-
-浏览器旅程会自动启动隔离的 Mock 服务，默认临时监听本机 `8010` 和 `5183`，测试结束后自动关闭；可通过 `ROAMBOT_E2E_BACKEND_PORT` 与 `ROAMBOT_E2E_FRONTEND_PORT` 改用其他空闲端口。Docker 版完整门禁不占用宿主机端口。
-
-Linux/CI：
-
-```bash
-./scripts/test.sh
-```
-
-测试覆盖 pytest、Ruff、Vitest、ESLint、TypeScript、Vite 构建及桌面/移动端 Playwright。自动测试强制 Mock/demo 模式，后端还会拦截所有非回环 socket；因此自动测试不会调用高德、QWeather 或 LLM，也不会消耗 provider 配额。
-
-`.gitlab-ci.yml` 提供作业要求的 `unit-test` 与生产镜像构建/推送；`.github/workflows/ci.yml` 让当前 GitHub 远程在 push/PR 时运行同一套断网测试并构建镜像。远程流水线结果只能在实际 push 后记录，不能由本地结果代替。
-
-正式功能收尾 [PR #1](https://github.com/TheOwl060218/RoamBot/pull/1) 已合并到 `main`；favicon 的 [PR #2](https://github.com/TheOwl060218/RoamBot/pull/2)、[PR #3](https://github.com/TheOwl060218/RoamBot/pull/3) 和 [PR #4](https://github.com/TheOwl060218/RoamBot/pull/4) 也已依次合并。最终反思与交接文档通过 [PR #5](https://github.com/TheOwl060218/RoamBot/pull/5) 合并为 `0383a28`；其 GitHub Actions [run 31704124041](https://github.com/TheOwl060218/RoamBot/actions/runs/31704124041) 已完成，`unit-test` 与 `docker-build` 均为 success。CI 记录是对应提交的时点证据；后续提交仍以 GitHub Actions 页面显示的最新结果为准。
-
-## 安全边界
-
-- 密码使用 Argon2 哈希；会话与 CSRF token 只以 SHA-256 哈希落库。
-- 会话 Cookie 为 `HttpOnly`、`SameSite=Lax`；生产 HTTPS 部署应启用 `ROAMBOT_SECURE_COOKIES=true`。
-- 公开分享仅包含脱敏白名单快照，不包含账户、详细出发地、Cookie 或 provider 凭据。
-- 所有 provider 调用都有超时、每请求预算、脱敏错误与无自动重试边界。
-- V1 不提供手机号、短信、验证码、邮箱、OAuth、密码找回或账户注销。
-
-## 目录结构
-
-```text
-backend/                 FastAPI、领域服务、provider、SQLite/Alembic 与 pytest
-frontend/                React/Vite WebUI、Vitest 与 Playwright
-ci/Dockerfile            可复现的断网测试镜像
-docs/                    设计、分步计划与验证证据
-docs/PROJECT_HANDOFF.md  当前跨设备接手事实与剩余工作
-scripts/                 Windows/Linux 一键测试入口
-.gitlab-ci.yml            GitLab 测试、构建与 registry 推送
-.github/workflows/ci.yml  GitHub push/PR 流水线
-Dockerfile               前端构建 + 后端 wheel + 非 root 生产镜像
-docker-compose.yml        Mock 默认服务与显式 Live profile
-SPEC.md / PLAN.md         规约与根实现计划
-SPEC_PROCESS.md           规约迭代与陌生 agent 冷启动证据
-AGENT_LOG.md              实现过程、人工干预与验证记录
-AGENTS.md                 Codex 仓库级工作约束与接手入口
-REFLECTION.md             学生本人完成的课程反思
-```
-
-## 已知限制
-
-- 当前已在 Windows 11 + Docker Desktop Linux containers 和 Railway 单副本公网环境完成验收。
-- 真实 provider 的可用性、价格、配额和数据质量由供应商决定；Mock 通过不等于真实服务已连通。
-- SQLite 适合本项目的单实例规模，不支持多个应用副本同时写入同一文件；Railway 服务必须保持单副本。
-- Railway 试用额度、服务休眠和平台可用性由 Railway 决定；当前 Amsterdam 区域与中国用户、第三方 provider 之间可能存在额外延迟。
-- 微信小程序、地图、导航、行程安排与密码恢复均不在 V1 范围内。
-
-## 第三方组件
-
-主要运行时组件包括 React、TanStack Query、Lucide、FastAPI、Pydantic、SQLAlchemy、Alembic、HTTPX、Argon2、cryptography、Typer 和 Uvicorn；开发测试使用 Vite、TypeScript、Vitest、Playwright、pytest 与 Ruff。精确版本及传递依赖见 `frontend/package-lock.json` 与 `backend/pyproject.toml`。项目未复制第三方源码，使用与分发时应遵守各包随附许可证。
+文件哈希见`SOURCE_MANIFEST.json`。本包没有携带Git历史、依赖目录、个人数据或测试临时产物。

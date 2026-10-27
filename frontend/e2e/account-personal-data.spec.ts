@@ -4,15 +4,17 @@ import { registerUser, submitRecommendation } from './helpers'
 
 test('account keeps favorites and history through the main workflow', async ({ page }, testInfo) => {
   await page.goto('/favorites')
+  await page.getByRole('button', { name: '去登录', exact: true }).click()
   await expect(page.getByRole('dialog', { name: '登录 RoamBot', exact: true })).toBeVisible()
   await registerUser(page, testInfo.project.name.replaceAll('-', '_'))
   await expect(page.getByRole('heading', { name: '收藏', exact: true })).toBeVisible()
 
-  await page.goto('/')
+  await page.goto('/recommend')
   await submitRecommendation(page)
   await page.getByRole('button', { name: '收藏地点', exact: true }).click()
 
   await page.goto('/favorites')
+  await page.getByRole('button', { name: '查看 金鸡湖景区', exact: true }).click()
   await expect(page.getByRole('heading', { name: '金鸡湖景区', exact: true })).toBeVisible()
 
   await page.goto('/history')
@@ -28,15 +30,18 @@ test('account keeps favorites and history through the main workflow', async ({ p
     share: { history_id: string; url: string }
   }
 
-  await page.getByRole('button', { name: '更多历史操作', exact: true }).click()
   await page.getByRole('button', { name: '重新查询', exact: true }).click()
-  await expect(page).toHaveURL(/\/history\/[^/]+$/)
-  await expect(page.getByRole('heading', { name: '历史快照', exact: true })).toBeVisible()
+  await expect(page).toHaveURL(/\/recommend$/)
+  await expect(page.getByRole('region', { name: '当前出行条件' })).toBeVisible()
+  // Rerun returns to the workspace; viewing the original snapshot remains separate.
+  await page.goto(`/history/${share.history_id}`)
+  await expect(page.getByRole('heading', { name: '历史推荐', exact: true })).toBeVisible()
 
   await page.goto('/history')
   const sourceHistory = page.locator(`[data-history-id="${share.history_id}"]`)
   await expect(sourceHistory).toHaveCount(1)
   await sourceHistory.getByRole('button', { name: '更多历史操作', exact: true }).click()
+  await page.getByRole('button', { name: '更多操作', exact: true }).click()
   await page.getByRole('button', { name: '删除历史', exact: true }).click()
   const confirmDialog = page.getByRole('alertdialog', { name: '删除这条历史？', exact: true })
   await expect(confirmDialog).toBeVisible()
@@ -47,8 +52,9 @@ test('account keeps favorites and history through the main workflow', async ({ p
   await expect(page.getByText('分享链接不可用或已撤销', { exact: true })).toBeVisible()
 
   await page.goto('/favorites')
+  await page.getByRole('button', { name: '查看 金鸡湖景区', exact: true }).click()
   await expect(page.getByRole('heading', { name: '金鸡湖景区', exact: true })).toBeVisible()
-  await page.getByRole('link', { name: '重新评估', exact: true }).click()
-  await expect(page.getByRole('radio', { name: '评估指定地点', exact: true })).toBeChecked()
-  await expect(page.getByLabel('目标地点', { exact: true })).toHaveValue('金鸡湖景区')
+  await page.getByRole('link', { name: '继续探索', exact: true }).click()
+  await expect(page).toHaveURL(/\/explore$/)
+  await expect(page.getByRole('textbox', { name: '继续补充条件' })).toHaveValue(/金鸡湖景区/)
 })

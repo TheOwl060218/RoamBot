@@ -63,6 +63,19 @@ export class ApiClient {
     return this.request<void>(path, { method: 'DELETE' })
   }
 
+  put<T>(path: string, body?: unknown, headers?: HeadersInit) {
+    return this.request<T>(path, { method: 'PUT', headers,
+      body: body === undefined ? undefined : JSON.stringify(body) }, !path.startsWith('/public/plans/'))
+  }
+
+  patch<T>(path: string, body: unknown) {
+    return this.request<T>(path, { method: 'PATCH', body: JSON.stringify(body) })
+  }
+
+  remove<T>(path: string) {
+    return this.request<T>(path, { method: 'DELETE' })
+  }
+
   async register(username: string, password: string) {
     const session = await this.post<AuthResponse>('/auth/register', { username, password })
     this.setSession(session)
@@ -106,10 +119,10 @@ export class ApiClient {
       ...init,
       credentials: 'include',
       headers,
-    })
+    }).catch(error => this.transportError(error))
 
     if (response.status === 204) return undefined as T
-    const payload = await this.readJson(response)
+    const payload = await this.readJson(response).catch(error => this.transportError(error))
     if (response.ok) return payload as T
 
     const apiError = this.toApiError(response.status, payload)
@@ -119,6 +132,13 @@ export class ApiClient {
       return this.request<T>(path, init, false)
     }
     throw apiError
+  }
+
+  private transportError(error: unknown): never {
+    if (error instanceof TypeError) {
+      throw new ApiError(0, 'network_unavailable', '暂时连接不上服务，请稍后重试。')
+    }
+    throw error
   }
 
   private refreshCsrf() {

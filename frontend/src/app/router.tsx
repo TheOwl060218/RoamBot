@@ -1,14 +1,22 @@
 import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom'
 
 import { SearchPage } from '../pages/SearchPage'
+import { DiscoveryPage } from '../pages/DiscoveryPage'
+import { HomePage } from '../pages/HomePage'
 import { FavoritesPage } from '../pages/FavoritesPage'
 import { HistoryPage } from '../pages/HistoryPage'
 import { HistoryDetailPage } from '../pages/HistoryDetailPage'
 import { RequireAuth } from '../features/auth/RequireAuth'
 import { PublicSharePage } from '../features/shares/PublicSharePage'
 import { AppShell } from './AppShell'
+import { PlansPage, PlanDetailPage, JoinPlanPage } from '../features/plans/PlanPages'
+import { coordinateRouteTransitions } from './routeTransitionPolicy'
+import { CommandRoot } from '../features/commands/CommandRoot'
+import { ItineraryProvider } from '../features/itineraries/ItineraryProvider'
+import { ItineraryCenter } from '../features/itineraries/ItineraryCenter'
 
-const router = createBrowserRouter([
+const router = coordinateRouteTransitions(createBrowserRouter([{ element: <ItineraryProvider><CommandRoot /></ItineraryProvider>, children: [
+  { path: '/', element: <HomePage /> },
   {
     element: (
       <AppShell>
@@ -16,14 +24,20 @@ const router = createBrowserRouter([
       </AppShell>
     ),
     children: [
-      { index: true, element: <SearchPage /> },
+      { path: 'recommend', element: <SearchPage /> },
+      { path: 'explore', element: <DiscoveryPage /> },
+      { path: 'itineraries', element: <ItineraryCenter /> },
+      { path: 'itineraries/:itineraryId', element: <ItineraryCenter /> },
       { path: 'favorites', element: <RequireAuth><FavoritesPage /></RequireAuth> },
       { path: 'history', element: <RequireAuth><HistoryPage /></RequireAuth> },
       { path: 'history/:historyId', element: <RequireAuth><HistoryDetailPage /></RequireAuth> },
       { path: 'share/:token', element: <PublicSharePage /> },
+      { path: 'plans', element: <RequireAuth><PlansPage /></RequireAuth> },
+      { path: 'plans/:planId', element: <RequireAuth><PlanDetailPage /></RequireAuth> },
+      { path: 'join/:inviteToken', element: <JoinPlanPage /> },
     ],
   },
-])
+]}]))
 
 export function AppRouter() {
   return <RouterProvider router={router} />

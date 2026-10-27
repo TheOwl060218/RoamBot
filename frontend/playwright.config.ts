@@ -8,6 +8,7 @@ const python = process.platform === 'win32'
   ? '.venv\\Scripts\\python.exe'
   : '.venv/bin/python'
 const node = JSON.stringify(process.execPath)
+const browserChannel = process.env.ROAMBOT_E2E_BROWSER_CHANNEL
 const runId = process.env.ROAMBOT_E2E_RUN_ID ?? String(process.pid)
 const reuseExistingServer = process.env.PW_REUSE_SERVERS === '1'
 const backendPort = Number(process.env.ROAMBOT_E2E_BACKEND_PORT ?? 8000)
@@ -17,10 +18,13 @@ export default defineConfig({
   testDir: './e2e',
   outputDir: '../test-results/playwright',
   fullyParallel: false,
+  // Real Mock-backed flows share one SQLite app and one IP rate-limit bucket.
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: [['line']],
   use: {
     baseURL: `http://127.0.0.1:${frontendPort}`,
+    channel: browserChannel || undefined,
     trace: 'retain-on-failure',
   },
   webServer: [

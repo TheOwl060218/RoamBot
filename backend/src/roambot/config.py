@@ -1,8 +1,9 @@
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import AnyHttpUrl, Field, field_validator, model_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,14 +22,23 @@ class Settings(BaseSettings):
         repr=False,
     )
     secure_cookies: bool = False
+    session_cookie_name: str = Field(
+        default="roambot_session", min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$"
+    )
     session_hours: int = 24
     provider_mode: ProviderMode = ProviderMode.MOCK
     demo_mode: bool = True
     amap_base_url: AnyHttpUrl = AnyHttpUrl("https://restapi.amap.com")
+    amap_js_key: SecretStr = Field(default=SecretStr(""), repr=False)
+    amap_js_security_code: SecretStr = Field(default=SecretStr(""), repr=False)
     qweather_api_host: AnyHttpUrl | None = None
     llm_base_url: AnyHttpUrl | None = None
     llm_model: str | None = None
+    llm_enable_thinking: bool | None = None
+    discovery_search_api_key: SecretStr | None = Field(default=None, repr=False)
+    discovery_orchestration_mode: Literal["legacy", "coordinated", "task", "source"] = "legacy"
     provider_timeout_seconds: float = Field(default=5.0, gt=0)
+    assistant_timeout_seconds: float = Field(default=7.0, gt=0, le=60)
     max_geocode_calls: int = Field(default=3, gt=0)
     max_poi_search_calls: int = Field(default=6, gt=0)
     max_weather_calls: int = Field(default=7, gt=0)

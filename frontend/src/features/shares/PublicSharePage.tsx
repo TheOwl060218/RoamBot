@@ -5,6 +5,7 @@ import { apiClient } from '../../api/client'
 import type { PublicSnapshot } from '../../api/types'
 import { DailyWeatherList } from '../search/DailyWeatherList'
 import { tripMatchIndex } from '../search/matchLabels'
+import { DiscoveryArchiveCards } from '../discovery/DiscoveryArchiveCards'
 
 const adviceLabels = {
   suitable: '适合前往',
@@ -24,18 +25,19 @@ export function PublicSharePage() {
   }, [token])
 
   if (unavailable) return <section className="access-state"><h1>分享链接不可用或已撤销</h1></section>
-  if (!snapshot) return <p className="loading-state">正在加载分享快照…</p>
+  if (!snapshot) return <p className="loading-state">正在加载分享…</p>
+  if (snapshot.mode === 'discovery') return <section className='public-share-page'>
+    <header className='page-heading'><div><h1>{snapshot.city}休闲去处</h1></div>
+      {snapshot.start_date && snapshot.end_date && <span>{snapshot.start_date} 至 {snapshot.end_date}</span>}
+    </header><DiscoveryArchiveCards snapshot={snapshot} />
+  </section>
 
   return (
     <section className="public-share-page">
       <header className="page-heading">
-        <div><p className="eyebrow">RoamBot 匿名分享</p><h1>{snapshot.city}出行结果</h1></div>
+        <div><h1>{snapshot.city}出行结果</h1></div>
         <span>{snapshot.start_date} 至 {snapshot.end_date}</span>
       </header>
-      <p className="privacy-note">该页面只包含脱敏后的地点、天气和匹配指数，不包含账户身份与出发地址。</p>
-      <p className="result-method-note">
-        地点评分数据来源：高德开放平台；出游匹配指数仅用于比较本次候选地点，不代表官方评价。
-      </p>
       <div className="personal-list">
         {snapshot.items.map((item, index) => (
           <article className="shared-result" key={`${item.destination.name}-${index}`}>

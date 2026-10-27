@@ -13,9 +13,11 @@ class ProviderEvent(StrEnum):
     STRAIGHT_LINE = "straight_line"
     TEMPLATE_EXPLANATION = "template_explanation"
     INSUFFICIENT_CANDIDATES = "insufficient_candidates"
+    REGION_METADATA_MISSING = "region_metadata_missing"
 
 
 _NOTICES = {
+    ProviderEvent.REGION_METADATA_MISSING: "部分地点缺少地区信息，未纳入本次范围",
     ProviderEvent.CACHE: "使用未过期缓存结果",
     ProviderEvent.DEMO: "使用内置苏州演示数据",
     ProviderEvent.WEATHER_EXCLUDED: "部分候选因天气不可用已排除",

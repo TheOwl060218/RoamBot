@@ -10,6 +10,73 @@ function getHeaderOffset() {
     : FALLBACK_HEADER_OFFSET_PX
 }
 
+function getScrollMarginTop(target: HTMLElement) {
+  return Number.parseFloat(window.getComputedStyle(target).scrollMarginTop) || 0
+}
+
+export function startSmoothScrollInContainer(
+  container: HTMLElement,
+  getTarget: () => HTMLElement | null,
+  onComplete?: () => void,
+) {
+  let cancelled = false
+  let layoutFrame = 0
+  let animationFrame = 0
+
+  layoutFrame = window.requestAnimationFrame(() => {
+    layoutFrame = window.requestAnimationFrame(() => {
+      const target = getTarget()
+      if (!target || cancelled) return
+      const startY = container.scrollTop
+      const targetOffset = getScrollMarginTop(target)
+      const initialTargetY = Math.max(
+        0,
+        startY
+          + target.getBoundingClientRect().top
+          - container.getBoundingClientRect().top
+          - container.clientTop
+          - targetOffset,
+      )
+      const distance = initialTargetY - startY
+      if (Math.abs(distance) < 1) {
+        onComplete?.()
+        return
+      }
+      let startedAt: number | null = null
+
+      const step = (timestamp: number) => {
+        if (cancelled) return
+        startedAt ??= timestamp
+        const progress = Math.min(1, (timestamp - startedAt) / SCROLL_DURATION_MS)
+        const eased = progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2
+        const liveTarget = getTarget()
+        if (!liveTarget) return
+        const liveTargetY = Math.max(
+          0,
+          container.scrollTop
+            + liveTarget.getBoundingClientRect().top
+            - container.getBoundingClientRect().top
+            - container.clientTop
+            - getScrollMarginTop(liveTarget),
+        )
+        container.scrollTop = startY + (liveTargetY - startY) * eased
+        if (progress < 1) animationFrame = window.requestAnimationFrame(step)
+        else onComplete?.()
+      }
+
+      animationFrame = window.requestAnimationFrame(step)
+    })
+  })
+
+  return () => {
+    cancelled = true
+    if (layoutFrame) window.cancelAnimationFrame(layoutFrame)
+    if (animationFrame) window.cancelAnimationFrame(animationFrame)
+  }
+}
+
 export function startSmoothScrollTo(getTarget: () => HTMLElement | null, onComplete?: () => void) {
   let cancelled = false
   let layoutFrame = 0

@@ -143,11 +143,14 @@ def test_fairness_uses_relative_burden_instead_of_absolute_trip_limit() -> None:
 
 
 def test_fairness_combines_relative_time_and_distance_burden() -> None:
-    assert score_fairness(
-        [38.94, 15.06],
-        50,
-        durations_minutes=[71, 52],
-    ) == 62.87
+    assert (
+        score_fairness(
+            [38.94, 15.06],
+            50,
+            durations_minutes=[71, 52],
+        )
+        == 62.87
+    )
 
 
 def test_popularity_converts_rank() -> None:

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import type { RecommendationItem, SceneryType, SourceState } from '../../api/types'
-import { CandidateList } from './CandidateList'
 import { CandidateDrawer } from './CandidateDrawer'
 import { MobileCandidateSwitcher } from './MobileCandidateSwitcher'
 import { PlaceDetail } from './PlaceDetail'
 import { SourceNotice } from './SourceNotice'
+import { useBusinessAssistant, useCommandTarget } from '../commands/commandContext'
 
 type ResultListProps = {
   items: RecommendationItem[]
@@ -18,6 +18,7 @@ type ResultListProps = {
   selectedId?: string | null
   onSelect?: (item: RecommendationItem) => void
   candidateSwitcherEnabled?: boolean
+  comparison?: ReactNode
 }
 
 const sceneryLabels: Record<SceneryType, string> = {
@@ -40,11 +41,12 @@ export function ResultList({
   selectedId,
   onSelect,
   candidateSwitcherEnabled = true,
+  comparison,
 }: ResultListProps) {
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null)
-  const [candidateListVisible, setCandidateListVisible] = useState(true)
+  const [switcherVisible, setSwitcherVisible] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const candidateSentinelRef = useRef<HTMLDivElement>(null)
+  const topRef = useRef<HTMLDivElement>(null)
   const requestedId = selectedId ?? internalSelectedId
   const selectedItem = items.find((item) => item.destination.provider_id === requestedId) ?? items[0]
 
@@ -52,26 +54,37 @@ export function ResultList({
     setInternalSelectedId(item.destination.provider_id)
     onSelect?.(item)
   }
+  const business = useBusinessAssistant()
+  useCommandTarget('result-list', () => ({ focused_id: selectedItem?.destination.provider_id,
+    visible_places: items.map(item => ({ id: item.destination.provider_id, name: item.destination.name })),
+  }), async effect => {
+    if (effect.tool === 'show_candidates') setDrawerOpen(true)
+    else if (effect.tool === 'open_detail' || effect.tool === 'open_map') {
+      const item = items.find(i => i.destination.provider_id === effect.arguments.id)
+      if (!item) throw new Error('地点已变化。')
+      if (item !== selectedItem) {
+        select(item)
+        if (effect.tool === 'open_map') {
+          await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+          await business?.bridge.perform(effect)
+        }
+      } else if (effect.tool === 'open_map') return false
+    } else if (effect.tool === 'close_layer' && drawerOpen) setDrawerOpen(false)
+    else return false
+    return true
+  })
 
   useEffect(() => {
-    const sentinel = candidateSentinelRef.current
-    if (!sentinel) return
-    const scrollContainer = sentinel.closest('.candidate-pane')
     const updateFromScroll = () => {
-      const headerOffset = window.innerWidth <= 600 ? 104 : 60
       const pageHasMoved = window.scrollY > 96
-      const listHasMovedUp = sentinel.getBoundingClientRect().top <= headerOffset + 120
-      const listHasScrolled = (scrollContainer?.scrollTop ?? 0) > 16
-      setCandidateListVisible(!pageHasMoved && !listHasMovedUp && !listHasScrolled)
+      setSwitcherVisible(candidateSwitcherEnabled && pageHasMoved && (window.innerWidth <= 1024))
     }
     updateFromScroll()
     window.addEventListener('scroll', updateFromScroll, { passive: true })
     window.addEventListener('resize', updateFromScroll)
-    scrollContainer?.addEventListener('scroll', updateFromScroll, { passive: true })
     return () => {
       window.removeEventListener('scroll', updateFromScroll)
       window.removeEventListener('resize', updateFromScroll)
-      scrollContainer?.removeEventListener('scroll', updateFromScroll)
     }
   }, [candidateSwitcherEnabled, items.length])
 
@@ -79,8 +92,8 @@ export function ResultList({
     <section className="results-panel" aria-live="polite">
       <div className="results-heading">
         <div>
-          <p className="eyebrow">查询结果</p>
-          <h2>{items.length ? `${items.length} 个地点值得考虑` : '规定范围内无检索结果'}</h2>
+          
+          <h2>{items.length ? `${items.length} 个推荐地点` : '暂未找到合适地点'}</h2>
         </div>
         <time dateTime={generatedAt}>{new Date(generatedAt).toLocaleString('zh-CN')}</time>
       </div>
@@ -95,26 +108,19 @@ export function ResultList({
         <p className="empty-state">可以尝试增加最大距离、调整日期或更换风景类型。</p>
       ) : (
         <>
-          <p className="result-method-note">
-            天气数据来自和风天气；地点评分来自高德开放平台；距离与用时按查询时驾车路况估算；出游匹配指数仅用于比较本次候选地点。
-          </p>
           {selectedItem && (
-            <div className="results-comparison">
-              <div className="candidate-pane">
-                <div className="candidate-list-sentinel" ref={candidateSentinelRef} aria-hidden="true" />
-                <CandidateList
-                  items={items}
-                  selectedId={selectedItem.destination.provider_id}
-                  onSelect={select}
-                />
-              </div>
+            <div className="results-detail">
               <div className="detail-pane">
+                <div ref={topRef} />
                 <PlaceDetail
                   item={selectedItem}
-                onFavorite={onFavorite}
+                  mapItems={items}
+                  onMapSelect={select}
+                  onFavorite={onFavorite}
                   isFavorite={favoriteIds.has(selectedItem.destination.provider_id)}
                   favoritePending={favoritePendingIds.has(selectedItem.destination.provider_id)}
                 />
+                {comparison}
               </div>
             </div>
           )}
@@ -123,7 +129,7 @@ export function ResultList({
               <MobileCandidateSwitcher
                 items={items}
                 selectedId={selectedItem.destination.provider_id}
-                visible={candidateSwitcherEnabled && !candidateListVisible}
+                visible={switcherVisible && candidateSwitcherEnabled}
                 onSelect={select}
                 onOpenDrawer={() => setDrawerOpen(true)}
               />

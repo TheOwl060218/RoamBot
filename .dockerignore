@@ -10,6 +10,8 @@
 **/node_modules
 frontend/dist
 data
+!backend/src/roambot/domain/data/
+!backend/src/roambot/domain/data/regions.json
 **/credentials.vault
 **/*.db
 **/*.sqlite*

@@ -1,36 +1,38 @@
 :root {
   color: #162126;
-  background: #f3f6f7;
+  background: #f7f9fa;
   font-family: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
   color-scheme: light;
-  --canvas: #f3f6f7;
+  --canvas: #f7f9fa;
   --surface: #ffffff;
-  --surface-subtle: #f8fafb;
-  --surface-muted: #eaf0f2;
+  --surface-subtle: #fafbfc;
+  --surface-muted: #eef2f4;
   --ink: #162126;
-  --ink-soft: #35464d;
-  --muted: #68777d;
-  --border: #d4dfe3;
-  --border-strong: #aebfc6;
+  --ink-soft: #3a4b52;
+  --muted: #7c8a90;
+  --border: #e2e9ec;
+  --border-strong: #c3d0d6;
   --primary: #176f8a;
   --primary-hover: #125b72;
   --primary-pressed: #0e4c60;
-  --primary-soft: #e5f2f5;
+  --primary-soft: #e9f4f6;
   --accent: #176f8a;
   --positive: #2f7259;
-  --positive-soft: #e7f2ed;
+  --positive-soft: #e8f3ee;
   --info: #3e6f84;
-  --info-soft: #e9f1f4;
+  --info-soft: #eaf2f5;
   --warning: #9b6217;
-  --warning-soft: #fff4df;
+  --warning-soft: #fff5e3;
   --danger: #9f3d37;
-  --danger-soft: #fdf0ed;
+  --danger-soft: #fdf1ef;
   --focus: #5b9eb3;
-  --radius: 6px;
-  --radius-lg: 8px;
-  --shadow-sm: 0 1px 2px rgb(22 33 38 / 6%);
-  --shadow-popover: 0 14px 36px rgb(22 33 38 / 14%);
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-round: 999px;
+  --shadow-sm: 0 1px 2px rgb(22 33 38 / 5%);
+  --shadow-card: 0 2px 14px rgb(22 33 38 / 6%);
+  --shadow-popover: 0 18px 44px rgb(22 33 38 / 16%);
 }
 
 * { box-sizing: border-box; }

@@ -1,0 +1,272 @@
+{
+  "id": "preserved-places",
+  "intent": "search",
+  "status": "completed",
+  "stage": "",
+  "cards": [
+    {
+      "experience": "杨公堤漫步赏秋",
+      "place": {
+        "address": "西湖街道龙井路1号杭州西湖风景名胜区",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.232456,
+          "longitude": 120.13658,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "24小时营业",
+          "opentime_week": "周一至周日 00:00-24:00",
+          "rating": "4.7"
+        },
+        "id": "amap:B0FFJXZGIH",
+        "map_type": "风景名胜;风景名胜;风景名胜",
+        "map_url": "https://www.amap.com/detail/B0FFJXZGIH",
+        "name": "杭州西湖风景名胜区-杨公堤"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "北山街梧桐落叶",
+      "place": {
+        "address": "西湖街道白堤西湖风景区",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.259216,
+          "longitude": 120.152264,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "24小时营业",
+          "opentime_week": "周一至周日 00:00-24:00",
+          "rating": "4.7"
+        },
+        "id": "amap:B0FFHU2BPX",
+        "map_type": "风景名胜;风景名胜;风景名胜",
+        "map_url": "https://www.amap.com/detail/B0FFHU2BPX",
+        "name": "北山街历史文化街区"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "九溪烟树观红叶",
+      "place": {
+        "address": "龙井村杭州西湖风景名胜区内(近九溪路)",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.202395,
+          "longitude": 120.11335,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "24小时营业",
+          "opentime_week": "周一至周日 00:00-24:00",
+          "rating": "4.7"
+        },
+        "id": "amap:B0FFHMH4J8",
+        "map_type": "风景名胜;风景名胜;风景名胜",
+        "map_url": "https://www.amap.com/detail/B0FFHMH4J8",
+        "name": "九溪烟树"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "十里琅珰山间徒步",
+      "place": {
+        "address": "郊万林背山五云山间龙井村(近梅家坞)",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.207115,
+          "longitude": 120.099351,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "24小时营业",
+          "opentime_week": "周一至周日 00:00-24:00",
+          "rating": "4.7"
+        },
+        "id": "amap:B0FFFAFFBT",
+        "map_type": "风景名胜;风景名胜;风景名胜",
+        "map_url": "https://www.amap.com/detail/B0FFFAFFBT",
+        "name": "十里琅珰"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "下满觉陇闻桂香",
+      "place": {
+        "address": "满觉陇路",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.219415,
+          "longitude": 120.130322,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "08:30-16:30",
+          "opentime_week": "周一至周日 08:30-16:30",
+          "rating": "4.7"
+        },
+        "id": "amap:B0FFF3BVRZ",
+        "map_type": "风景名胜;风景名胜;风景名胜",
+        "map_url": "https://www.amap.com/detail/B0FFF3BVRZ",
+        "name": "杭州西湖风景名胜区-下满觉陇"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "太子湾公园闲逛",
+      "place": {
+        "address": "南星街道南山路1-1号",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.22547,
+          "longitude": 120.142177,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "24小时营业",
+          "opentime_week": "周一至周日 00:00-24:00",
+          "rating": "4.8",
+          "tel": "0571-87963701"
+        },
+        "id": "amap:B023B02074",
+        "map_type": "风景名胜;公园广场;公园",
+        "map_url": "https://www.amap.com/detail/B023B02074",
+        "name": "杭州西湖风景名胜区-太子湾公园"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "西溪湿地秋景",
+      "place": {
+        "address": "天目山路518号",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.255079,
+          "longitude": 120.061159,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_week": "10月8日至3月31日 周一至周日 08:00-17:30 门票售票时间:8:00-16:30,船票售票时间:8:00-16:15,观光车环线售票时间:8:00-16:00（节假日视乘车客流调整环线售票截止时间）,单程售票时间 8:00-17:20；4月1日至10月7日 周一至周日 07:30-18:30 门票售票时间:7:30-17:30,船票售票时间:7:30-16:45，观光车环线售票时间:7:30-17:00（节假日视乘车客流调整环线售票截止时间），单程售票时间 7:30-18:20；",
+          "rating": "4.8",
+          "tel": "0571-88106696;0571-88106688"
+        },
+        "id": "amap:B023B06P06",
+        "map_type": "风景名胜;风景名胜;国家级景点",
+        "map_url": "https://www.amap.com/detail/B023B06P06",
+        "name": "西溪国家湿地公园"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "湘湖度假区散步",
+      "place": {
+        "address": "湘湖路132号",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.13226,
+          "longitude": 120.217125,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "00:00-24:00 09:00-16:30",
+          "opentime_week": "00:00-24:00；园内游乐设施为:09:00-16:30,2026年2月16日全天关闭",
+          "rating": "4.8",
+          "tel": "0571-82360666"
+        },
+        "id": "amap:B023B07SNT",
+        "map_type": "风景名胜;风景名胜;国家级景点",
+        "map_url": "https://www.amap.com/detail/B023B07SNT",
+        "name": "湘湖国家旅游度假区"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "朝晖文化公园休闲",
+      "place": {
+        "address": "上塘路169号",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.284688,
+          "longitude": 120.165959,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "09:00-21:00",
+          "opentime_week": "周一至周日 09:00-21:00",
+          "rating": "4.4",
+          "tel": "0571-85103764"
+        },
+        "id": "amap:B023B0A168",
+        "map_type": "风景名胜;公园广场;公园",
+        "map_url": "https://www.amap.com/detail/B023B0A168",
+        "name": "朝晖文化公园"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    },
+    {
+      "experience": "九溪十八涧玩水",
+      "place": {
+        "address": "杭州西湖风景名胜区九溪烟树南侧",
+        "city": "杭州市",
+        "coordinate": {
+          "latitude": 30.202349,
+          "longitude": 120.113356,
+          "system": "gcj02"
+        },
+        "facts": {
+          "opentime_today": "24小时营业",
+          "opentime_week": "周一至周日 00:00-24:00",
+          "rating": "4.7"
+        },
+        "id": "amap:B0LR1ZRRQE",
+        "map_type": "风景名胜;风景名胜;风景名胜",
+        "map_url": "https://www.amap.com/detail/B0LR1ZRRQE",
+        "name": "九溪十八涧"
+      },
+      "reason": "",
+      "route": null,
+      "sources": [],
+      "weather": null
+    }
+  ],
+  "reply": "已找到这些去处。",
+  "request_location": false,
+  "center_name": null,
+  "source": "live",
+  "context": {
+    "origin": null,
+    "region": "杭州",
+    "max_distance_km": null,
+    "start_date": null,
+    "end_date": null
+  }
+}

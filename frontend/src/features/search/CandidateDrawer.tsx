@@ -56,7 +56,7 @@ export function CandidateDrawer({ open, items, selectedId, onSelect, onClose }: 
       >
         <header>
           <div>
-            <p className="eyebrow">候选地点</p>
+            
             <h2 id="candidate-drawer-title">选择候选地点</h2>
           </div>
           <button className="icon-button" type="button" aria-label="关闭候选列表" onClick={onClose}>

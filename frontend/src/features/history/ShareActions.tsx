@@ -7,10 +7,11 @@ import type { Share } from '../../api/types'
 type ShareActionsProps = {
   historyId: string
   onCreated?: () => void
+  onCopied?: () => void
   onStatus?: (message: string) => void
 }
 
-export function ShareActions({ historyId, onCreated, onStatus }: ShareActionsProps) {
+export function ShareActions({ historyId, onCreated, onCopied, onStatus }: ShareActionsProps) {
   const [share, setShare] = useState<Share | null>(null)
   const [status, setStatus] = useState('')
   const [pending, setPending] = useState(false)
@@ -39,6 +40,7 @@ export function ShareActions({ historyId, onCreated, onStatus }: ShareActionsPro
     if (!share) return
     await navigator.clipboard?.writeText(new URL(share.url, window.location.origin).href)
     report('已复制分享链接。')
+    onCopied?.()
   }
 
   async function revoke() {
@@ -57,6 +59,7 @@ export function ShareActions({ historyId, onCreated, onStatus }: ShareActionsPro
 
   return (
     <div className="share-actions">
+      <div className="share-action-controls">
       {!share ? (
         <button className="icon-text-button" type="button" disabled={pending} onClick={create}>
           <Link2 aria-hidden="true" size={16} />{pending ? '正在创建…' : '创建分享'}
@@ -71,6 +74,7 @@ export function ShareActions({ historyId, onCreated, onStatus }: ShareActionsPro
           </button>
         </>
       )}
+      </div>
       <small className="share-status" role="status">{status}</small>
     </div>
   )

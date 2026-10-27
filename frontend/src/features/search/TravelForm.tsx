@@ -16,31 +16,51 @@ import {
   saveWeightPreference,
   toRankingWeights,
   type DisplayWeights,
+  type TravelFormDraft,
 } from './formState'
 import { OriginFields } from './OriginFields'
 import { PlaceInput } from './PlaceInput'
 import { ScenerySelector } from './ScenerySelector'
 import { WeightSegments } from './WeightSegments'
+import { ValidationBubble } from './ValidationBubble'
+import { RegionInput } from './RegionInput'
 
 type TravelFormProps = {
   initialMode?: SearchMode
   initialTarget?: string
+  initialDraft?: TravelFormDraft
   isSubmitting?: boolean
   fieldErrors?: Record<string, string>
   onSubmit: (request: RecommendationRequest | PlaceEvaluationRequest) => void | Promise<void>
 }
 
+function serverFieldMessage(path: string, message: string) {
+  const labels: Record<string, string> = {
+    main_origin: '主出发地', city: '出发城市', max_distance_km: '最大距离',
+    start_date: '开始日期', end_date: '结束日期', scenery_types: '风景类型',
+    target_place: '目标地点', weights: '偏好权重',
+    destination_regions: '目的地城市范围',
+  }
+  const companion = path.match(/^companion_origins\[(\d+)\]/)
+  const label = companion ? `同行人 ${Number(companion[1]) + 1} 出发地` : labels[path] ?? '填写内容'
+  const readable = /[\u3400-\u9fff]/.test(message) ? message
+    : message === 'Origin could not be resolved.' ? '无法识别，请从地点建议中重新选择。'
+    : '未通过检查，请修改后再试。'
+  return `${label}：${readable}`
+}
+
 export function TravelForm({
   initialMode = 'recommendation',
   initialTarget = '',
+  initialDraft,
   isSubmitting = false,
   fieldErrors = {},
   onSubmit,
 }: TravelFormProps) {
-  const [restored] = useState(loadTravelDraft)
+  const [restored] = useState(() => initialDraft ?? loadTravelDraft())
   const restoredMode = initialTarget ? 'place_evaluation' : restored?.mode ?? initialMode
   const [mode, setMode] = useState<SearchMode>(restoredMode)
-  const [city, setCity] = useState(restored?.city ?? '苏州')
+  const city = ''
   const [mainOrigin, setMainOrigin] = useState(restored?.mainOrigin ?? '')
   const [companions, setCompanions] = useState<string[]>(restored?.companions ?? [])
   const [mainOriginCoordinate, setMainOriginCoordinate] = useState(
@@ -50,6 +70,8 @@ export function TravelForm({
     restored?.companionOriginCoordinates ?? restored?.companions.map(() => null) ?? [],
   )
   const [maxDistance, setMaxDistance] = useState(restored?.maxDistance ?? '50')
+  const [destinationRegions, setDestinationRegions] = useState(restored?.destinationRegions ?? [])
+  const [regionQuery, setRegionQuery] = useState('')
   const [startDate, setStartDate] = useState(restored?.startDate ?? chinaDate(1))
   const [endDate, setEndDate] = useState(restored?.endDate ?? chinaDate(1))
   const [sceneryTypes, setSceneryTypes] = useState<SceneryType[]>(restored?.sceneryTypes ?? [])
@@ -61,9 +83,12 @@ export function TravelForm({
       ?? defaultDisplayWeights,
   )
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
+  const [notice, setNotice] = useState<{ version: number; messages: string[] }>({ version: 0, messages: [] })
+  const serverMessages = Object.entries(fieldErrors).map(([path, message]) => serverFieldMessage(path, message))
   const errors = { ...localErrors, ...fieldErrors }
   const originCount = (companions.length + 1) as 1 | 2 | 3
   const maxDistanceKm = Number(maxDistance)
+  const regionDistanceOverride = mode === 'recommendation' && destinationRegions.length > 0
 
   useEffect(() => {
     saveTravelDraft({
@@ -74,6 +99,7 @@ export function TravelForm({
       mainOriginCoordinate,
       companionOriginCoordinates,
       maxDistance,
+      destinationRegions,
       startDate,
       endDate,
       sceneryTypes,
@@ -81,7 +107,7 @@ export function TravelForm({
       targetPlace,
       weights,
     })
-  }, [city, companionOriginCoordinates, companions, endDate, mainOrigin, mainOriginCoordinate, matchMode, maxDistance, mode, sceneryTypes, startDate, targetPlace, weights])
+  }, [city, companionOriginCoordinates, companions, endDate, mainOrigin, mainOriginCoordinate, matchMode, maxDistance, mode, sceneryTypes, startDate, targetPlace, weights, destinationRegions])
 
   function changeCompanions(next: string[]) {
     setCompanions(next)
@@ -144,7 +170,7 @@ export function TravelForm({
     companions.forEach((origin, index) => {
       if (!origin.trim()) next[`companion_origins[${index}]`] = '请输入同行人出发地'
     })
-    if (maxDistance === '' || maxDistanceKm <= 0 || maxDistanceKm > 500) {
+    if (!regionDistanceOverride && (maxDistance === '' || maxDistanceKm <= 0 || maxDistanceKm > 500)) {
       next.max_distance_km = '最大距离必须在 0 到 500 km 之间'
     }
     if (startDate < chinaDate(0) || endDate > chinaDate(6)) {
@@ -154,10 +180,14 @@ export function TravelForm({
     if (mode === 'recommendation' && sceneryTypes.length === 0) {
       next.scenery_types = '请至少选择一种风景类型'
     }
+    if (mode === 'recommendation' && regionQuery.trim()) {
+      next.destination_regions = '请从候选中选择省市，或清空未选择的输入'
+    }
     if (mode === 'place_evaluation' && !targetPlace.trim()) {
       next.target_place = '请输入目标地点'
     }
     setLocalErrors(next)
+    setNotice((current) => ({ version: current.version + 1, messages: Object.values(next) }))
     return Object.keys(next).length === 0
   }
 
@@ -165,18 +195,18 @@ export function TravelForm({
     event.preventDefault()
     if (!validate()) return
     const common = {
-      city: city.trim() || '苏州',
+      city,
       main_origin: mainOrigin.trim(),
       companion_origins: companions.map((origin) => origin.trim()),
       main_origin_coordinate: mainOriginCoordinate,
       companion_origin_coordinates: companionOriginCoordinates,
-      max_distance_km: maxDistanceKm,
+      max_distance_km: regionDistanceOverride && (!Number.isFinite(maxDistanceKm) || maxDistanceKm <= 0 || maxDistanceKm > 500) ? 50 : maxDistanceKm,
       start_date: startDate,
       end_date: endDate,
       weights: toRankingWeights(weights, originCount),
     }
     if (mode === 'recommendation') {
-      await onSubmit({ ...common, scenery_types: sceneryTypes, scenery_match_mode: matchMode })
+      await onSubmit({ ...common, scenery_types: sceneryTypes, scenery_match_mode: matchMode, destination_regions: destinationRegions })
     } else {
       await onSubmit({ ...common, target_place: targetPlace.trim() })
     }
@@ -184,9 +214,14 @@ export function TravelForm({
 
   return (
     <form className="travel-form" onSubmit={handleSubmit} noValidate>
+      {serverMessages.length > 0 ? (
+        <ValidationBubble key={`server-${JSON.stringify(fieldErrors)}`} messages={serverMessages} />
+      ) : notice.messages.length > 0 ? (
+        <ValidationBubble key={`local-${notice.version}`} messages={notice.messages} />
+      ) : null}
       <div className="form-heading">
         <div>
-          <p className="eyebrow">天气感知的风景出行推荐</p>
+          
           <h1>想去哪里走走？</h1>
         </div>
         <div className="mode-switch" role="radiogroup" aria-label="查询模式">
@@ -212,22 +247,48 @@ export function TravelForm({
       </div>
 
       <div className="form-grid">
-        <label className="field">
-          <span>城市</span>
-          <input value={city} onChange={(event) => setCity(event.target.value)} />
-          <span className="field-message" />
-        </label>
+        <div className="form-origins-field">
+          <OriginFields
+            city={city}
+            mainOrigin={mainOrigin}
+            companions={companions}
+            errors={errors}
+            onMainChange={changeMainOrigin}
+            onMainSelect={selectMainOrigin}
+            onCompanionChange={changeCompanion}
+            onCompanionSelect={selectCompanion}
+            onAddCompanion={addCompanion}
+            onRemoveCompanion={removeCompanion}
+          />
+        </div>
         <label className="field">
           <span>最大距离（km）</span>
           <input
-            type="number"
+            type={regionDistanceOverride ? 'text' : 'number'}
+            aria-label="最大距离（km）"
+            disabled={regionDistanceOverride}
             min="1"
             max="500"
-            value={maxDistance}
-            onChange={(event) => setMaxDistance(event.target.value.replace(/^0+(?=\d)/, ''))}
+            value={regionDistanceOverride ? '已按目的地范围筛选' : maxDistance}
+            onChange={(event) => {
+              const value = event.target.value.replace(/^0+(?=\d)/, '')
+              setMaxDistance(value)
+              if (value !== '' && Number(value) > 0 && Number(value) <= 500) {
+                setLocalErrors(current => {
+                  const next = { ...current }
+                  delete next.max_distance_km
+                  return next
+                })
+              }
+            }}
           />
-          <span className="field-message">{errors.max_distance_km && <small className="field-error">{errors.max_distance_km}</small>}</span>
+          <span className="field-message">{!regionDistanceOverride && errors.max_distance_km && <small className="field-error">{errors.max_distance_km}</small>}</span>
         </label>
+        {mode === 'recommendation' && <div className="field">
+          <span>目的地城市范围</span>
+          <RegionInput value={destinationRegions} onChange={setDestinationRegions} query={regionQuery} onQueryChange={setRegionQuery} />
+          <span className="field-message">{errors.destination_regions && <small className="field-error">{errors.destination_regions}</small>}</span>
+        </div>}
         <label className="field">
           <span>开始日期</span>
           <input
@@ -251,19 +312,6 @@ export function TravelForm({
           <span className="field-message">{errors.end_date && <small className="field-error">{errors.end_date}</small>}</span>
         </label>
       </div>
-
-      <OriginFields
-        city={city}
-        mainOrigin={mainOrigin}
-        companions={companions}
-        errors={errors}
-        onMainChange={changeMainOrigin}
-        onMainSelect={selectMainOrigin}
-        onCompanionChange={changeCompanion}
-        onCompanionSelect={selectCompanion}
-        onAddCompanion={addCompanion}
-        onRemoveCompanion={removeCompanion}
-      />
 
       {mode === 'recommendation' ? (
         <>

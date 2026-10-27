@@ -1,0 +1,4 @@
+.business-command-layer { position:fixed; inset:0; z-index:120; pointer-events:none; }
+.business-command-layer .layer-conversation { pointer-events:auto; }
+.business-command-layer[inert], [inert] .business-command-layer { display:none; }
+.business-result-link { display:block; margin-top:8px; color:var(--accent,#16758a); font-size:.85rem; overflow-wrap:anywhere; }

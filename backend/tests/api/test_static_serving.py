@@ -51,7 +51,7 @@ def test_production_serves_assets_without_capturing_api_or_missing_files(
     assert "javascript" in asset.headers["content-type"]
     assert favicon.status_code == 200
     assert favicon.headers["content-type"].startswith("image/svg+xml")
-    assert "viewBox=\"0 0 32 32\"" in favicon.text
+    assert 'viewBox="0 0 32 32"' in favicon.text
     assert health.status_code == 200
     assert health.json() == {"status": "ready"}
     assert missing_api.status_code == 404

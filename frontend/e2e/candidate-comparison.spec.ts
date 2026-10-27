@@ -1,0 +1,21 @@
+import { expect, test } from '@playwright/test'
+import { fillStudioConditions } from './helpers'
+test('same 2–3 candidates compare real metrics, deselect, without horizontal overflow', async ({ page }) => {
+  await page.goto('/recommend'); await fillStudioConditions(page, ['湖景','古镇/历史街区','博物馆'])
+  await page.getByRole('button', { name: '开始推荐' }).click()
+  await expect(page.getByTestId('destination-card')).toHaveCount(3)
+  await page.getByRole('button', { name: /^加入候选：/ }).first().click()
+  await expect(page.getByRole('button', { name: '查看对比（1）' })).toBeDisabled()
+  await page.getByRole('button', { name: /^加入候选：/ }).first().click()
+  await page.getByRole('button', { name: '查看对比（2）' }).click()
+  const comparison = page.getByRole('region', { name: '候选对比' })
+  await expect(comparison).toBeVisible()
+  await expect(comparison.locator('.comparison-card-grid article')).toHaveCount(2)
+  await expect(comparison.getByText('天气适宜度').first()).toBeVisible()
+  await expect(comparison.getByText('平均路程').first()).toBeVisible()
+  await expect(comparison.locator('.metric-best').first()).toBeVisible()
+  await comparison.getByRole('button', { name: '收起对比', exact: true }).click()
+  await page.locator('.candidate-chips button').nth(1).click()
+  await expect(comparison).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+})

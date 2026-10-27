@@ -237,9 +237,7 @@ def test_mock_main_starts_without_reading_a_vault(
     monkeypatch.setattr(
         entrypoint.uvicorn,
         "run",
-        lambda application, **kwargs: started.append(
-            {"application": application, **kwargs}
-        ),
+        lambda application, **kwargs: started.append({"application": application, **kwargs}),
     )
     monkeypatch.setattr(
         entrypoint.CredentialVault,
@@ -288,10 +286,9 @@ def test_live_main_unlocks_once_and_passes_credentials_only_in_memory(
     monkeypatch.setattr(
         entrypoint.CredentialVault,
         "unlock",
-        lambda self, password: (
-            unlock_calls.append(password) or original_unlock(self, password)
-        ),
+        lambda self, password: unlock_calls.append(password) or original_unlock(self, password),
     )
+
     def capture_app(**kwargs: object) -> FastAPI:
         captured = dict(kwargs)
         raw_credentials = captured["provider_credentials"]

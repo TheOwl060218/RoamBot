@@ -12,6 +12,8 @@ from pydantic import (
     model_validator,
 )
 
+from roambot.domain.regions import normalize_destination_regions
+
 
 class DomainModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
@@ -100,7 +102,7 @@ class TravelRequestBase(DomainModel):
     @field_validator("city")
     @classmethod
     def default_blank_city(cls, value: str) -> str:
-        return value.strip() or "苏州"
+        return value.strip()
 
     @field_validator("main_origin")
     @classmethod
@@ -148,7 +150,29 @@ class TravelRequestBase(DomainModel):
 
 class RecommendationRequest(TravelRequestBase):
     scenery_types: list[SceneryType] = Field(min_length=1)
+    scenery_query: str | None = Field(default=None, min_length=1, max_length=120)
+    scenery_keywords: list[str] = Field(default_factory=list, max_length=4)
     scenery_match_mode: SceneryMatchMode = SceneryMatchMode.ANY
+    destination_regions: list[str] = Field(default_factory=list)
+
+    @field_validator("scenery_query")
+    @classmethod
+    def validate_scenery_query(cls, value):
+        from roambot.domain.semantic_preferences import normalize_scenery_query
+
+        return normalize_scenery_query(value)
+
+    @field_validator("scenery_keywords")
+    @classmethod
+    def validate_scenery_keywords(cls, values):
+        from roambot.domain.semantic_preferences import normalize_scenery_keywords
+
+        return normalize_scenery_keywords(values)
+
+    @field_validator("destination_regions")
+    @classmethod
+    def normalize_regions(cls, values: list[str]) -> list[str]:
+        return normalize_destination_regions(values)
 
 
 class ExplanationContext(DomainModel):
@@ -175,6 +199,19 @@ class Origin(DomainModel):
     coordinate: Coordinate
 
 
+class PlaceIdentity(DomainModel):
+    """A verified place can be saved without inventing category or ranking scores."""
+
+    provider_id: str
+    name: str
+    address: str
+    city: str
+    coordinate: Coordinate
+    type_name: str
+    type_code: str = ""
+    scenery_tags: frozenset[SceneryType] = frozenset()
+
+
 class Destination(DomainModel):
     provider_id: str
     name: str
@@ -186,6 +223,9 @@ class Destination(DomainModel):
     scenery_tags: frozenset[SceneryType] = frozenset()
     popularity_rank: int = Field(ge=1)
     rating: float | None = Field(default=None, ge=0, le=5)
+    province_adcode: str | None = None
+    city_adcode: str | None = None
+    adcode: str | None = None
 
 
 class DailyWeather(DomainModel):
@@ -249,6 +289,8 @@ class RecommendationItem(DomainModel):
 
 
 class RecommendationResponse(DomainModel):
+    history_id: str | None = None
+    assistant_context: str | None = None
     items: list[RecommendationItem]
     source_state: SourceState
     generated_at: str
@@ -256,6 +298,7 @@ class RecommendationResponse(DomainModel):
 
 
 class PlaceEvaluationResponse(DomainModel):
+    assistant_context: str | None = None
     item: RecommendationItem
     source_state: SourceState
     generated_at: str

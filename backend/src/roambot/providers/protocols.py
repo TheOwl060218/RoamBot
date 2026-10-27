@@ -22,6 +22,14 @@ class ProviderError(RuntimeError):
         self.code = code
 
 
+class PlaceSearchResults(list[Destination]):
+    """Request-local search metadata, without mutable state on shared providers."""
+
+    def __init__(self, values=(), *, region_metadata_missing: bool = False):
+        super().__init__(values)
+        self.region_metadata_missing = region_metadata_missing
+
+
 @runtime_checkable
 class Geocoder(Protocol):
     def geocode(self, address: str, city: str) -> Origin:
@@ -39,6 +47,8 @@ class PlaceProvider(Protocol):
         city: str,
         scenery_types: tuple[SceneryType, ...],
         radius_km: float,
+        destination_regions: tuple[str, ...] = (),
+        scenery_keywords: tuple[str, ...] = (),
     ) -> list[Destination]:
         raise NotImplementedError
 

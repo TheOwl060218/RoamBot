@@ -12,7 +12,7 @@ from roambot.api.dependencies import (
     require_csrf,
     require_session,
 )
-from roambot.api.errors import error_response
+from roambot.api.errors import ErrorField, error_response
 from roambot.api.routes.recommendations import (
     _origin_not_found,
     _place_not_found,
@@ -20,6 +20,7 @@ from roambot.api.routes.recommendations import (
 )
 from roambot.providers.protocols import ProviderError
 from roambot.services.personal_data import (
+    HistoryDatesExpiredError,
     HistorySnapshot,
     PersonalDataService,
     ResourceNotFoundError,
@@ -29,6 +30,7 @@ from roambot.services.recommendations import (
     PlaceNotFoundError,
     RecommendationService,
 )
+from roambot.services.snapshot_metadata import display_city
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -39,8 +41,8 @@ class HistorySummaryResponse(BaseModel):
     id: str
     mode: str
     city: str
-    start_date: str
-    end_date: str
+    start_date: str | None
+    end_date: str | None
     item_count: int
     generated_at: str
     created_at: str
@@ -82,8 +84,7 @@ def list_history(
 ) -> HistoryListEnvelope:
     return HistoryListEnvelope(
         histories=[
-            _summary(snapshot)
-            for snapshot in service.list_histories(session.authenticated.user_id)
+            _summary(snapshot) for snapshot in service.list_histories(session.authenticated.user_id)
         ]
     )
 
@@ -126,6 +127,16 @@ def rerun_history(
             history_id=history_id,
             recommendation_service=recommendation_service,
         )
+    except HistoryDatesExpiredError:
+        return error_response(
+            status_code=422,
+            code="history_dates_expired",
+            message="请选择新的出行日期。",
+            fields=[
+                ErrorField(path=key, message="请选择未来7天内的日期。")
+                for key in ("start_date", "end_date")
+            ],
+        )
     except ResourceNotFoundError:
         return _resource_not_found()
     except OriginNotFoundError as exc:
@@ -154,12 +165,28 @@ def delete_history(
 
 
 def _summary(snapshot: HistorySnapshot) -> HistorySummaryResponse:
+    if snapshot.mode == "discovery":
+        cards = snapshot.result["cards"]
+        context = snapshot.request["context"]
+        return HistorySummaryResponse(
+            id=snapshot.id,
+            mode="discovery",
+            city="、".join(dict.fromkeys(c["place"]["city"] for c in cards)),
+            start_date=context.get("start_date"),
+            end_date=context.get("end_date"),
+            item_count=len(cards),
+            generated_at=snapshot.result["generated_at"],
+            created_at=snapshot.created_at.isoformat(),
+        )
     result_items = snapshot.result.get("items")
     item_count = len(result_items) if isinstance(result_items, list) else 1
     return HistorySummaryResponse(
         id=snapshot.id,
         mode=snapshot.mode,
-        city=str(snapshot.request["city"]),
+        city=display_city(
+            snapshot.request,
+            result_items if isinstance(result_items, list) else [snapshot.result.get("item", {})],
+        ),
         start_date=str(snapshot.request["start_date"]),
         end_date=str(snapshot.request["end_date"]),
         item_count=item_count,

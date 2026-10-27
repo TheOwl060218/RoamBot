@@ -5,9 +5,7 @@ from roambot.domain.ranking import final_score, normalize_weights
 
 
 def test_weights_are_normalized() -> None:
-    normalized = normalize_weights(
-        RankingWeights(weather=4, distance=3, fairness=0, popularity=3)
-    )
+    normalized = normalize_weights(RankingWeights(weather=4, distance=3, fairness=0, popularity=3))
 
     assert normalized == {
         "weather": 0.4,
@@ -36,9 +34,7 @@ def test_missing_rating_reallocates_only_user_visible_dimensions() -> None:
 
 
 def test_normalize_weights_keeps_full_precision() -> None:
-    normalized = normalize_weights(
-        RankingWeights(weather=1, distance=1, fairness=1, popularity=4)
-    )
+    normalized = normalize_weights(RankingWeights(weather=1, distance=1, fairness=1, popularity=4))
 
     assert normalized == pytest.approx(
         {
