@@ -57,6 +57,9 @@ for (const role of ['owner', 'voter']) {
     await expect(page.locator('.plan-date-tabs button')).toHaveCount(6)
     await expect(page.getByText('禁止展示的 AI 推荐理由')).toHaveCount(0)
     if (role === 'owner') {
+      await page.locator('.plan-detail-page').evaluate(async node => {
+        await Promise.all(node.getAnimations({ subtree: true }).filter(a => a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => undefined)))
+      })
       const allDates = (await page.getByRole('button', { name: '查看全部日期', exact: true }).boundingBox())!
       const check = (await page.getByRole('button', { name: '检查天气', exact: true }).boundingBox())!
       expect(Math.abs(allDates.y - check.y)).toBeLessThan(2)

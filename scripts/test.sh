@@ -34,5 +34,9 @@ node node_modules/vitest/vitest.mjs run
 node node_modules/eslint/bin/eslint.js .
 node node_modules/typescript/bin/tsc -b
 node node_modules/vite/bin/vite.js build
-node node_modules/@playwright/test/cli.js test
+browser_args=()
+if [[ -n "${ROAMBOT_E2E_PROJECT:-}" ]]; then
+  browser_args+=("--project=$ROAMBOT_E2E_PROJECT")
+fi
+node node_modules/@playwright/test/cli.js test "${browser_args[@]}"
 popd >/dev/null

@@ -10,6 +10,10 @@ permissions:
 
 jobs:
   unit-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [desktop-chromium, mobile-chromium]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -18,10 +22,20 @@ jobs:
       - name: Run all tests without network
         run: >-
           docker run --rm --network none
+          -v "${{ github.workspace }}/test-results:/workspace/test-results"
+          -e ROAMBOT_E2E_PROJECT=${{ matrix.browser }}
           -e ROAMBOT_PROVIDER_MODE=mock
           -e ROAMBOT_DEMO_MODE=true
           -e NO_PROXY=127.0.0.1,localhost
           "roambot-ci:${GITHUB_SHA}"
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-${{ matrix.browser }}
+          path: test-results/playwright
+          retention-days: 7
+          if-no-files-found: ignore
 
   docker-build:
     runs-on: ubuntu-24.04

@@ -67,6 +67,22 @@ export function CommandRoot() {
     mounted.current = true
     return () => { mounted.current = false; if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current) }
   }, [])
+  // A completed request may schedule focus for the next frame. Explicit user
+  // input or Back takes priority over that deferred restoration.
+  useEffect(() => {
+    const cancel = () => {
+      if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current)
+      focusFrame.current = null
+    }
+    document.addEventListener('keydown', cancel, true)
+    document.addEventListener('pointerdown', cancel, true)
+    window.addEventListener('popstate', cancel)
+    return () => {
+      document.removeEventListener('keydown', cancel, true)
+      document.removeEventListener('pointerdown', cancel, true)
+      window.removeEventListener('popstate', cancel)
+    }
+  }, [])
   const navigate = useNavigate()
   const location = useLocation()
   useEffect(() => {

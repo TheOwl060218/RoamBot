@@ -401,9 +401,16 @@ test('chat controls new results and nested layers; footer hit targets remain ind
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   async function chat(text: string) {
+    await expect(page.locator('.studio-composer[data-busy="true"]:visible')).toHaveCount(0)
+    await expect(page.locator('[data-exit-snapshot]')).toHaveCount(0)
     await page.keyboard.press('Alt+/')
+    await expect(page.locator('[data-command-input]:focus')).toHaveCount(1)
     await page.keyboard.insertText(text)
+    const execution = text === '苏州找些不同去处' ? null : page.waitForResponse(response => response.url().endsWith('/commands/execute'))
     await page.keyboard.press('Enter')
+    // The initial discovery message does not execute a business command.
+    if (execution) await execution
+    await expect(page.locator('.studio-composer[data-busy="true"]:visible')).toHaveCount(0)
   }
   await page.goto('/explore')
   await chat('苏州找些不同去处')

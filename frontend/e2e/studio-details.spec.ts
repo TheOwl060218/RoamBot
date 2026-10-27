@@ -20,6 +20,7 @@ test('nested map Back then detail Back restores original card and forward', asyn
   await page.getByRole('region', { name: '地图对话', exact: true }).getByRole('textbox').fill('看看这个地点')
   await page.getByRole('region', { name: '地图对话', exact: true }).getByRole('button', { name: '发送消息' }).click()
   await expect(page.getByRole('region', { name: '地图对话', exact: true }).getByText('这是地图中的回答')).toBeVisible()
+  await expect(page.locator('.studio-composer[data-busy="true"]:visible')).toHaveCount(0)
   await page.goBack()
   await expect(page.getByRole('dialog', { name: '景点位置' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '查看位置', exact: true })).toBeFocused()
