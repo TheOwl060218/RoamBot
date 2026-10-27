@@ -1,6 +1,18 @@
 import { fulfillApiFixture } from './helpers'
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { workbenchPlan } from '../tests/fixtures/workbenchPlan'
+
+async function alignedBounds(page: Page, locators: Locator[]) {
+  // The route wrapper can still translate while its children have no animation.
+  // Read related controls atomically, rather than comparing different frames.
+  await page.evaluate(async () => {
+    await Promise.allSettled(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished))
+  })
+  const nodes = await Promise.all(locators.map(locator => locator.elementHandle()))
+  try { return await page.evaluate(elements => elements.map(node => node!.getBoundingClientRect().toJSON()), nodes) }
+  finally { await Promise.all(nodes.map(node => node?.dispose())) }
+}
+
 
 test('one and two candidates do not add empty cards and reduced motion preserves the draft', async ({ page }, info) => {
   const plan = workbenchPlan()
@@ -57,17 +69,16 @@ for (const role of ['owner', 'voter']) {
     await expect(page.locator('.plan-date-tabs button')).toHaveCount(6)
     await expect(page.getByText('禁止展示的 AI 推荐理由')).toHaveCount(0)
     if (role === 'owner') {
-      await page.locator('.plan-detail-page').evaluate(async node => {
-        await Promise.all(node.getAnimations({ subtree: true }).filter(a => a.effect?.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => undefined)))
-      })
-      const allDates = (await page.getByRole('button', { name: '查看全部日期', exact: true }).boundingBox())!
-      const check = (await page.getByRole('button', { name: '检查天气', exact: true }).boundingBox())!
+      const [allDates, check, manage, heading] = await alignedBounds(page, [
+        page.getByRole('button', { name: '查看全部日期', exact: true }),
+        page.getByRole('button', { name: '检查天气', exact: true }),
+        page.getByRole('button', { name: '管理计划', exact: true }),
+        page.getByRole('heading', { name: '比较候选地点', exact: true }),
+      ])
       expect(Math.abs(allDates.y - check.y)).toBeLessThan(2)
       expect(Math.abs(allDates.height - check.height)).toBeLessThan(2)
       expect(check.x - (allDates.x + allDates.width)).toBeGreaterThanOrEqual(8)
       expect(check.x - (allDates.x + allDates.width)).toBeLessThanOrEqual(14)
-      const manage = (await page.getByRole('button', { name: '管理计划', exact: true }).boundingBox())!
-      const heading = (await page.getByRole('heading', { name: '比较候选地点', exact: true }).boundingBox())!
       expect(allDates.y).toBeGreaterThan(manage.y + manage.height)
       if (info.project.name.startsWith('desktop')) {
         expect(Math.abs(manage.y + manage.height / 2 - (heading.y + heading.height / 2))).toBeLessThan(2)
@@ -107,8 +118,8 @@ for (const role of ['owner', 'voter']) {
       if (!desktop) await page.getByRole('button', { name: '收起投票面板' }).click()
       await page.getByRole('button', { name: '管理计划', exact: true }).click()
       await page.getByRole('button', { name: '编辑计划信息' }).click()
-      const save = (await page.getByRole('button', { name: '保存信息', exact: true }).boundingBox())!
-      const invite = (await page.getByRole('button', { name: '生成邀请', exact: true }).boundingBox())!
+      const [save, invite] = await alignedBounds(page, [page.getByRole('button', { name: '保存信息', exact: true }),
+        page.getByRole('button', { name: '生成邀请', exact: true })])
       if (desktop) expect(Math.abs(save.y - invite.y)).toBeLessThan(2)
       await page.getByRole('button', { name: '收起管理', exact: true }).click()
       await page.getByRole('button', { name: '继续投票', exact: true }).click()
