@@ -77,6 +77,8 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
   }, [initialSnapshot, initialMessage])
   const [messages, setMessages, chatStorageUnavailable] = useSessionMessages(
     archiveHistoryId ? `history:${archiveHistoryId}` : 'discovery', user?.username ?? null, !initializing, initialMessages)
+  const currentMessages = useRef(setMessages)
+  useLayoutEffect(() => { currentMessages.current = setMessages }, [setMessages])
   const serial = useRef(0), activeId = useRef<string | null>(initialSnapshot?.id ?? null)
   const pendingId = useRef<string | null>(incoming?.discoveryJobId ?? null)
   const pendingMessage = useRef(incoming?.discoveryMessage ?? '')
@@ -334,7 +336,6 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
     if (!alive.current || sequence !== serial.current) return
     setError(''); setJobId(null); setBusy(true)
     pendingMessage.current = message
-    if (!locationContinuation) setMessages(current => [...current, { id: crypto.randomUUID(), role: 'user', content: message }])
     try {
       const waitingSince = Date.now()
       while (!authReady.current) {
@@ -342,6 +343,9 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
         await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
       }
       if (!alive.current || sequence !== serial.current) return
+      // Identity initialization may resolve to an existing account rather than
+      // a guest. Append through that account's committed storage scope.
+      if (!locationContinuation) currentMessages.current(current => [...current, { id: crypto.randomUUID(), role: 'user', content: message }])
       const body = {
         message, previous_id: previousId, ...(exploreMode ? { explore_mode: exploreMode } : {}),
         ...(!usePoint ? { use_location: false } : point && !exploreMode ? { location: point, ...(details ? { location_details: details } : {}) } : {}),

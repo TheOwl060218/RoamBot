@@ -7,11 +7,12 @@ import { DiscoveryPage } from '../src/pages/DiscoveryPage'
 import type { DiscoveryCard, DiscoverySnapshot } from '../src/features/discovery/types'
 import { CommandRoot } from '../src/features/commands/CommandRoot'
 
+const auth = vi.hoisted(() => ({ current: { initializing: false, user: undefined as { username: string } | undefined } }))
 vi.mock('../src/features/auth/authContext', async importOriginal => ({
   ...await importOriginal<typeof import('../src/features/auth/authContext')>(),
-  useAuth: () => ({ initializing: false }),
+  useAuth: () => auth.current,
 }))
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+afterEach(() => { auth.current = { initializing: false, user: undefined }; vi.restoreAllMocks(); vi.unstubAllGlobals() })
 const card = (id: string, name: string): DiscoveryCard => ({
   place: { id, name, city: '苏州', address: '实际地址', coordinate: { longitude: 120, latitude: 31, system: 'gcj02' },
     map_type: '书店', map_url: 'https://www.amap.com/detail/1', facts: {} },
@@ -36,6 +37,21 @@ async function send(text: string) {
 }
 
 describe('open-ended discovery', () => {
+  it.each([undefined, 'alice'])('retains an immediate first message while identity resolves to %s', async username => {
+    auth.current = { initializing: true, user: undefined }
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ id: 'new-job' })
+    vi.spyOn(apiClient, 'get').mockResolvedValue(snapshot([card('p1', '河边书店')], 'completed'))
+    const view = mount()
+    await send('苏州看看书店')
+    expect(post).not.toHaveBeenCalled()
+    auth.current = { initializing: false, user: username ? { username } : undefined }
+    view.rerender(<MemoryRouter><DiscoveryPage /></MemoryRouter>)
+    await screen.findByRole('heading', { name: '河边书店' })
+    expect(within(screen.getByRole('log', { name: '本次对话记录' })).getByText('苏州看看书店', { exact: true })).toBeInTheDocument()
+    expect(JSON.parse(sessionStorage.getItem(`roambot.chat.v1:discovery:${username ? 'user:' + username : 'guest'}`)!))
+      .toEqual(expect.arrayContaining([expect.objectContaining({ role: 'user', content: '苏州看看书店' })]))
+  })
+
   it('uses the condensed intent title and preserves the complete request in the conversation', () => {
     const request = '想在苏州寻找适合周末散步和摄影的公园，希望分布在不同片区，避开之前已经推荐过的地点'
     const result = { ...snapshot([card('p1', '河边公园')], 'completed'), display_title: '苏州不同片区的公园摄影' }

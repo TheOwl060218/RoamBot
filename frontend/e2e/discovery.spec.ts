@@ -94,12 +94,17 @@ test('vote panel has a readable surface and owns mobile interaction above the as
 
 for (const cancelFirst of [false, true]) test(`guest favorites after login ${cancelFirst ? 'cancelled' : 'continued'} without losing results`, async ({ page }, testInfo) => {
   let loggedIn = false, jobs = 0, executions = 0
+  let releaseIdentity!: () => void
+  const identityReady = new Promise<void>(resolve => { releaseIdentity = resolve })
   const proposalBodies: Record<string, unknown>[] = []
   const place = { id: 'login-place', name: '登录前的真实对象', city: '苏州', address: '同一个地址',
     coordinate: { longitude: 120.6, latitude: 31.3, system: 'gcj02' }, map_type: '公园', facts: {}, map_url: '' }
-  await page.route('**/api/v1/**', route => {
+  await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname
-    if (path === '/api/v1/auth/me') return route.fulfill({ status: 401, json: { error: { code: 'authentication_required', message: '登录后可用' } } })
+    if (path === '/api/v1/auth/me') {
+      await identityReady
+      return route.fulfill({ status: 401, json: { error: { code: 'authentication_required', message: '登录后可用' } } })
+    }
     if (path === '/api/v1/auth/login') { loggedIn = true; return route.fulfill({ json: { user: { username: 'test_owner' }, csrf_token: 'isolated-csrf' } }) }
     if (path === '/api/v1/auth/logout') { loggedIn = false; return route.fulfill({ status: 204 }) }
     if (path === '/api/v1/discovery/jobs' && request.method() === 'POST') return route.fulfill({ json: { id: ++jobs === 1 ? 'guest-result' : 'guest-intake' } })
@@ -124,6 +129,9 @@ for (const cancelFirst of [false, true]) test(`guest favorites after login ${can
   await page.goto('/explore')
   const send = async (text: string) => { await page.keyboard.press('Alt+/'); await page.keyboard.insertText(text); await page.keyboard.press('Enter') }
   await send('苏州看看公园')
+  await expect(page.getByRole('button', { name: '停止查找' })).toBeVisible()
+  expect(jobs).toBe(0)
+  releaseIdentity()
   const original = page.getByRole('heading', { name: place.name })
   await expect(original).toBeVisible()
   await original.evaluate(node => node.setAttribute('data-original-result', 'yes'))
