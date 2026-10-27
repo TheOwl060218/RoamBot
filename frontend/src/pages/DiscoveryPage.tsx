@@ -117,7 +117,10 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
     const account = owner.current
     historyPending.current = true
     const promise = apiClient.post<{ history_id: string }>(`/discovery/jobs/${id}/history`).then(saved => {
-      if (owner.current === account) setJob(current => current?.id === id ? { ...current, history_id: saved.history_id } : current)
+      // Publish the new binding before releasing page_loading. Otherwise a
+      // resumed command can capture the previous history ID and be rejected
+      // when the queued React update commits between proposal and execution.
+      if (owner.current === account) flushSync(() => setJob(current => current?.id === id ? { ...current, history_id: saved.history_id } : current))
       return saved.history_id
     }).finally(() => { historyPending.current = false })
     historyRequest.current = { id, promise }

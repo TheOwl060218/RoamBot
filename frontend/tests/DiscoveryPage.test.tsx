@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -6,6 +6,8 @@ import { apiClient, ApiError } from '../src/api/client'
 import { DiscoveryPage } from '../src/pages/DiscoveryPage'
 import type { DiscoveryCard, DiscoverySnapshot } from '../src/features/discovery/types'
 import { CommandRoot } from '../src/features/commands/CommandRoot'
+import { BusinessAssistantContext } from '../src/features/commands/commandContext'
+import { CommandBridge } from '../src/features/commands/commandBridge'
 
 const auth = vi.hoisted(() => ({ current: { initializing: false, user: undefined as { username: string } | undefined } }))
 vi.mock('../src/features/auth/authContext', async importOriginal => ({
@@ -37,6 +39,27 @@ async function send(text: string) {
 }
 
 describe('open-ended discovery', () => {
+  it('publishes the attached history context before declaring a logged-in result ready', async () => {
+    auth.current = { initializing: false, user: { username: 'alice' } }
+    let finish!: (value: { history_id: string }) => void
+    const saved = new Promise<{ history_id: string }>(resolve => { finish = resolve })
+    vi.spyOn(apiClient, 'post').mockReturnValue(saved)
+    const bridge = new CommandBridge()
+    render(<MemoryRouter><BusinessAssistantContext.Provider value={{ bridge, send: vi.fn(), busy: false }}>
+      <DiscoveryPage initialSnapshot={snapshot([card('p1', '河边书店')], 'completed')} />
+    </BusinessAssistantContext.Provider></MemoryRouter>)
+    expect(bridge.context().page_loading).toBe(true)
+    await act(async () => {
+      finish({ history_id: 'attached-history' })
+      await saved
+      await Promise.resolve()
+      await Promise.resolve()
+      // A command can proceed as soon as this readiness flag clears. Its saved
+      // fingerprint must already contain the final owned history reference.
+      expect(bridge.context()).toMatchObject({ page_loading: false, history_id: 'attached-history' })
+    })
+  })
+
   it.each([undefined, 'alice'])('retains an immediate first message while identity resolves to %s', async username => {
     auth.current = { initializing: true, user: undefined }
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ id: 'new-job' })
