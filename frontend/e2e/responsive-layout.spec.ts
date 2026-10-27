@@ -29,6 +29,6 @@ test('conditions, layered detail, weights and composer retain responsive relatio
   await page.getByRole('button', { name: /返回地点/ }).click()
   await page.getByRole('button', { name: '← 返回修改', exact: true }).click()
   await openCondition(page, '出发地')
-  await expect(page.getByLabel('主出发地')).toHaveValue('苏州站')
+  await expect(page.getByRole('combobox', { name: '主出发地', exact: true })).toHaveValue('苏州站')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 })

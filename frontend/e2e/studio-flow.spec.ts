@@ -55,5 +55,5 @@ test('late AI patch cannot overwrite manual changes or initiate a query', async 
 test('broken optional storage does not prevent starting an editable session', async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('roambot.studio.session.v1', '{"version":1,"draft":{"mode":"broken"}}'))
   await page.goto('/recommend'); await expect(page.getByRole('textbox', { name: '继续补充条件' })).toBeVisible()
-  await openCondition(page, '出发地'); await expect(page.getByLabel('主出发地')).toHaveValue('')
+  await openCondition(page, '出发地'); await expect(page.getByRole('combobox', { name: '主出发地', exact: true })).toHaveValue('')
 })
