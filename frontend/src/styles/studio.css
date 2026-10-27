@@ -187,6 +187,7 @@
 .puzzle-travel-ghost small { color: #68838b; }
 .coastal-motion-ghost { background: #ecf6f4e6; border: 1px solid #ffffffbb; padding: 24px; color: var(--coastal-ink); }
 .puzzle-travel-ghost .condition-piece-remove { display: none; }
+.puzzle-condition-face { z-index: 12; }
 .phase-toResults .studio-query-page .condition-piece { visibility: hidden; }
 .phase-toResults .studio-results-page .condition-puzzle { animation: puzzle-reveal 200ms 700ms both; }
 @keyframes puzzle-reveal { from { opacity: 0; } to { opacity: 1; } }

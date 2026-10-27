@@ -8,8 +8,33 @@ export function usePuzzleMotion(state: StudioState, phase: WorkspacePhase) {
   const rectangles = useRef(new Map<string, DOMRect>())
   const animations = useRef<Animation[]>([])
   const ghosts = useRef<HTMLElement[]>([])
+  const conditionFaces = useRef(new Map<HTMLElement, { face: HTMLElement; restore: () => void }>())
   const previousPhase = useRef(phase)
   useLayoutEffect(() => {
+    const interrupted = new Map(Array.from(conditionFaces.current, ([node, motion]) => [node.dataset.conditionId!, motion.face.getBoundingClientRect()]))
+    conditionFaces.current.forEach(motion => motion.restore())
+    function animateCondition(node: HTMLElement, frames: Keyframe[], timing: KeyframeAnimationOptions) {
+      const rect = node.getBoundingClientRect()
+      const face = node.cloneNode(true) as HTMLElement
+      face.className = 'puzzle-travel-ghost puzzle-condition-face'
+      face.removeAttribute('data-condition-id')
+      face.setAttribute('aria-hidden', 'true'); face.inert = true
+      Object.assign(face.style, { position: 'fixed', left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px` })
+      document.body.append(face)
+      const opacity = node.style.opacity
+      node.style.opacity = '0'
+      const restore = () => {
+        face.remove()
+        if (conditionFaces.current.get(node)?.face === face) {
+          node.style.opacity = opacity
+          conditionFaces.current.delete(node)
+        }
+      }
+      conditionFaces.current.set(node, { face, restore })
+      const animation = face.animate(frames, timing)
+      animations.current.push(animation)
+      void animation.finished.then(restore, restore)
+    }
     const cards = projectConditionCards(state)
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const nodes = Array.from(document.querySelectorAll<HTMLElement>('.studio-query-page [data-condition-id]'))
@@ -54,22 +79,28 @@ export function usePuzzleMotion(state: StudioState, phase: WorkspacePhase) {
       }
     }
     if (phase === 'query') {
+      // A condition update can arrive before its previous FLIP finishes. Read
+      // that visual position first, then cancel before measuring layout targets;
+      // stacking transform effects or caching their intermediate rectangles
+      // leaves earlier pieces with incorrect scroll and hit-test geometry.
+      animations.current.forEach(animation => animation.cancel())
+      animations.current = []
       const composer = document.querySelector('.studio-composer')?.getBoundingClientRect()
       for (const node of nodes) {
         const id = node.dataset.conditionId!, card = cards.find(c => c.id === id)
         if (!card) continue
-        const rect = node.getBoundingClientRect(), old = rectangles.current.get(id)
+        const rect = node.getBoundingClientRect(), old = interrupted.get(id) ?? rectangles.current.get(id)
         if (!reduced && previousPhase.current !== 'toQuery' && typeof node.animate === 'function') {
-          if (!values.current.has(id) && composer) animations.current.push(node.animate([
+          if (!values.current.has(id) && composer) animateCondition(node, [
             { transform: `translate3d(${composer.x + composer.width / 2 - rect.x - rect.width / 2}px,${composer.y - rect.y}px,0) scale(.38)`, opacity: 0 },
             { transform: 'translate3d(0,0,0) scale(1)', opacity: 1 },
-          ], { duration: 650, delay: cards.indexOf(card) * 55, easing: 'cubic-bezier(.2,.8,.2,1)' }))
-          else if (old && (old.x !== rect.x || old.y !== rect.y)) animations.current.push(node.animate([
+          ], { duration: 650, delay: cards.indexOf(card) * 55, easing: 'cubic-bezier(.2,.8,.2,1)' })
+          else if (old && (old.x !== rect.x || old.y !== rect.y)) animateCondition(node, [
             { transform: `translate3d(${old.x - rect.x}px,${old.y - rect.y}px,0)` }, { transform: 'translate3d(0,0,0)' },
-          ], { duration: 360, easing: 'cubic-bezier(.2,.8,.2,1)' }))
-          else if (values.current.get(id) !== card.value) animations.current.push(node.animate([
+          ], { duration: 360, easing: 'cubic-bezier(.2,.8,.2,1)' })
+          else if (values.current.get(id) !== card.value) animateCondition(node, [
             { opacity: .45, transform: 'scale(.97)' }, { opacity: 1, transform: 'scale(1)' },
-          ], { duration: 300 }))
+          ], { duration: 300 })
         }
         rectangles.current.set(id, rect)
       }
@@ -79,5 +110,5 @@ export function usePuzzleMotion(state: StudioState, phase: WorkspacePhase) {
     animations.current = animations.current.filter(animation => animation.playState === 'running')
     previousPhase.current = phase
   }, [state, phase])
-  useLayoutEffect(() => () => { animations.current.forEach(animation => animation.cancel()); ghosts.current.forEach(ghost => ghost.remove()) }, [])
+  useLayoutEffect(() => () => { animations.current.forEach(animation => animation.cancel()); ghosts.current.forEach(ghost => ghost.remove()); conditionFaces.current.forEach(motion => motion.restore()) }, [])
 }

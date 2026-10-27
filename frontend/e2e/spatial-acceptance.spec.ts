@@ -29,6 +29,20 @@ for (const width of [1440, 1280, 390, 320]) for (const reduced of [false, true])
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await fillStudioConditions(page, ['湖景', '博物馆', '公园'])
     await expect(page.locator('.studio-query-page .condition-piece')).toHaveCount(4)
+    await expect.poll(async () => {
+      return page.locator('.studio-query-page .condition-piece-edit').evaluateAll(buttons => {
+        const visible = buttons.filter(button => {
+          const rect = button.getBoundingClientRect(), pocket = button.closest('.condition-pocket-scroll')!.getBoundingClientRect()
+          const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2
+          return x > Math.max(0, pocket.left) && x < Math.min(innerWidth, pocket.right) && y > Math.max(0, pocket.top) && y < Math.min(innerHeight, pocket.bottom)
+        })
+        return visible.length ? visible.map(button => {
+          const rect = button.getBoundingClientRect()
+          const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+          return button.contains(hit) ? null : { button: button.getAttribute('aria-label'), hit: hit?.className, rect: rect.toJSON() }
+        }).filter(Boolean) : [{ button: 'No condition is in the visible pocket' }]
+      })
+    }, { message: 'Every visible condition must receive pointer events after its entrance animation' }).toEqual([])
     await openCondition(page, '日期')
     await page.getByRole('button', { name: '明天', exact: true }).click()
     await expect(page.locator('input[type=date]')).toHaveCount(0)
