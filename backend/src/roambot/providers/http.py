@@ -98,8 +98,21 @@ class ProviderHttpClient:
             try:
                 payload = response.json()
             except ValueError:
+                logger.warning(
+                    "provider_response_invalid provider=%s operation=%s reason=json request_id=%s",
+                    self._provider,
+                    operation,
+                    request_id,
+                )
                 raise ProviderError("bad_response", "Provider returned invalid JSON.") from None
             if not isinstance(payload, dict):
+                logger.warning(
+                    "provider_response_invalid provider=%s operation=%s "
+                    "reason=envelope request_id=%s",
+                    self._provider,
+                    operation,
+                    request_id,
+                )
                 raise ProviderError("bad_response", "Provider returned an invalid payload.")
             return payload
         except httpx.TimeoutException:

@@ -6,11 +6,13 @@ This changes evidence acquisition, not the model or the business framework.
 """
 
 import copy
+import json
+import logging
 import math
 import re
 from datetime import datetime, timedelta, timezone
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationError, field_validator
 
 from roambot.domain.business_tools import INTAKE_TOOLS, TOOL_CATALOG
 from roambot.domain.discovery import Contract, DiscoverySearchScope, RetrievalPlan
@@ -25,6 +27,8 @@ from roambot.services.discovery_tasks import (
     DiscoveryTaskWorkflow,
     IntakeContext,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SourceVenue(Contract):
@@ -49,6 +53,83 @@ class PublicProgressCopy(Contract):
 
 class SourceNomination(PublicProgressCopy):
     venues: list[SourceVenue] = Field(default_factory=list, max_length=12)
+
+    @staticmethod
+    def complete_prefix(arguments):
+        """Keep only fully closed array entries from a truncated lead response.
+
+        This is never used for user constraints or final selections. Decoding
+        complete JSON values avoids guessing missing quotes, fields or names.
+        """
+        if len(arguments) > 20000:
+            return None
+        decoder = json.JSONDecoder()
+        text = arguments.lstrip()
+        if not text.startswith("{"):
+            return None
+        text = text[1:].lstrip()
+        seen = set()
+        try:
+            while text:
+                key, end = decoder.raw_decode(text)
+                if not isinstance(key, str) or key not in {"venues", "public_note"} or key in seen:
+                    return None
+                seen.add(key)
+                text = text[end:].lstrip()
+                if not text.startswith(":"):
+                    return None
+                text = text[1:].lstrip()
+                if key != "venues":
+                    _, end = decoder.raw_decode(text)
+                    text = text[end:].lstrip()
+                    if not text.startswith(","):
+                        return None
+                    text = text[1:].lstrip()
+                    continue
+                if not text.startswith("["):
+                    return None
+                text = text[1:].lstrip()
+                complete = []
+                while text and not text.startswith("]"):
+                    try:
+                        value, end = decoder.raw_decode(text)
+                    except ValueError:
+                        break
+                    complete.append(value)
+                    text = text[end:].lstrip()
+                    if not text or text.startswith("]"):
+                        break
+                    if not text.startswith(","):
+                        return None
+                    text = text[1:].lstrip()
+                return {"venues": complete} if complete else None
+        except ValueError:
+            return None
+        return None
+
+    @field_validator("venues", mode="before")
+    @classmethod
+    def independently_valid_leads(cls, value):
+        # These are unverified retrieval leads, never executable constraints or
+        # published places. One broken lead must not discard the valid others.
+        # Keep the full contract for each retained lead and the overall limit.
+        if not isinstance(value, list):
+            return value
+        valid = []
+        for item in value:
+            try:
+                valid.append(SourceVenue.model_validate(item))
+            except ValidationError:
+                continue
+        if len(valid) != len(value):
+            logger.warning(
+                "discovery_nomination_filtered invalid_count=%d accepted_count=%d",
+                len(value) - len(valid),
+                len(valid),
+            )
+            if not valid:
+                raise ValueError("No valid nomination entries")
+        return valid
 
 
 class SourceIntake(IntakeContext, PublicProgressCopy):
@@ -333,6 +414,7 @@ class DiscoverySourceModel(DiscoveryTaskModel):
                 "exploration": getattr(self, "exploration_context", {}),
             },
             1200,
+            recover_truncated=SourceNomination.complete_prefix,
         )
 
 

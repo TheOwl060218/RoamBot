@@ -348,7 +348,7 @@ def test_current_request_survives_trimmed_dialogue_and_reaches_each_model_stage(
         ]
     seen = []
 
-    def structured(provider, name, schema, instructions, data, tokens):
+    def structured(provider, name, schema, instructions, data, tokens, *, recover_truncated=None):
         seen.append((name, data))
         if name == "plan_source_request":
             assert data["current_search_request"] == old
@@ -398,7 +398,7 @@ def test_request_state_is_part_of_planning_cache_key_and_new_intent_replaces_it(
 
     planned = []
 
-    def structured(provider, name, schema, instructions, data, tokens):
+    def structured(provider, name, schema, instructions, data, tokens, *, recover_truncated=None):
         if name == "plan_source_request":
             planned.append(data["current_search_request"])
             return SourceIntake(

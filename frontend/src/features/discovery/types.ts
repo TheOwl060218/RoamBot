@@ -12,6 +12,7 @@ export type DiscoverySnapshot = {
   conversation?: { role: string; content: string }[]
   position?: { label: string | null; source: 'device' | 'selected' | 'region'; approximate: boolean; accuracy_m: number | null; captured_at: number | null; use_location?: boolean }
   progress_notes?: string[]
+  issues?: { tool: string; code: string }[]
   history_id?: string | null
   search_request?: string | null
   display_title?: string | null

@@ -39,6 +39,76 @@ async function send(text: string) {
 }
 
 describe('open-ended discovery', () => {
+  it('does not automatically repeat an unconfirmed history write', async () => {
+    auth.current = { initializing: false, user: { username: 'alice' } }
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ history_id: 'duplicate' })
+    const result = { ...snapshot([card('p1', '已生成的地点')], 'partial'),
+      issues: [{ tool: 'history', code: 'save_unconfirmed' }] }
+    render(<MemoryRouter><DiscoveryPage initialSnapshot={result} /></MemoryRouter>)
+    await screen.findByRole('heading', { name: '已生成的地点' })
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('clears the stale restore failure after a fresh query returns usable results', async () => {
+    auth.current = { initializing: false, user: { username: 'alice' } }
+    vi.spyOn(apiClient, 'post').mockResolvedValue({ id: 'fresh-search' })
+    vi.spyOn(apiClient, 'get').mockImplementation(async path => {
+      if (path === '/history') throw new Error('历史暂时不可用')
+      return { ...snapshot([card('fresh', '这次找到的地点')], 'completed'),
+        id: 'fresh-search', history_id: 'owned-history', intent: 'search' } as never
+    })
+    mount()
+    await screen.findByRole('button', { name: '重新加载推荐' })
+    await send('苏州看看书店')
+    await screen.findByRole('heading', { name: '这次找到的地点' })
+    expect(screen.queryByRole('button', { name: '重新加载推荐' })).not.toBeInTheDocument()
+  })
+
+  it.each(['chat', 'batch'] as const)('uses the correct context for %s after retaining old cards on failure', async action => {
+    const old = { ...snapshot([card('p1', '仍可用的地点')], 'completed'), id: 'old-result' }
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ id: 'failed-search' })
+      .mockReturnValue(new Promise(() => {}))
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ ...snapshot([], 'failed'), id: 'failed-search', intent: 'search', reply: '这轮查询尚未完成。' })
+    render(<MemoryRouter><DiscoveryPage initialSnapshot={old} initialMessage='苏州看看' /></MemoryRouter>)
+    await send('改成杭州')
+    await screen.findByText('这轮查询尚未完成。')
+    if (action === 'chat') await send('刚才的杭州再找找')
+    else await userEvent.click(screen.getByRole('button', { name: '换一批' }))
+    expect(post).toHaveBeenLastCalledWith('/discovery/jobs', expect.objectContaining(action === 'chat'
+      ? { previous_id: 'failed-search' }
+      : { previous_id: 'old-result', explore_mode: 'batch' }))
+  })
+
+  it.each(['failed', 'transport', 'completed'] as const)('keeps usable cards while the next query is empty, then handles %s', async outcome => {
+    const old = { ...snapshot([card('p1', '上次的书店')], 'completed'), id: 'owned-old', display_title: '原来的阅读安排' }
+    vi.spyOn(apiClient, 'post').mockResolvedValue({ id: 'next-search' })
+    let finish!: (value: DiscoverySnapshot) => void
+    let reject!: (error: Error) => void
+    const ending = new Promise<DiscoverySnapshot>((resolve, fail) => { finish = resolve; reject = fail })
+    const get = vi.spyOn(apiClient, 'get')
+      .mockResolvedValueOnce({ ...snapshot([], 'running'), id: 'next-search', intent: 'search' })
+      .mockReturnValue(ending)
+    render(<MemoryRouter><DiscoveryPage initialSnapshot={old} initialMessage='苏州读书' /></MemoryRouter>)
+    const previousCard = screen.getByRole('heading', { name: '上次的书店' })
+    await send('杭州散步')
+    await waitFor(() => expect(get).toHaveBeenCalled())
+    expect(screen.getByRole('heading', { name: '上次的书店' })).toBe(previousCard)
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('原来的阅读安排')
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+    await act(async () => {
+      if (outcome === 'transport') reject(new Error('读取进度失败'))
+      else finish({ ...snapshot(outcome === 'completed' ? [card('p2', '新的公园')] : [], outcome),
+        id: 'next-search', intent: 'search', reply: outcome === 'failed' ? '这轮查询尚未完成。' : '已找到新的去处。' })
+    })
+    if (outcome === 'completed') {
+      await screen.findByRole('heading', { name: '新的公园' })
+      expect(screen.queryByRole('heading', { name: '上次的书店' })).not.toBeInTheDocument()
+    } else {
+      await screen.findByText(outcome === 'failed' ? '这轮查询尚未完成。' : '读取进度失败')
+      expect(screen.getByRole('heading', { name: '上次的书店' })).toBe(previousCard)
+    }
+  })
+
   it('publishes the attached history context before declaring a logged-in result ready', async () => {
     auth.current = { initializing: false, user: { username: 'alice' } }
     let finish!: (value: { history_id: string }) => void
