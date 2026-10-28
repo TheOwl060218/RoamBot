@@ -48,6 +48,8 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
   const assistant = useBusinessAssistant()
   const { workspace: workspaceRef, prepare: prepareLayoutMotion } = useDiscoveryLayoutMotion()
   const [job, setJob] = useState<DiscoverySnapshot | null>(initialSnapshot ?? null)
+  const displayedResult = useRef(job)
+  useLayoutEffect(() => { displayedResult.current = job }, [job])
   const [jobId, setJobId] = useState<string | null>(incoming?.discoveryJobId ?? null)
   const [busy, setBusy] = useState(!!incoming?.discoveryJobId)
   const [locating, setLocating] = useState(false)
@@ -141,6 +143,7 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
   }, [user?.username, initializing])
   useEffect(() => {
     if (!user || !job || !job.cards.length || !['completed', 'partial'].includes(job.status) || job.history_id || savingHistory.current.has(job.id)) return
+    if (job.issues?.some(issue => issue.tool === 'history' && issue.code === 'save_unconfirmed')) return
     const id = job.id
     savingHistory.current.add(id)
     void persistHistory(id).then(async () => {
@@ -282,6 +285,16 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
           if (next.reply) setMessages(current => [...current, { id: next.id, role: 'assistant', content: next.reply }])
           return
         }
+        // An accepted search is not a replacement result. Keep the current
+        // cards, selection and detail until the next query has usable places.
+        if (!next.cards.length && displayedResult.current?.cards.length && !next.request_location) {
+          if (next.status === 'running') { timer = setTimeout(() => void poll(), 650); return }
+          pendingId.current = null; explorationPending.current = false
+          activeId.current = jobId // Follow-ups use the latest query's context.
+          setBusy(false); setJobId(null)
+          if (next.reply) setMessages(current => [...current, { id: next.id, role: 'assistant', content: next.reply }])
+          return
+        }
         if (archiveHistoryId && next.intent === 'search') {
           pendingId.current = null // Ownership moves to the new page; do not cancel its job on unmount.
           navigation('/explore', { state: { discoveryJobId: jobId,
@@ -291,6 +304,7 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
         }
         // Keep the previous card objects and history layer while intent is unknown.
         if (next.intent !== null) {
+          if (next.cards.length) setRestoreFailed(false)
           if (queryShown.current !== jobId) {
             queryShown.current = jobId; activeId.current = jobId
             if (!exploring) setRequestText(pendingMessage.current)
@@ -334,7 +348,7 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
     const sequence = ++serial.current
     if (!locationContinuation) automaticLocationUsed.current = false
     locationAttempt.current++; setLocating(false)
-    const previousId = activeId.current
+    const previousId = exploreMode ? displayedResult.current?.id ?? activeId.current : activeId.current
     if (pendingId.current) await apiClient.remove(`/discovery/jobs/${pendingId.current}`).catch(() => undefined)
     if (!alive.current || sequence !== serial.current) return
     setError(''); setJobId(null); setBusy(true)

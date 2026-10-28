@@ -917,13 +917,40 @@ class DiscoveryJobs:
 
     def execute(self, run, on_complete, actor, key):
         try:
-            run.run()
-            if on_complete and run.status in {"completed", "partial"} and run.cards:
+            try:
+                run.run()
+            except Exception as error:
+                logger.warning("discovery_worker_stopped error_type=%s", type(error).__name__)
                 with run.lock:
-                    if run.history_id is None:
-                        run.history_id = on_complete(run)
-        except Exception as error:
-            logger.warning("discovery_history_stopped error_type=%s", type(error).__name__)
+                    run.errors.append({"tool": "task_workflow", "code": "unexpected_error"})
+                    run.status = (
+                        "cancelled"
+                        if run.cancelled.is_set()
+                        else "partial"
+                        if run.cards
+                        else "failed"
+                    )
+                    run.stage = ""
+                    run.request_location = False
+                    run.reply = (
+                        "已停止查找。"
+                        if run.cancelled.is_set()
+                        else "已找到这些去处。"
+                        if run.cards
+                        else "这轮查询尚未完成。"
+                    )
+            if on_complete and run.status in {"completed", "partial"} and run.cards:
+                try:
+                    with run.lock:
+                        if run.history_id is None:
+                            run.history_id = on_complete(run)
+                except Exception as error:
+                    logger.warning("discovery_history_stopped error_type=%s", type(error).__name__)
+                    with run.lock:
+                        # A write may have committed before the callback failed.
+                        # Preserve cards and report uncertainty; never retry it.
+                        run.errors.append({"tool": "history", "code": "save_unconfirmed"})
+                        run.status = "partial"
         finally:
             run.persistence_pending = False
             if self.sessions and actor.startswith("guest:"):

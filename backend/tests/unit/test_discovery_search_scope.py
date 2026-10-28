@@ -24,7 +24,7 @@ def scoped_workflow(
 ):
     stages = []
 
-    def structured(provider, name, schema, instructions, data, tokens):
+    def structured(provider, name, schema, instructions, data, tokens, *, recover_truncated=None):
         stages.append(name)
         if name == "plan_source_request":
             return SourceIntake.model_validate(intake)

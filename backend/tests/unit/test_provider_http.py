@@ -26,6 +26,32 @@ def assert_sanitized(text: str) -> None:
     assert "Authorization" not in text
 
 
+@pytest.mark.parametrize("payload,reason", [(SECRETS[2], "json"), ([SECRETS[2]], "envelope")])
+def test_invalid_response_body_has_safe_correlated_diagnostics(caplog, payload, reason):
+    def handler(request):
+        return (
+            httpx.Response(200, text=payload)
+            if isinstance(payload, str)
+            else httpx.Response(200, json=payload)
+        )
+
+    client = make_http(httpx.MockTransport(handler))
+    with caplog.at_level(logging.INFO), pytest.raises(ProviderError) as captured:
+        client.post_json(operation="nomination", path="chat/completions", json_body={})
+    assert captured.value.code == "bad_response"
+    invalid = next(
+        r.getMessage()
+        for r in caplog.records
+        if r.getMessage().startswith("provider_response_invalid")
+    )
+    request = next(
+        r.getMessage() for r in caplog.records if r.getMessage().startswith("provider_request")
+    )
+    assert f"reason={reason}" in invalid
+    assert invalid.split("request_id=")[1] == request.split("request_id=")[1]
+    assert_sanitized(caplog.text)
+
+
 def test_missing_llm_model_is_reported_as_configuration_failure():
     client = ProviderHttpClient(
         httpx.Client(
