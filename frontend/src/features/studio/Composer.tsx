@@ -1,9 +1,9 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { ArrowUp, MessageCircle, Square } from 'lucide-react'
 
-export function Composer({ busy, onSend, onCancel, focusedPlace, children, initialText = '', placeholder, suggestions }: {
+export function Composer({ busy, onSend, onCancel, focusedPlace, children, initialText = '', placeholder, suggestions, suggestionsVisible = true }: {
   busy: boolean; onSend: (message: string) => void | Promise<void>; focusedPlace?: string; children?: ReactNode; initialText?: string
-  placeholder?: string; suggestions?: readonly string[]; onCancel?: () => void
+  placeholder?: string; suggestions?: readonly string[]; suggestionsVisible?: boolean; onCancel?: () => void
 }) {
   const [text, setText] = useState(initialText)
   const [sending, setSending] = useState(false)
@@ -33,7 +33,7 @@ export function Composer({ busy, onSend, onCancel, focusedPlace, children, initi
         {cancelable ? <Square size={14} fill='currentColor' aria-hidden='true' /> : <ArrowUp size={20} aria-hidden='true' />}
       </button>
     </form>
-    {!!suggestions?.length && <div className='composer-suggestions' aria-label='出游灵感'>
+    {!!suggestions?.length && <div className='composer-suggestions' aria-label='出游灵感' aria-hidden={!suggestionsVisible} inert={!suggestionsVisible}>
       {suggestions.map(suggestion => <button type='button' key={suggestion} disabled={busy || sending}
         onClick={() => { setText(suggestion); input.current?.focus() }}>{suggestion}<span aria-hidden='true'> ↗</span></button>)}
     </div>}

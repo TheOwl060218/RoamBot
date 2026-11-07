@@ -537,7 +537,7 @@ export function DiscoveryPage({ initialSnapshot, initialMessage, archiveHistoryI
       <Composer busy={busy || !!assistant?.busy} onSend={send} initialText={incoming?.initialIdea}
         onCancel={busy || locating ? cancelSearch : undefined}
         placeholder={landing ? '想找一片湖边，坐着发会儿呆……' : undefined}
-        suggestions={landing ? ['去公园散步', '去湖边走走', '找家书店逛逛'] : undefined} />
+        suggestions={['去公园散步', '去湖边走走', '找家书店逛逛']} suggestionsVisible={landing} />
       {assistant?.resultLink && <a className='text-button' href={assistant.resultLink} target='_blank' rel='noreferrer'>打开刚生成的链接</a>}
     </div>
     {detailId === comparisonId && <OverlayHost label='地点对比' onClose={layers.close} className='discovery-detail-overlay' panelClassName='discovery-detail glass-panel' accessory={chat}>

@@ -42,12 +42,8 @@ html[data-home-explore-transition]::view-transition-new(home-explore-navigation)
 @keyframes home-explore-hide { to { opacity: 0; } }
 @keyframes home-explore-show { from { opacity: 0; } to { opacity: 1; } }
 
-/* A home entry lands at the bottom conversation position from the first frame.
-   Suggestions sit above it so restoring a previous result cannot move it down. */
-.discovery-workspace[data-home-entry=true][data-landing=true] { grid-template-rows: minmax(0,1fr) auto; padding-top: clamp(32px,8svh,90px); }
-.discovery-workspace[data-home-entry=true][data-landing=true] .studio-composer { display: flex; flex-direction: column; }
-.discovery-workspace[data-home-entry=true][data-landing=true] .composer-suggestions { order: -1; margin: 0 0 18px; }
-.discovery-workspace[data-home-entry=true][data-landing=true] .studio-composer form { min-height: 64px; padding: 10px 14px; }
+/* Home entry uses the same centered first-query layout as a direct visit.
+   The first submission moves the live form to the conversation footer. */
 @media (prefers-reduced-motion: reduce) {
   html[data-home-explore-transition]::view-transition-group(*),
   html[data-home-explore-transition]::view-transition-old(*),

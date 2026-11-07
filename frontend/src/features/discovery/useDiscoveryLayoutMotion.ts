@@ -6,6 +6,7 @@ type Position = { node: HTMLElement; box: DOMRect; fontSize: number }
 export function useDiscoveryLayoutMotion() {
   const workspace = useRef<HTMLDivElement>(null)
   const pending = useRef<Position[]>([])
+  const suggestions = useRef<HTMLElement | null>(null)
   const animations = useRef(new Set<Animation>())
   const prepare = () => {
     if (workspace.current?.dataset.landing !== 'true'
@@ -13,6 +14,14 @@ export function useDiscoveryLayoutMotion() {
     pending.current = Array.from(workspace.current.querySelectorAll<HTMLElement>(
       '[data-discovery-motion], .studio-composer form',
     )).map(node => ({ node, box: node.getBoundingClientRect(), fontSize: parseFloat(getComputedStyle(node).fontSize) }))
+    const node = workspace.current.querySelector<HTMLElement>('.composer-suggestions')
+    if (node) {
+      const box = node.getBoundingClientRect()
+      node.style.setProperty('--suggestions-left', `${box.left}px`)
+      node.style.setProperty('--suggestions-top', `${box.top}px`)
+      node.style.setProperty('--suggestions-width', `${box.width}px`)
+      suggestions.current = node
+    }
   }
   useLayoutEffect(() => {
     if (!pending.current.length) return
@@ -20,6 +29,15 @@ export function useDiscoveryLayoutMotion() {
     pending.current = []
     animations.current.forEach(animation => animation.cancel())
     animations.current.clear()
+    const fading = suggestions.current
+    suggestions.current = null
+    if (fading?.isConnected && fading.animate) {
+      const animation = fading.animate([
+        { opacity: 1, visibility: 'visible' }, { opacity: 0, visibility: 'hidden' },
+      ], { duration: 140, easing: 'ease-out' })
+      animations.current.add(animation)
+      void animation.finished.then(() => animations.current.delete(animation), () => animations.current.delete(animation))
+    }
     for (const { node, box, fontSize } of positions) {
       if (!node.isConnected || !node.animate) continue
       const next = node.getBoundingClientRect()
